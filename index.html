@@ -13,16 +13,74 @@
     </header>
 
     <main class="bq-main">
-      <!-- Task input / setup -->
-      <section id="setup-view" class="bq-card">
-        <h2>Start a focus session</h2>
+      <!-- Home / character screen -->
+      <section id="home-view" class="bq-card">
+        <div class="bq-home-header">
+          <div class="bq-avatar-card">
+            <div class="bq-avatar-card-header">
+              <span class="bq-label">Your adventurer</span>
+              <span id="avatar-name-home">Adventurer</span>
+            </div>
+            <div class="bq-avatar-card-level">
+              <span id="avatar-level-home">Lv 1</span>
+            </div>
+            <div class="bq-progress-bar">
+              <div id="avatar-exp-bar-home" class="bq-progress-fill"></div>
+            </div>
+            <div class="bq-avatar-card-exp">
+              <span id="avatar-exp-progress-home" class="bq-muted"></span>
+            </div>
+          </div>
+          <div class="bq-motivation">
+            <span class="bq-label">Reason for this quest</span>
+            <textarea
+              id="motivation-input"
+              rows="3"
+              placeholder="e.g. Finish my degree, get in shape, or build something I'm proud of."
+            ></textarea>
+          </div>
+        </div>
+        <div class="bq-home-actions">
+          <button id="start-quest-btn" class="bq-primary-btn">
+            Start quest
+          </button>
+        </div>
+      </section>
+
+      <!-- Task input / quest setup -->
+      <section id="setup-view" class="bq-card bq-hidden">
+        <h2>Pick your quest</h2>
         <p class="bq-muted">
-          Do something meaningful for a set time. When the timer finishes, your
-          avatar gains EXP based on what you did.
+          Choose what to work on and how long to focus. When the timer finishes,
+          your avatar gains EXP based on this quest.
         </p>
         <form id="session-form" class="bq-form">
+          <div class="bq-quest-presets">
+            <span class="bq-label">Quick quests</span>
+            <div class="bq-quest-presets-row">
+              <button type="button" class="bq-chip-btn" data-preset-id="reading">
+                Reading
+              </button>
+              <button type="button" class="bq-chip-btn" data-preset-id="coding">
+                Coding
+              </button>
+              <button
+                type="button"
+                class="bq-chip-btn"
+                data-preset-id="weightlifting"
+              >
+                Weightlifting
+              </button>
+              <button type="button" class="bq-chip-btn" data-preset-id="yoga">
+                Yoga
+              </button>
+              <button type="button" class="bq-chip-btn" data-preset-id="custom">
+                Custom
+              </button>
+            </div>
+          </div>
           <label class="bq-field">
-            <span>What do you want to work on?</span>
+            <span id="task-description-label">What do you want to work on?</span>
             <input
               id="task-description"
               name="description"
@@ -34,22 +92,38 @@
           </label>
 
           <label class="bq-field">
-            <span>Duration (minutes)</span>
-            <input
-              id="task-duration"
-              name="duration"
-              type="number"
-              min="5"
-              max="240"
-              step="5"
-              required
-              value="25"
-            />
+            <span id="task-duration-label">Duration (minutes)</span>
+            <div class="bq-duration-row">
+              <div class="bq-duration-chips">
+                <button type="button" class="bq-chip-btn" data-duration="15">
+                  15
+                </button>
+                <button type="button" class="bq-chip-btn" data-duration="25">
+                  25
+                </button>
+                <button type="button" class="bq-chip-btn" data-duration="45">
+                  45
+                </button>
+                <button type="button" class="bq-chip-btn" data-duration="60">
+                  60
+                </button>
+              </div>
+              <input
+                id="task-duration"
+                name="duration"
+                type="number"
+                min="5"
+                max="240"
+                step="5"
+                required
+                value="25"
+              />
+            </div>
           </label>
 
           <label class="bq-field">
-            <span>Task type</span>
-            <select id="task-type" name="taskType">
+            <span id="task-type-label">Task type</span>
+            <select id="task-type" name="taskType" aria-labelledby="task-type-label">
               <option value="INTELLIGENCE">Intelligence (study, reading, coding)</option>
               <option value="STRENGTH">Strength (weights, sprints)</option>
               <option value="STAMINA">Stamina (running, long walks, yoga)</option>
@@ -57,8 +131,8 @@
             </select>
           </label>
 
-          <button type="submit" class="bq-primary-btn">
-            Start focus session
+          <button type="submit" class="bq-primary-btn" aria-label="Begin focus timer">
+            Begin timer
           </button>
         </form>
         <p id="setup-error" class="bq-error" hidden></p>
@@ -83,7 +157,7 @@
         </div>
 
         <div class="bq-timer-actions">
-          <button id="cancel-session-btn" class="bq-secondary-btn">
+          <button id="cancel-session-btn" class="bq-secondary-btn bq-cancel-btn">
             Cancel session
           </button>
         </div>
@@ -124,6 +198,15 @@
           </div>
         </div>
 
+        <div class="bq-notes">
+          <span class="bq-label">Want to jot down what you did?</span>
+          <textarea
+            id="session-notes"
+            rows="3"
+            placeholder="Optional reflection, what you finished, or how it felt."
+          ></textarea>
+        </div>
+
         <div class="bq-complete-actions">
           <button id="continue-session-btn" class="bq-primary-btn">
             Continue this quest
@@ -139,7 +222,23 @@
 
       <!-- Recent sessions history (minimal SLC view) -->
       <section id="history-view" class="bq-card">
-        <h2>Recent sessions</h2>
+        <div class="bq-history-header">
+          <h2>Recent sessions</h2>
+          <div class="bq-log-controls">
+            <label for="log-style-select" class="bq-label">View as</label>
+            <select id="log-style-select">
+              <option value="raw">Raw list</option>
+              <option value="twitter">Braggy Twitter</option>
+              <option value="linkedin">Serious LinkedIn</option>
+            </select>
+            <button id="copy-log-btn" class="bq-secondary-btn">
+              Copy log
+            </button>
+          </div>
+        </div>
+        <p id="log-copied" class="bq-log-toast" aria-live="polite" hidden>
+          Log copied to clipboard.
+        </p>
         <ul id="history-list" class="bq-history-list"></ul>
         <p id="history-empty" class="bq-muted">
           No sessions yet. Your first quest awaits.

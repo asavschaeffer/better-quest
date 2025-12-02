@@ -17,6 +17,9 @@ export function saveState(state) {
     const cleaned = {
       avatar: state.avatar,
       sessions: Array.isArray(state.sessions) ? state.sessions : [],
+      motivation: state.motivation ?? "",
+      wellRestedUntil: state.wellRestedUntil ?? null,
+      comboFromSessionId: state.comboFromSessionId ?? null,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
   } catch {

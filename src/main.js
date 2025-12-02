@@ -7,10 +7,20 @@ import {
 } from "./exp.js";
 import { inferEmojiForDescription } from "./emoji.js";
 import { loadState, saveState } from "./storage.js";
+import {
+  generateRawLog,
+  generateTwitterLog,
+  generateLinkedInLog,
+} from "./logFormats.js";
 
 let user = createUser();
 let avatar = user.avatar;
 let sessions = [];
+let motivation = "";
+let wellRestedUntil = null;
+let comboFromSessionId = null;
+
+let currentView = "home"; // "home" | "questSetup" | "session" | "complete"
 
 const sessionManager = new SessionManager({
   onSessionTick: handleSessionTick,
@@ -20,8 +30,14 @@ const sessionManager = new SessionManager({
 
 let lastCompletedSession = null;
 let lastExpResult = null;
+let lastCompletedSessionIndex = -1;
+
+const COMBO_BONUS_MULTIPLIER = 1.2;
+const REST_BONUS_MULTIPLIER = 1.1;
+const REST_BONUS_WINDOW_MINUTES = 45;
 
 // DOM references
+const homeView = document.getElementById("home-view");
 const setupView = document.getElementById("setup-view");
 const sessionView = document.getElementById("session-view");
 const completeView = document.getElementById("complete-view");
@@ -54,46 +70,190 @@ const avatarExpBarEl = document.getElementById("avatar-exp-bar");
 
 const historyListEl = document.getElementById("history-list");
 const historyEmptyEl = document.getElementById("history-empty");
+const logStyleSelect = document.getElementById("log-style-select");
+const copyLogBtn = document.getElementById("copy-log-btn");
+const logCopiedEl = document.getElementById("log-copied");
+
+const startQuestBtn = document.getElementById("start-quest-btn");
+const motivationInput = document.getElementById("motivation-input");
+
+const avatarNameHomeEl = document.getElementById("avatar-name-home");
+const avatarLevelHomeEl = document.getElementById("avatar-level-home");
+const avatarExpProgressHomeEl = document.getElementById(
+  "avatar-exp-progress-home",
+);
+const avatarExpBarHomeEl = document.getElementById("avatar-exp-bar-home");
 
 const continueSessionBtn = document.getElementById("continue-session-btn");
 const takeBreakBtn = document.getElementById("take-break-btn");
 const endSessionBtn = document.getElementById("end-session-btn");
+const sessionNotesInput = document.getElementById("session-notes");
 
 function init() {
   hydrateFromStorage();
   updateAvatarUI();
   wireEvents();
   renderHistory();
+  showHomeView();
 }
 
 function wireEvents() {
+  if (startQuestBtn) {
+    startQuestBtn.addEventListener("click", () => {
+      showQuestSetupView();
+      descriptionInput.focus();
+    });
+  }
+
+  if (motivationInput) {
+    motivationInput.addEventListener("blur", () => {
+      motivation = motivationInput.value.trim();
+      persistState();
+    });
+  }
+
+  if (copyLogBtn && logStyleSelect) {
+    copyLogBtn.addEventListener("click", async () => {
+      const style = logStyleSelect.value || "raw";
+      const text = generateLogText(style, sessions);
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // Fallback: use a temporary textarea.
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "absolute";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        showLogCopiedToast();
+      } catch (err) {
+        console.error("Failed to copy log", err);
+        alert("Could not copy log to clipboard.");
+      }
+    });
+  }
+
+  const presetButtons = document.querySelectorAll(
+    ".bq-quest-presets-row .bq-chip-btn",
+  );
+  presetButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-preset-id");
+      applyPreset(id);
+      setActiveChip(presetButtons, btn);
+    });
+  });
+
+  const durationChips = document.querySelectorAll(
+    ".bq-duration-chips .bq-chip-btn",
+  );
+  durationChips.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = Number.parseInt(btn.getAttribute("data-duration") ?? "0", 10);
+      if (Number.isFinite(value) && value > 0) {
+        durationInput.value = String(value);
+      }
+      setActiveChip(durationChips, btn);
+    });
+  });
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     startFocusSessionFromForm();
   });
 
   cancelSessionBtn.addEventListener("click", () => {
+    const remainingSeconds =
+      (sessionManager.currentSession?.remainingMs ?? 0) / 1000;
+    if (remainingSeconds > 0) {
+      const sure = window.confirm(
+        "Cancel this session? You won't gain EXP from it.",
+      );
+      if (!sure) return;
+    }
     sessionManager.cancelSession();
   });
 
   continueSessionBtn.addEventListener("click", () => {
+    saveCompletionNotes();
     if (!lastCompletedSession) {
-      showSetupView();
+      showQuestSetupView();
       return;
     }
+    comboFromSessionId = lastCompletedSession.id;
+    persistState();
     // Reuse description/type, ask again for duration.
     descriptionInput.value = lastCompletedSession.description;
     taskTypeSelect.value = lastCompletedSession.taskType;
-    showSetupView();
+    showQuestSetupView();
   });
 
   takeBreakBtn.addEventListener("click", () => {
+    saveCompletionNotes();
     // Start a short break timer (e.g. 5 minutes).
     startBreakSession(5);
   });
 
   endSessionBtn.addEventListener("click", () => {
-    showSetupView();
+    saveCompletionNotes();
+    showHomeView();
+  });
+}
+
+const QUEST_PRESETS = [
+  {
+    id: "reading",
+    description: "Reading",
+    taskType: TaskType.INTELLIGENCE,
+    duration: 25,
+  },
+  {
+    id: "coding",
+    description: "Coding",
+    taskType: TaskType.INTELLIGENCE,
+    duration: 50,
+  },
+  {
+    id: "weightlifting",
+    description: "Weightlifting",
+    taskType: TaskType.STRENGTH,
+    duration: 45,
+  },
+  {
+    id: "yoga",
+    description: "Yoga",
+    taskType: TaskType.MIXED,
+    duration: 30,
+  },
+];
+
+function applyPreset(id) {
+  if (id === "custom") {
+    descriptionInput.focus();
+    return;
+  }
+  const preset = QUEST_PRESETS.find((p) => p.id === id);
+  if (!preset) return;
+  descriptionInput.value = preset.description;
+  taskTypeSelect.value = preset.taskType;
+  if (preset.duration) {
+    durationInput.value = String(preset.duration);
+  }
+}
+
+function setActiveChip(nodeList, activeBtn) {
+  nodeList.forEach((btn) => {
+    if (btn === activeBtn) {
+      btn.setAttribute("data-active", "true");
+    } else {
+      btn.removeAttribute("data-active");
+    }
   });
 }
 
@@ -123,6 +283,11 @@ function startFocusSessionFromForm() {
     startTime: new Date().toISOString(),
   });
 
+  const bonuses = computeBonusesForNewSession();
+  session.comboBonus = bonuses.hasCombo;
+  session.restBonus = bonuses.hasRest;
+  session.bonusMultiplier = bonuses.multiplier;
+
   // Pick an emoji based on the task description.
   session.icon = inferEmojiForDescription(description);
 
@@ -143,27 +308,32 @@ function handleSessionTick(session) {
 function handleSessionCompleted(session) {
   // Break sessions do not grant EXP in the SLC; they just return the user to setup.
   if (session.isBreak) {
-    showSetupView();
+    const now = Date.now();
+    const windowMs = REST_BONUS_WINDOW_MINUTES * 60 * 1000;
+    wellRestedUntil = new Date(now + windowMs).toISOString();
+    persistState();
+    showHomeView();
     return;
   }
 
-  const expResult = calculateExpForSession(session);
-  lastExpResult = expResult;
+  const baseExp = calculateExpForSession(session);
+  const finalExp = applySessionBonuses(session, baseExp);
+  lastExpResult = finalExp;
   lastCompletedSession = {
     ...session,
-    expGranted: expResult,
+    expGranted: finalExp,
   };
-  avatar = applyExpToAvatar(avatar, expResult);
+  avatar = applyExpToAvatar(avatar, finalExp);
   user = { ...user, avatar };
 
   updateAvatarUI();
-  populateCompletionUI(session, expResult);
+  populateCompletionUI(session, finalExp);
 
   showCompleteView();
 }
 
 function handleSessionCancelled() {
-  showSetupView();
+  showHomeView();
 }
 
 function updateAvatarUI() {
@@ -177,15 +347,38 @@ function updateAvatarUI() {
   const { current, required, ratio } = getLevelProgress(avatar.totalExp);
   avatarExpProgressEl.textContent = `${current} / ${required} EXP`;
   avatarExpBarEl.style.width = `${ratio * 100}%`;
+
+  if (avatarNameHomeEl) avatarNameHomeEl.textContent = avatar.name;
+  if (avatarLevelHomeEl) avatarLevelHomeEl.textContent = `Lv ${avatar.level}`;
+  if (avatarExpProgressHomeEl) {
+    avatarExpProgressHomeEl.textContent = `${current} / ${required} EXP`;
+  }
+  if (avatarExpBarHomeEl) {
+    avatarExpBarHomeEl.style.width = `${ratio * 100}%`;
+  }
 }
 
 function populateCompletionUI(session, expResult) {
   const vibe = vibeTextForTaskType(session.taskType);
-  completeSummaryEl.textContent = `You focused on “${session.description}” for ${session.durationMinutes} minutes. ${vibe}`;
+  let summary = `You focused on “${session.description}” for ${session.durationMinutes} minutes. ${vibe}`;
+  if (session.bonusMultiplier && session.bonusMultiplier > 1) {
+    const parts = [];
+    if (session.comboBonus) parts.push("combo bonus");
+    if (session.restBonus) parts.push("well-rested bonus");
+    const label = parts.length ? parts.join(" & ") : "bonus";
+    summary += ` ${label} applied (x${session.bonusMultiplier.toFixed(
+      2,
+    )} EXP).`;
+  }
+  completeSummaryEl.textContent = summary;
   expTotalEl.textContent = `+${expResult.totalExp}`;
   expStrengthEl.textContent = `+${expResult.strengthExp}`;
   expStaminaEl.textContent = `+${expResult.staminaExp}`;
   expIntelligenceEl.textContent = `+${expResult.intelligenceExp}`;
+
+  if (sessionNotesInput) {
+    sessionNotesInput.value = "";
+  }
 
   // Record in local history for the SLC.
   sessions.unshift({
@@ -195,8 +388,13 @@ function populateCompletionUI(session, expResult) {
     taskType: session.taskType,
     expResult,
     completedAt: session.endTime ?? new Date().toISOString(),
+    notes: "",
+    bonusMultiplier: session.bonusMultiplier ?? 1,
+    comboBonus: !!session.comboBonus,
+    restBonus: !!session.restBonus,
   });
   sessions = sessions.slice(0, 20);
+  lastCompletedSessionIndex = 0;
 
   renderHistory();
   persistState();
@@ -211,19 +409,33 @@ function hideSetupError() {
   setupError.hidden = true;
 }
 
-function showSetupView() {
+function showHomeView() {
+  currentView = "home";
+  if (homeView) homeView.classList.remove("bq-hidden");
+  setupView.classList.add("bq-hidden");
+  sessionView.classList.add("bq-hidden");
+  completeView.classList.add("bq-hidden");
+}
+
+function showQuestSetupView() {
+  currentView = "questSetup";
+  if (homeView) homeView.classList.add("bq-hidden");
   setupView.classList.remove("bq-hidden");
   sessionView.classList.add("bq-hidden");
   completeView.classList.add("bq-hidden");
 }
 
 function showSessionView() {
+  currentView = "session";
+  if (homeView) homeView.classList.add("bq-hidden");
   setupView.classList.add("bq-hidden");
   sessionView.classList.remove("bq-hidden");
   completeView.classList.add("bq-hidden");
 }
 
 function showCompleteView() {
+  currentView = "complete";
+  if (homeView) homeView.classList.add("bq-hidden");
   setupView.classList.add("bq-hidden");
   sessionView.classList.add("bq-hidden");
   completeView.classList.remove("bq-hidden");
@@ -288,10 +500,22 @@ function hydrateFromStorage() {
   if (Array.isArray(state.sessions)) {
     sessions = state.sessions;
   }
+  if (typeof state.motivation === "string") {
+    motivation = state.motivation;
+    if (motivationInput) {
+      motivationInput.value = motivation;
+    }
+  }
+  if (state.wellRestedUntil) {
+    wellRestedUntil = state.wellRestedUntil;
+  }
+  if (state.comboFromSessionId) {
+    comboFromSessionId = state.comboFromSessionId;
+  }
 }
 
 function persistState() {
-  saveState({ avatar, sessions });
+  saveState({ avatar, sessions, motivation, wellRestedUntil, comboFromSessionId });
 }
 
 function renderHistory() {
@@ -325,7 +549,13 @@ function renderHistory() {
 
     li.appendChild(primary);
     li.appendChild(meta);
-     historyListEl.appendChild(li);
+    if (session.notes) {
+      const notes = document.createElement("div");
+      notes.className = "bq-history-item-notes";
+      notes.textContent = session.notes;
+      li.appendChild(notes);
+    }
+    historyListEl.appendChild(li);
   }
 }
 
@@ -353,6 +583,81 @@ function vibeTextForTaskType(taskType) {
     default:
       return "Balanced quest complete.";
   }
+}
+
+function computeBonusesForNewSession() {
+  let hasCombo = false;
+  let hasRest = false;
+
+  if (comboFromSessionId && lastCompletedSession) {
+    if (comboFromSessionId === lastCompletedSession.id) {
+      hasCombo = true;
+      comboFromSessionId = null;
+    }
+  }
+
+  if (wellRestedUntil) {
+    const now = Date.now();
+    const until = Date.parse(wellRestedUntil);
+    if (!Number.isNaN(until) && now < until) {
+      hasRest = true;
+      wellRestedUntil = null;
+    }
+  }
+
+  let multiplier = 1;
+  if (hasCombo) multiplier *= COMBO_BONUS_MULTIPLIER;
+  if (hasRest) multiplier *= REST_BONUS_MULTIPLIER;
+
+  // Persist in case we cleared flags.
+  persistState();
+
+  return { hasCombo, hasRest, multiplier };
+}
+
+function applySessionBonuses(session, baseExp) {
+  const mult = session.bonusMultiplier ?? 1;
+  if (mult === 1) return baseExp;
+  const strengthExp = Math.round(baseExp.strengthExp * mult);
+  const staminaExp = Math.round(baseExp.staminaExp * mult);
+  const intelligenceExp = Math.round(baseExp.intelligenceExp * mult);
+  const totalExp = strengthExp + staminaExp + intelligenceExp;
+  return {
+    totalExp,
+    strengthExp,
+    staminaExp,
+    intelligenceExp,
+  };
+}
+
+function saveCompletionNotes() {
+  if (!sessionNotesInput) return;
+  const notes = sessionNotesInput.value.trim();
+  if (lastCompletedSessionIndex < 0) return;
+  if (!sessions[lastCompletedSessionIndex]) return;
+  sessions[lastCompletedSessionIndex].notes = notes;
+  renderHistory();
+  persistState();
+}
+
+function generateLogText(style, sessionsInput) {
+  switch (style) {
+    case "twitter":
+      return generateTwitterLog(sessionsInput);
+    case "linkedin":
+      return generateLinkedInLog(sessionsInput);
+    case "raw":
+    default:
+      return generateRawLog(sessionsInput);
+  }
+}
+
+function showLogCopiedToast() {
+  if (!logCopiedEl) return;
+  logCopiedEl.hidden = false;
+  setTimeout(() => {
+    logCopiedEl.hidden = true;
+  }, 1800);
 }
 
 init();
