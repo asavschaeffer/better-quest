@@ -1,0 +1,49 @@
+@startuml
+start
+
+:Enter task description;
+:Enter duration (X minutes);
+:Select task type (optional: Strength / Stamina / Intelligence / etc);
+
+if (Input valid?) then (yes)
+  :Create TaskSession;
+  :Start timer;
+  repeat
+    :Display countdown UI
+    - show task text
+    - show relevant emoji/icon;
+  repeat while (Timer > 0)
+
+  :Timer expires;
+  :Compute EXP based on:
+    - duration
+    - task type
+    - difficulty (optional);
+  :Update Avatar stats
+    - base EXP
+    - attribute-specific EXP (e.g. Strength, Stamina, Intelligence);
+
+  :Show "Session complete" screen
+    - show EXP gained
+    - show avatar progress;
+
+  if (User chooses "Continue") then (yes)
+    :Prompt for new duration (same task or modified);
+    back to :Start timer;
+  else (no)
+    if (User chooses "Take a break") then (break)
+      :Optionally start break timer
+        - different UI theme
+        - different emoji/icons;
+      :After break, offer "Start another focus session?";
+    endif
+    :End TaskSession;
+  endif
+
+else (no)
+  :Show validation errors;
+  back to :Enter task description;
+endif
+
+stop
+@enduml

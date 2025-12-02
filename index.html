@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Better Quest – Focus Timer RPG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="bq-header">
+      <h1>Better Quest</h1>
+      <p class="bq-subtitle">Turn real-world focus into RPG EXP.</p>
+    </header>
+
+    <main class="bq-main">
+      <!-- Task input / setup -->
+      <section id="setup-view" class="bq-card">
+        <h2>Start a focus session</h2>
+        <p class="bq-muted">
+          Do something meaningful for a set time. When the timer finishes, your
+          avatar gains EXP based on what you did.
+        </p>
+        <form id="session-form" class="bq-form">
+          <label class="bq-field">
+            <span>What do you want to work on?</span>
+            <input
+              id="task-description"
+              name="description"
+              type="text"
+              required
+              maxlength="160"
+              placeholder="e.g. Study math, go for a run, practice guitar"
+            />
+          </label>
+
+          <label class="bq-field">
+            <span>Duration (minutes)</span>
+            <input
+              id="task-duration"
+              name="duration"
+              type="number"
+              min="5"
+              max="240"
+              step="5"
+              required
+              value="25"
+            />
+          </label>
+
+          <label class="bq-field">
+            <span>Task type</span>
+            <select id="task-type" name="taskType">
+              <option value="INTELLIGENCE">Intelligence (study, reading, coding)</option>
+              <option value="STRENGTH">Strength (weights, sprints)</option>
+              <option value="STAMINA">Stamina (running, long walks, yoga)</option>
+              <option value="MIXED">Mixed / other</option>
+            </select>
+          </label>
+
+          <button type="submit" class="bq-primary-btn">
+            Start focus session
+          </button>
+        </form>
+        <p id="setup-error" class="bq-error" hidden></p>
+      </section>
+
+      <!-- In-session countdown -->
+      <section id="session-view" class="bq-card bq-hidden">
+        <div class="bq-session-header">
+          <div>
+            <h2 id="session-task-text"></h2>
+            <p id="session-task-type" class="bq-muted"></p>
+          </div>
+          <div class="bq-avatar-chip">
+            <span id="avatar-name">Adventurer</span>
+            <span id="avatar-level">Lv 1</span>
+          </div>
+        </div>
+
+        <div class="bq-timer-display">
+          <div id="session-emoji" class="bq-session-emoji">⏳</div>
+          <div id="session-timer" class="bq-timer-text">00:00</div>
+        </div>
+
+        <div class="bq-timer-actions">
+          <button id="cancel-session-btn" class="bq-secondary-btn">
+            Cancel session
+          </button>
+        </div>
+      </section>
+
+      <!-- Completion / EXP summary -->
+      <section id="complete-view" class="bq-card bq-hidden">
+        <h2>Session complete</h2>
+
+        <p id="complete-summary" class="bq-summary-text"></p>
+
+        <div class="bq-exp-breakdown">
+          <div>
+            <span class="bq-label">Total EXP</span>
+            <span id="exp-total" class="bq-exp-value"></span>
+          </div>
+          <div>
+            <span class="bq-label">Strength</span>
+            <span id="exp-strength" class="bq-exp-value"></span>
+          </div>
+          <div>
+            <span class="bq-label">Stamina</span>
+            <span id="exp-stamina" class="bq-exp-value"></span>
+          </div>
+          <div>
+            <span class="bq-label">Intelligence</span>
+            <span id="exp-intelligence" class="bq-exp-value"></span>
+          </div>
+        </div>
+
+        <div class="bq-avatar-progress">
+          <div class="bq-avatar-header">
+            <span id="avatar-level-complete">Lv 1</span>
+            <span id="avatar-exp-progress" class="bq-muted"></span>
+          </div>
+          <div class="bq-progress-bar">
+            <div id="avatar-exp-bar" class="bq-progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="bq-complete-actions">
+          <button id="continue-session-btn" class="bq-primary-btn">
+            Continue this quest
+          </button>
+          <button id="take-break-btn" class="bq-secondary-btn">
+            Take a break
+          </button>
+          <button id="end-session-btn" class="bq-ghost-btn">
+            End for now
+          </button>
+        </div>
+      </section>
+
+      <!-- Recent sessions history (minimal SLC view) -->
+      <section id="history-view" class="bq-card">
+        <h2>Recent sessions</h2>
+        <ul id="history-list" class="bq-history-list"></ul>
+        <p id="history-empty" class="bq-muted">
+          No sessions yet. Your first quest awaits.
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
+
+

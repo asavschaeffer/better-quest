@@ -1,0 +1,177 @@
+# Better Quest - Focus Timer RPG Testing Requirements
+
+## Project Overview
+Better Quest is a simple core loop (SLC) focus timer with RPG mechanics. Users complete timed focus sessions on tasks, earn EXP based on task type, and level up their avatar. All state persists to localStorage.
+
+## Core Features
+
+### 1. Session Setup
+- [x] User can enter a task description (1-160 characters)
+- [x] User can set duration in minutes (5-240 min, increments of 5)
+- [x] User can select task type: Intelligence, Strength, Stamina, or Mixed
+- [x] "Start focus session" button initiates countdown
+- [x] Form validation shows errors for missing/invalid fields
+
+### 2. Active Session (In-Progress Timer)
+- [x] Countdown timer displays MM:SS format
+- [x] Shows task description and type during session
+- [x] Shows avatar name and current level as a chip
+- [x] Task-relevant emoji displays based on description keywords
+- [x] "Cancel session" button returns to setup view
+- [x] Timer ticks every 500ms and updates UI
+
+### 3. Session Completion & EXP Rewards
+- [x] Timer completes and shows "Session complete" view
+- [x] Displays total EXP earned and breakdown by attribute:
+  - Intelligence tasks: 100% Intelligence EXP
+  - Strength tasks: 70% Strength, 30% Stamina
+  - Stamina tasks: 80% Stamina, 20% Strength
+  - Mixed tasks: 50% Stamina, 50% Intelligence
+- [x] Shows avatar level-up progress bar
+- [x] Displays encouraging message based on task type
+
+### 4. Post-Session Actions
+- [x] "Continue this quest": Repeats same task, user re-enters duration
+- [x] "Take a break": 5-minute break timer (no EXP awarded)
+- [x] "End for now": Return to setup view
+- [x] Avatar level and EXP update after session completion
+
+### 5. Session History
+- [x] Recent sessions displayed in chronological order (newest first)
+- [x] Shows: description, EXP earned, task type, duration, timestamp
+- [x] Max 20 sessions stored
+- [x] Displays "No sessions yet" when empty
+
+### 6. Avatar Progression
+- [x] Avatar starts at Level 1, 0 EXP
+- [x] EXP calculation: 10 EXP per minute (base)
+- [x] Level curve: Level N requires 50 * (N-1) * N total EXP
+  - Level 1: 0 EXP
+  - Level 2: 100 EXP
+  - Level 3: 300 EXP
+  - Level 4: 600 EXP
+- [x] Avatar name defaults to "Adventurer"
+- [x] Attribute tracking: totalExp, strengthExp, staminaExp, intelligenceExp
+
+### 7. Persistence (localStorage)
+- [x] Avatar state persists across page reloads:
+  - name, level, totalExp
+  - strengthExp, staminaExp, intelligenceExp
+- [x] Session history persists across reloads
+- [x] Storage key: "better-quest-state-v1"
+- [x] Graceful fallback if localStorage unavailable
+
+### 8. UI/UX
+- [x] Three main views: setup, session, completion (mutually exclusive)
+- [x] History view always visible below active sections
+- [x] Responsive layout (max-width 640px centered)
+- [x] Styled with gradient background and card design
+- [x] Button styles: primary (gradient), secondary (light), ghost (transparent)
+- [x] Error messages display inline in setup form
+
+## Test Plan
+
+### Setup & Basic Functionality
+1. Open index.html in browser
+2. Verify setup form displays with all fields
+3. Try submitting empty form → error message
+4. Enter valid task description, duration, type
+5. Click "Start focus session"
+6. Verify timer view appears with task info and countdown
+
+### Quick Timer Test (Accelerated)
+1. Start a 1-minute focus session
+2. Watch timer count down (should complete in ~60 seconds)
+3. Verify session completion view appears
+
+### EXP Calculation Test
+1. Complete a 25-minute Intelligence task
+2. Verify EXP breakdown:
+   - Total EXP: 250 (25 min × 10 EXP/min)
+   - Intelligence: 250
+   - Strength: 0
+   - Stamina: 0
+3. Complete a 20-minute Strength task
+4. Verify breakdown:
+   - Total EXP: 200
+   - Strength: 140 (70%)
+   - Stamina: 60 (30%)
+   - Intelligence: 0
+
+### Level Progression Test
+1. Start at Level 1, 0 EXP
+2. Complete sessions until reaching Level 2 (needs 100 EXP)
+   - Two 25-min Intelligence tasks = 250 EXP total
+3. Verify avatar reaches Level 2 after second session
+4. Verify progress bar updates after each session
+5. Complete more sessions and verify Level 3 reached at 300 EXP
+
+### Persistence Test (CRITICAL)
+1. Complete 2-3 focus sessions, note final level and EXP
+2. Reload page (F5 or Ctrl+R)
+3. Verify avatar level and total EXP match before reload
+4. Verify session history reappears with all previous sessions
+5. Avatar name should persist as "Adventurer" (or custom if changed)
+
+### History Test
+1. Complete 5 different focus sessions
+2. Verify all sessions appear in "Recent sessions" list
+3. Verify newest sessions appear at top
+4. Check each entry shows:
+   - Task description
+   - EXP awarded
+   - Task type
+   - Duration
+   - Formatted timestamp (e.g., "Dec 1, 14:30")
+5. Complete session #21 and verify session #1 disappears (max 20 stored)
+
+### Emoji Test
+1. Enter task descriptions containing keywords:
+   - "run" → 🏃
+   - "study" → 📚
+   - "code" → 💻
+   - "lift weights" → 🏋️
+   - "yoga" → 🧘
+   - Random task → ⏳ (default)
+2. Verify correct emoji displays during session
+
+### Break Session Test
+1. Complete a focus session
+2. Click "Take a break" on completion view
+3. Verify 5-minute timer starts with "Break" label and ☕ emoji
+4. Verify break completes without granting EXP
+5. After break, return to setup view
+
+### Multi-Session Flow Test (Full Cycle)
+1. Start Session A: "Study math", 25 min, Intelligence
+2. Let timer complete
+3. Click "Continue this quest"
+4. Verify form repopulates with description and type
+5. Change duration to 15 min
+6. Complete Session B
+7. Click "Take a break" → 5 min break
+8. Click "Take a break" again after break completes
+9. Click "End for now"
+10. Verify setup view appears
+11. Verify history shows both Session A and B with correct details
+
+### Edge Cases
+1. Cancel a session mid-way → verify returns to setup
+2. Submit form with max-length description (160 chars)
+3. Set very long session (240 min) and verify EXP calculation
+4. Set very short session (5 min) and verify EXP rounds correctly
+5. Rapidly click buttons and verify no race conditions
+
+### Storage Edge Cases
+1. Complete a session, open DevTools, clear localStorage
+2. Reload page → verify state resets to defaults
+3. Complete a session, manually corrupt localStorage JSON
+4. Reload → verify graceful fallback (state resets)
+
+## Success Criteria
+- All focus/break cycles complete and award EXP correctly
+- Avatar level increases as expected based on EXP table
+- Page reload preserves avatar level, total EXP, and session history
+- No console errors during normal operation
+- Timer accuracy ±500ms acceptable
+- UI remains responsive during active timer

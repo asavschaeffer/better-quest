@@ -1,0 +1,14 @@
+{
+  "name": "better-quest",
+  "version": "0.1.0",
+  "description": "Better Quest – focus timer RPG SLC (simple core loop).",
+  "license": "MPL-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
+
+
