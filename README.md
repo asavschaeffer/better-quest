@@ -1,0 +1,1 @@
+you type in text for what you wanna do. it sets a timer for x amount of time. when the timer expires, it grants exp to the rpg avatar and it asks do you want to continue for more time or quit/take a break.
