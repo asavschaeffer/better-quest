@@ -1,16 +1,25 @@
 {
-  "name": "better-quest",
+  "name": "better-quest-root",
+  "private": true,
   "version": "0.1.0",
-  "description": "Better Quest – focus timer RPG SLC (simple core loop).",
+  "description": "Better Quest monorepo – web, mobile, and shared logic.",
   "license": "MPL-2.0",
   "type": "module",
+  "workspaces": [
+    "mobile"
+  ],
   "scripts": {
-    "start": "npx serve .",
+    "start:web": "npx serve .",
     "test": "node test.js",
     "test:browser": "node browser-test.js",
-    "test:all": "npm run test && npm run test:browser"
+    "test:all": "npm run test && npm run test:browser",
+    "dev:mobile": "cd mobile && npm run start"
   },
   "dependencies": {
-    "puppeteer": "^24.31.0"
+    "@expo/metro-runtime": "~4.0.1",
+    "puppeteer": "^24.31.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native-web": "~0.19.0"
   }
 }
