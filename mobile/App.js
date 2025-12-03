@@ -28,11 +28,75 @@ import {
   generateTwitterLog,
   generateLinkedInLog,
 } from "./core/logFormats";
+import { StandStatsChart } from "./StandStatsChart";
 
 const STORAGE_KEY = "better-quest-mobile-state-v1";
 const COMBO_BONUS_MULTIPLIER = 1.2;
 const REST_BONUS_MULTIPLIER = 1.1;
 const REST_BONUS_WINDOW_MINUTES = 45;
+
+// Fixed stat set for radar and quest templates.
+const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
+
+// Deterministic quest templates. Stat levels are integers 0–3.
+const QUEST_TEMPLATES = [
+  {
+    id: "weightlifting",
+    label: "Weightlifting",
+    description: "Weightlifting",
+    defaultDurationMinutes: 45,
+    taskType: TaskType.STRENGTH,
+    stats: { STR: 2, DEX: 0, STA: 1, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STR +1 STA +1 VIT
+  },
+  {
+    id: "guitar",
+    label: "Guitar practice",
+    description: "Guitar",
+    defaultDurationMinutes: 45,
+    taskType: TaskType.MIXED,
+    stats: { STR: 0, DEX: 2, STA: 0, INT: 0, SPI: 1, CRE: 1, VIT: 0 }, // +2 DEX +1 SPI +1 CRE
+  },
+  {
+    id: "running",
+    label: "Running",
+    description: "Running",
+    defaultDurationMinutes: 30,
+    taskType: TaskType.STAMINA,
+    stats: { STR: 1, DEX: 0, STA: 2, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STA +1 STR +1 VIT
+  },
+  {
+    id: "math",
+    label: "Math study",
+    description: "Math",
+    defaultDurationMinutes: 60,
+    taskType: TaskType.INTELLIGENCE,
+    stats: { STR: 0, DEX: 0, STA: 0, INT: 2, SPI: 0, CRE: 1, VIT: 1 }, // +2 INT +1 CRE +1 VIT
+  },
+  {
+    id: "prayer",
+    label: "Prayer / meditation",
+    description: "Prayer / meditation",
+    defaultDurationMinutes: 20,
+    taskType: TaskType.MIXED,
+    stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 3, CRE: 0, VIT: 1 }, // +3 SPI +1 VIT
+  },
+  {
+    id: "writing",
+    label: "Writing",
+    description: "Writing",
+    defaultDurationMinutes: 30,
+    taskType: TaskType.MIXED,
+    stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 2, VIT: 1 }, // +2 CRE +1 SPI +1 VIT
+  },
+  {
+    id: "shower",
+    label: "Shower / reset",
+    description: "Shower / reset",
+    defaultDurationMinutes: 15,
+    taskType: TaskType.MIXED,
+    stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 0, VIT: 1 }, // +1 VIT +1 SPI
+  },
+];
 
 export default function App() {
   const [user, setUser] = useState(() => createUser());
@@ -351,14 +415,17 @@ function HomeScreen({
               <View style={styles.rowWrap}>
                 <Chip
                   label="Raw"
+                  active={logStyle === "raw"}
                   onPress={() => setLogStyle("raw")}
                 />
                 <Chip
                   label="Twitter"
+                  active={logStyle === "twitter"}
                   onPress={() => setLogStyle("twitter")}
                 />
                 <Chip
                   label="LinkedIn"
+                  active={logStyle === "linkedin"}
                   onPress={() => setLogStyle("linkedin")}
                 />
               </View>
@@ -397,18 +464,26 @@ function HomeScreen({
   );
 }
 
-const QUEST_PRESETS = [
-  { id: "reading", label: "Reading", description: "Reading", taskType: TaskType.INTELLIGENCE, duration: 25 },
-  { id: "coding", label: "Coding", description: "Coding", taskType: TaskType.INTELLIGENCE, duration: 50 },
-  { id: "weightlifting", label: "Weightlifting", description: "Weightlifting", taskType: TaskType.STRENGTH, duration: 45 },
-  { id: "yoga", label: "Yoga", description: "Yoga", taskType: TaskType.MIXED, duration: 30 },
-];
-
 function QuestSetupScreen({ onBack, onStartSession }) {
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState("25");
   const [taskType, setTaskType] = useState(TaskType.INTELLIGENCE);
   const [error, setError] = useState("");
+  const [focusStats, setFocusStats] = useState({
+    STR: 3,
+    DEX: 3,
+    STA: 3,
+    INT: 3,
+    SPI: 3,
+    CRE: 3,
+    VIT: 3,
+  });
+  const [selectedQuestId, setSelectedQuestId] = useState(null);
+
+  const sortedQuests = useMemo(
+    () => rankQuestsByFocus(QUEST_TEMPLATES, focusStats),
+    [focusStats],
+  );
 
   function start() {
     const trimmed = description.trim();
@@ -429,22 +504,46 @@ function QuestSetupScreen({ onBack, onStartSession }) {
     });
   }
 
-  function applyPreset(preset) {
-    setDescription(preset.description);
-    setTaskType(preset.taskType);
-    setDuration(String(preset.duration));
+  function applyQuestTemplate(template) {
+    setDescription(template.description || template.label);
+    if (template.defaultDurationMinutes) {
+      setDuration(String(template.defaultDurationMinutes));
+    }
+    if (template.taskType) {
+      setTaskType(template.taskType);
+    }
+    setFocusStats(questStatsToChartValue(template.stats));
+    setSelectedQuestId(template.id);
+  }
+
+  function handleStatsChange(nextStats, meta) {
+    setFocusStats(nextStats);
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Pick your quest</Text>
+      <StandStatsChart value={focusStats} onChange={handleStatsChange} />
       <View style={styles.block}>
-        <Text style={styles.label}>Quick quests</Text>
-        <View style={styles.rowWrap}>
-          {QUEST_PRESETS.map((p) => (
-            <Chip key={p.id} label={p.label} onPress={() => applyPreset(p)} />
+        <Text style={styles.label}>Suggested quests</Text>
+        <View style={styles.questList}>
+          {sortedQuests.map((q) => (
+            <TouchableOpacity
+              key={q.id}
+              style={[
+                styles.questItem,
+                selectedQuestId === q.id && styles.questItemActive,
+              ]}
+              onPress={() => applyQuestTemplate(q)}
+            >
+              <Text style={styles.questItemLabel}>{q.label}</Text>
+              {q.defaultDurationMinutes ? (
+                <Text style={styles.questItemMeta}>
+                  {q.defaultDurationMinutes}m
+                </Text>
+              ) : null}
+            </TouchableOpacity>
           ))}
-          <Chip label="Custom" onPress={() => setDescription("")} />
         </View>
       </View>
       <View style={styles.block}>
@@ -460,7 +559,12 @@ function QuestSetupScreen({ onBack, onStartSession }) {
         <Text style={styles.label}>Duration (minutes)</Text>
         <View style={styles.rowWrap}>
           {[15, 25, 45, 60].map((m) => (
-            <Chip key={m} label={`${m}`} onPress={() => setDuration(String(m))} />
+            <Chip
+              key={m}
+              label={`${m}`}
+              onPress={() => setDuration(String(m))}
+              active={duration === String(m)}
+            />
           ))}
         </View>
         <TextInput
@@ -592,9 +696,14 @@ function CompleteScreen({
   );
 }
 
-function Chip({ label, onPress }) {
+function Chip({ label, onPress, active, highlighted }) {
+  const chipStyles = [
+    styles.chip,
+    active && styles.chipActive,
+    highlighted && styles.chipHighlighted,
+  ].filter(Boolean);
   return (
-    <TouchableOpacity style={styles.chip} onPress={onPress}>
+    <TouchableOpacity style={chipStyles} onPress={onPress}>
       <Text style={styles.chipText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -742,6 +851,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+  chipActive: {
+    borderColor: "#4f46e5",
+    backgroundColor: "#111827",
+  },
+  chipHighlighted: {
+    borderColor: "#f59e0b",
+    backgroundColor: "#78350f",
+  },
   chipText: {
     color: "#e5e7eb",
     fontSize: 13,
@@ -810,6 +927,41 @@ const styles = StyleSheet.create({
     color: "#22c55e",
     fontSize: 12,
   },
+  questList: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  questItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "#020617",
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    marginRight: 8,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  questItemActive: {
+    borderColor: "#4f46e5",
+    backgroundColor: "#0f172a",
+  },
+  questItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  questItemLabel: {
+    color: "#e5e7eb",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  questItemMeta: {
+    color: "#9ca3af",
+    fontSize: 11,
+    marginLeft: 4,
+  },
 });
 
 function applySessionBonuses(session, baseExp) {
@@ -837,6 +989,51 @@ function buildLogText(style, sessions) {
     default:
       return generateRawLog(sessions);
   }
+}
+
+// --- Quest ranking helpers ---
+
+function normalizePrefs(focusStats) {
+  const prefs = {};
+  STAT_KEYS.forEach((key) => {
+    const raw = focusStats?.[key] ?? 1;
+    const clamped = Math.max(1, Math.min(5, raw));
+    prefs[key] = (clamped - 1) / 4; // map 1–5 to 0–1
+  });
+  return prefs;
+}
+
+function scoreQuest(template, prefs) {
+  let score = 0;
+  const stats = template.stats || {};
+  STAT_KEYS.forEach((key) => {
+    const level = stats[key] ?? 0; // 0–3
+    const levelNorm = Math.max(0, Math.min(3, level)) / 3; // 0–1
+    score += prefs[key] * levelNorm;
+  });
+  return score;
+}
+
+function rankQuestsByFocus(templates, focusStats) {
+  const prefs = normalizePrefs(focusStats);
+  return templates
+    .map((t) => ({
+      ...t,
+      score: scoreQuest(t, prefs),
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function questStatsToChartValue(stats) {
+  const next = {};
+  STAT_KEYS.forEach((key) => {
+    const level = stats?.[key] ?? 0; // 0–3
+    const clamped = Math.max(0, Math.min(3, level));
+    // Map 0–3 → 1–5 roughly linearly.
+    const val = 1 + Math.round((clamped / 3) * 4);
+    next[key] = val;
+  });
+  return next;
 }
 
 
