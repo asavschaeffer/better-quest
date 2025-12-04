@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -9,6 +8,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import * as Clipboard from "expo-clipboard";
@@ -329,58 +329,60 @@ export default function App() {
   }, [screen, currentSession, handleCancelSession]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
-      {screen === "home" && (
-        <HomeScreen
-          avatar={avatar}
-          levelInfo={levelInfo}
-          motivation={motivation}
-          onMotivationChange={setMotivation}
-          onStartQuest={handleStartQuest}
-          sessions={sessions}
-        />
-      )}
-      {screen === "quest" && (
-        <QuestSetupScreen
-          onBack={() => setScreen("home")}
-          onStartSession={handleStartSession}
-          onCreateQuestDraft={(name) => {
-            const trimmed = (name ?? "").trim();
-            if (!trimmed) return;
-            setDraftQuestName(trimmed);
-            setScreen("newQuest");
-          }}
-        />
-      )}
-      {screen === "newQuest" && (
-        <NewQuestScreen
-          name={draftQuestName}
-          onBack={() => setScreen("quest")}
-        />
-      )}
-      {screen === "session" && currentSession && (
-        <SessionScreen
-          session={currentSession}
-          remainingMs={remainingMs}
-          avatar={avatar}
-          onCancel={handleCancelSession}
-        />
-      )}
-      {screen === "complete" && currentSession && lastExpResult && (
-        <CompleteScreen
-          session={currentSession}
-          expResult={lastExpResult}
-          avatar={avatar}
-          levelInfo={levelInfo}
-          notes={notes}
-          onNotesChange={setNotes}
-          onContinue={handleContinueQuest}
-          onBreak={handleTakeBreak}
-          onEnd={handleEndForNow}
-        />
-      )}
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safe}>
+        <StatusBar style="light" />
+        {screen === "home" && (
+          <HomeScreen
+            avatar={avatar}
+            levelInfo={levelInfo}
+            motivation={motivation}
+            onMotivationChange={setMotivation}
+            onStartQuest={handleStartQuest}
+            sessions={sessions}
+          />
+        )}
+        {screen === "quest" && (
+          <QuestSetupScreen
+            onBack={() => setScreen("home")}
+            onStartSession={handleStartSession}
+            onCreateQuestDraft={(name) => {
+              const trimmed = (name ?? "").trim();
+              if (!trimmed) return;
+              setDraftQuestName(trimmed);
+              setScreen("newQuest");
+            }}
+          />
+        )}
+        {screen === "newQuest" && (
+          <NewQuestScreen
+            name={draftQuestName}
+            onBack={() => setScreen("quest")}
+          />
+        )}
+        {screen === "session" && currentSession && (
+          <SessionScreen
+            session={currentSession}
+            remainingMs={remainingMs}
+            avatar={avatar}
+            onCancel={handleCancelSession}
+          />
+        )}
+        {screen === "complete" && currentSession && lastExpResult && (
+          <CompleteScreen
+            session={currentSession}
+            expResult={lastExpResult}
+            avatar={avatar}
+            levelInfo={levelInfo}
+            notes={notes}
+            onNotesChange={setNotes}
+            onContinue={handleContinueQuest}
+            onBreak={handleTakeBreak}
+            onEnd={handleEndForNow}
+          />
+        )}
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -610,7 +612,7 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
             value={description}
             onChangeText={setDescription}
             placeholder="e.g. Study math, go for a run, practice guitar"
-            autoFocus
+            autoFocus={Platform.OS === "web"}
             onSubmitEditing={handleSubmitFromInput}
             returnKeyType="done"
           />
