@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
@@ -47,6 +48,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 45,
     taskType: TaskType.STRENGTH,
     stats: { STR: 2, DEX: 0, STA: 1, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STR +1 STA +1 VIT
+    keywords: ["weightlifting", "weights", "gym", "strength"],
   },
   {
     id: "guitar",
@@ -55,6 +57,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 45,
     taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 2, STA: 0, INT: 0, SPI: 1, CRE: 1, VIT: 0 }, // +2 DEX +1 SPI +1 CRE
+    keywords: ["guitar", "music", "emo", "practice"],
   },
   {
     id: "running",
@@ -63,6 +66,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 30,
     taskType: TaskType.STAMINA,
     stats: { STR: 1, DEX: 0, STA: 2, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STA +1 STR +1 VIT
+    keywords: ["run", "running", "cardio"],
   },
   {
     id: "math",
@@ -71,6 +75,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 60,
     taskType: TaskType.INTELLIGENCE,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 2, SPI: 0, CRE: 1, VIT: 1 }, // +2 INT +1 CRE +1 VIT
+    keywords: ["math", "study", "course"],
   },
   {
     id: "prayer",
@@ -79,6 +84,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 20,
     taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 3, CRE: 0, VIT: 1 }, // +3 SPI +1 VIT
+    keywords: ["prayer", "meditation", "spiritual", "faith"],
   },
   {
     id: "writing",
@@ -87,6 +93,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 30,
     taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 2, VIT: 1 }, // +2 CRE +1 SPI +1 VIT
+    keywords: ["writing", "journal", "essay"],
   },
   {
     id: "shower",
@@ -95,6 +102,7 @@ const QUEST_TEMPLATES = [
     defaultDurationMinutes: 15,
     taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 0, VIT: 1 }, // +1 VIT +1 SPI
+    keywords: ["shower", "reset", "clean"],
   },
 ];
 
@@ -103,13 +111,14 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [motivation, setMotivation] = useState("");
 
-  const [screen, setScreen] = useState("home"); // home | quest | session | complete
+  const [screen, setScreen] = useState("home"); // home | quest | newQuest | session | complete
   const [currentSession, setCurrentSession] = useState(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [notes, setNotes] = useState("");
   const [lastExpResult, setLastExpResult] = useState(null);
   const [comboFromSessionId, setComboFromSessionId] = useState(null);
   const [wellRestedUntil, setWellRestedUntil] = useState(null);
+  const [draftQuestName, setDraftQuestName] = useState("");
 
   // Hydrate on mount
   useEffect(() => {
@@ -307,6 +316,18 @@ export default function App() {
     setScreen("home");
   }
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handler = (e) => {
+      if (e.key === "Escape" && screen === "session" && currentSession) {
+        e.preventDefault();
+        handleCancelSession();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [screen, currentSession, handleCancelSession]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
@@ -324,6 +345,18 @@ export default function App() {
         <QuestSetupScreen
           onBack={() => setScreen("home")}
           onStartSession={handleStartSession}
+          onCreateQuestDraft={(name) => {
+            const trimmed = (name ?? "").trim();
+            if (!trimmed) return;
+            setDraftQuestName(trimmed);
+            setScreen("newQuest");
+          }}
+        />
+      )}
+      {screen === "newQuest" && (
+        <NewQuestScreen
+          name={draftQuestName}
+          onBack={() => setScreen("quest")}
         />
       )}
       {screen === "session" && currentSession && (
@@ -464,7 +497,7 @@ function HomeScreen({
   );
 }
 
-function QuestSetupScreen({ onBack, onStartSession }) {
+function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState("25");
   const [taskType, setTaskType] = useState(TaskType.INTELLIGENCE);
@@ -481,9 +514,19 @@ function QuestSetupScreen({ onBack, onStartSession }) {
   const [selectedQuestId, setSelectedQuestId] = useState(null);
 
   const sortedQuests = useMemo(
-    () => rankQuestsByFocus(QUEST_TEMPLATES, focusStats),
-    [focusStats],
+    () => rankQuests(QUEST_TEMPLATES, focusStats, description),
+    [focusStats, description],
   );
+
+  const hasDirectNameMatch = useMemo(() => {
+    const q = description.trim().toLowerCase();
+    if (!q) return false;
+    return sortedQuests.some((tpl) => {
+      const label = (tpl.label ?? "").toLowerCase();
+      const desc = (tpl.description ?? "").toLowerCase();
+      return label.startsWith(q) || desc.startsWith(q);
+    });
+  }, [sortedQuests, description]);
 
   function start() {
     const trimmed = description.trim();
@@ -504,6 +547,21 @@ function QuestSetupScreen({ onBack, onStartSession }) {
     });
   }
 
+  function handleSubmitFromInput() {
+    const trimmed = description.trim();
+    if (!trimmed) {
+      setError("Please enter what you want to work on.");
+      return;
+    }
+    if (!selectedQuestId && sortedQuests.length > 0) {
+      // First enter: pick the top matching quest.
+      applyQuestTemplate(sortedQuests[0]);
+      return;
+    }
+    // If a quest is already selected, treat enter as "begin timer".
+    start();
+  }
+
   function applyQuestTemplate(template) {
     setDescription(template.description || template.label);
     if (template.defaultDurationMinutes) {
@@ -520,13 +578,52 @@ function QuestSetupScreen({ onBack, onStartSession }) {
     setFocusStats(nextStats);
   }
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handler = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSubmitFromInput();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSubmitFromInput]);
+
+  useEffect(() => {
+    if (selectedQuestId || !description.trim()) return;
+    if (!sortedQuests.length) return;
+    const top = sortedQuests[0];
+    if (!top?.stats) return;
+    setFocusStats(questStatsToChartValue(top.stats));
+  }, [sortedQuests, selectedQuestId, description]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Pick your quest</Text>
       <StandStatsChart value={focusStats} onChange={handleStatsChange} />
       <View style={styles.block}>
-        <Text style={styles.label}>Suggested quests</Text>
+        <Text style={styles.label}>Quests</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, styles.inputGrow]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="e.g. Study math, go for a run, practice guitar"
+            autoFocus
+            onSubmitEditing={handleSubmitFromInput}
+            returnKeyType="done"
+          />
+        </View>
         <View style={styles.questList}>
+          {!hasDirectNameMatch && (
+            <TouchableOpacity
+              style={styles.questItem}
+              onPress={() => onCreateQuestDraft?.(description)}
+            >
+              <Text style={styles.questItemLabel}>＋ New</Text>
+            </TouchableOpacity>
+          )}
           {sortedQuests.map((q) => (
             <TouchableOpacity
               key={q.id}
@@ -544,16 +641,15 @@ function QuestSetupScreen({ onBack, onStartSession }) {
               ) : null}
             </TouchableOpacity>
           ))}
+          {hasDirectNameMatch && (
+            <TouchableOpacity
+              style={styles.questItem}
+              onPress={() => onCreateQuestDraft?.(description)}
+            >
+              <Text style={styles.questItemLabel}>＋ New</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      </View>
-      <View style={styles.block}>
-        <Text style={styles.label}>What do you want to work on?</Text>
-        <TextInput
-          style={styles.input}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="e.g. Study math, go for a run, practice guitar"
-        />
       </View>
       <View style={styles.block}>
         <Text style={styles.label}>Duration (minutes)</Text>
@@ -696,6 +792,24 @@ function CompleteScreen({
   );
 }
 
+function NewQuestScreen({ name, onBack }) {
+  const title = (name ?? "").trim() || "Untitled quest";
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>New quest (coming soon)</Text>
+      <Text style={[styles.muted, { marginTop: 8 }]}>
+        We&apos;ll turn &ldquo;{title}&rdquo; into a reusable quest template here.
+      </Text>
+      <TouchableOpacity
+        style={[styles.ghostBtn, { marginTop: 24 }]}
+        onPress={onBack}
+      >
+        <Text style={styles.ghostBtnText}>Back to setup</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function Chip({ label, onPress, active, highlighted }) {
   const chipStyles = [
     styles.chip,
@@ -816,6 +930,20 @@ const styles = StyleSheet.create({
   ghostBtnText: {
     color: "#9ca3af",
   },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#4b5563",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnText: {
+    color: "#e5e7eb",
+    fontSize: 18,
+    marginTop: -2,
+  },
   textArea: {
     borderRadius: 8,
     borderWidth: 1,
@@ -831,6 +959,15 @@ const styles = StyleSheet.create({
     padding: 8,
     color: "#e5e7eb",
     marginTop: 4,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  inputGrow: {
+    flex: 1,
   },
   rowWrap: {
     flexDirection: "row",
@@ -1014,12 +1151,32 @@ function scoreQuest(template, prefs) {
   return score;
 }
 
-function rankQuestsByFocus(templates, focusStats) {
+function computeTextScore(template, query) {
+  const q = (query ?? "").trim().toLowerCase();
+  if (!q) return 0;
+
+  const parts = [
+    template.label,
+    template.description,
+    ...(template.keywords ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (!parts) return 0;
+  if (parts.startsWith(q)) return 3;
+  if (parts.includes(` ${q}`)) return 2;
+  if (parts.includes(q)) return 1;
+  return 0;
+}
+
+function rankQuests(templates, focusStats, query) {
   const prefs = normalizePrefs(focusStats);
   return templates
     .map((t) => ({
       ...t,
-      score: scoreQuest(t, prefs),
+      score: scoreQuest(t, prefs) + computeTextScore(t, query) * 0.5,
     }))
     .sort((a, b) => b.score - a.score);
 }
@@ -1035,5 +1192,3 @@ function questStatsToChartValue(stats) {
   });
   return next;
 }
-
-
