@@ -372,9 +372,18 @@ function populateCompletionUI(session, expResult) {
   }
   completeSummaryEl.textContent = summary;
   expTotalEl.textContent = `+${expResult.totalExp}`;
-  expStrengthEl.textContent = `+${expResult.strengthExp}`;
-  expStaminaEl.textContent = `+${expResult.staminaExp}`;
-  expIntelligenceEl.textContent = `+${expResult.intelligenceExp}`;
+  if (expResult.standExp) {
+    const parts = Object.entries(expResult.standExp)
+      .filter(([, v]) => (v ?? 0) > 0)
+      .map(([k, v]) => `${k}+${v}`);
+    expStrengthEl.textContent = parts.join("  ");
+    expStaminaEl.textContent = "";
+    expIntelligenceEl.textContent = "";
+  } else {
+    expStrengthEl.textContent = "";
+    expStaminaEl.textContent = "";
+    expIntelligenceEl.textContent = "";
+  }
 
   if (sessionNotesInput) {
     sessionNotesInput.value = "";

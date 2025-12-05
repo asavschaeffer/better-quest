@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useMemo, useState, useRef } from "react";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import Svg, {
   Circle,
   Line,
@@ -31,9 +31,15 @@ function getAxisAngle(index, total) {
 export function StandStatsChart({
   value,
   onChange,
+  duration = 25,
+  onDurationChange,
   size = 260,
 }) {
   const [activeAxis, setActiveAxis] = useState(null);
+  const [rotationMode, setRotationMode] = useState(false);
+  const [lastAngle, setLastAngle] = useState(null);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const containerRef = useRef(null);
 
   const cx = size / 2;
   const cy = size / 2;
@@ -105,11 +111,63 @@ export function StandStatsChart({
     return Math.max(1, Math.min(5, val));
   };
 
-  const handlePoint = (nativeEvent) => {
+  const handleStart = (nativeEvent) => {
     const { locationX, locationY } = nativeEvent;
     const x = locationX;
     const y = locationY;
 
+    const dx = x - cx;
+    const dy = y - cy;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Outer ring (beyond chart): rotation mode for duration
+    if (distance > maxRadius + 18) {
+      setRotationMode(true);
+      const angle = Math.atan2(dy, dx);
+      setLastAngle(angle);
+      return;
+    }
+
+    // Inner chart: stat adjustment mode
+    if (distance <= maxRadius * 1.2) {
+      setRotationMode(false);
+      handleStatAdjust(x, y);
+    }
+  };
+
+  const handleMove = (nativeEvent) => {
+    const { locationX, locationY } = nativeEvent;
+    const x = locationX;
+    const y = locationY;
+
+    if (rotationMode) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const angle = Math.atan2(dy, dx);
+
+      if (lastAngle !== null) {
+        let delta = angle - lastAngle;
+        // Handle angle wrapping
+        if (delta > Math.PI) delta -= 2 * Math.PI;
+        if (delta < -Math.PI) delta += 2 * Math.PI;
+
+        // Map rotation to duration change (full circle = 60 minutes)
+        const minutesPerRadian = 60 / (Math.PI * 2);
+        const deltaMinutes = delta * minutesPerRadian;
+
+        onDurationChange?.((prev) => {
+          const next = Math.round(prev + deltaMinutes);
+          return Math.max(5, Math.min(120, next));
+        });
+      }
+
+      setLastAngle(angle);
+    } else {
+      handleStatAdjust(x, y);
+    }
+  };
+
+  const handleStatAdjust = (x, y) => {
     const dx = x - cx;
     const dy = y - cy;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -131,6 +189,36 @@ export function StandStatsChart({
 
   const handleRelease = () => {
     setActiveAxis(null);
+    setRotationMode(false);
+    setLastAngle(null);
+    setIsMouseDown(false);
+  };
+
+  // Web mouse event handlers
+  const handleMouseDown = (e) => {
+    if (Platform.OS !== "web") return;
+    setIsMouseDown(true);
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    handleStart({
+      locationX: e.clientX - rect.left,
+      locationY: e.clientY - rect.top,
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (Platform.OS !== "web" || !isMouseDown) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    handleMove({
+      locationX: e.clientX - rect.left,
+      locationY: e.clientY - rect.top,
+    });
+  };
+
+  const handleMouseUp = () => {
+    if (Platform.OS !== "web") return;
+    handleRelease();
   };
 
   const polygonPoints = ATTRS.map((attr, i) => {
@@ -153,27 +241,103 @@ export function StandStatsChart({
     return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`;
   };
 
+  // Duration ring arc (0-120 minutes, fills clockwise from 12 o'clock)
+  const getDurationArcPath = () => {
+    const outerR = maxRadius + 18;
+    const innerR = maxRadius + 12;
+    const progress = Math.max(0, Math.min(1, duration / 120));
+    const endAngle = -Math.PI / 2 + progress * Math.PI * 2; // Start at top (-90°), go clockwise
+
+    // If duration is 0, don't draw anything
+    if (duration <= 0) return "";
+
+    const largeArcFlag = progress > 0.5 ? 1 : 0;
+
+    const outerStartX = cx + Math.cos(-Math.PI / 2) * outerR;
+    const outerStartY = cy + Math.sin(-Math.PI / 2) * outerR;
+    const outerEndX = cx + Math.cos(endAngle) * outerR;
+    const outerEndY = cy + Math.sin(endAngle) * outerR;
+
+    const innerStartX = cx + Math.cos(-Math.PI / 2) * innerR;
+    const innerStartY = cy + Math.sin(-Math.PI / 2) * innerR;
+    const innerEndX = cx + Math.cos(endAngle) * innerR;
+    const innerEndY = cy + Math.sin(endAngle) * innerR;
+
+    return `
+      M ${outerStartX} ${outerStartY}
+      A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${outerEndX} ${outerEndY}
+      L ${innerEndX} ${innerEndY}
+      A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${innerStartX} ${innerStartY}
+      Z
+    `;
+  };
+
+  // Chevron rotation hints around the ring
+  const getChevronPath = (angleOffset, direction) => {
+    const r = maxRadius + 15;
+    const angle = angleOffset;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    const size = 6;
+
+    if (direction === "cw") {
+      // Clockwise chevron (>)
+      return `M ${x - size / 2} ${y - size} L ${x + size / 2} ${y} L ${x - size / 2} ${y + size}`;
+    } else {
+      // Counter-clockwise chevron (<)
+      return `M ${x + size / 2} ${y - size} L ${x - size / 2} ${y} L ${x + size / 2} ${y + size}`;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What do you want to level up?</Text>
       <View
+        ref={containerRef}
         style={[styles.chartWrapper, { width: size, height: size }]}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
-        onResponderGrant={(e) => handlePoint(e.nativeEvent)}
-        onResponderMove={(e) => handlePoint(e.nativeEvent)}
+        onResponderGrant={(e) => handleStart(e.nativeEvent)}
+        onResponderMove={(e) => handleMove(e.nativeEvent)}
         onResponderRelease={handleRelease}
         onResponderTerminate={handleRelease}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
         <Svg width={size} height={size}>
+          {/* Outer ring background */}
           <Circle
             cx={cx}
             cy={cy}
             r={maxRadius + 18}
             fill="none"
-            stroke="#4f46e5"
-            strokeWidth={3}
+            stroke="#1f2937"
+            strokeWidth={6}
           />
+
+          {/* Duration progress arc */}
+          <Path
+            d={getDurationArcPath()}
+            fill="#4f46e5"
+            opacity={0.8}
+          />
+
+          {/* Rotation hint chevrons */}
+          {[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle, i) => (
+            <Path
+              key={i}
+              d={getChevronPath(angle, "cw")}
+              fill="none"
+              stroke={rotationMode ? "#fbbf24" : "#6b7280"}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={rotationMode ? 0.9 : 0.4}
+            />
+          ))}
+
           <Circle
             cx={cx}
             cy={cy}
@@ -244,6 +408,27 @@ export function StandStatsChart({
             strokeWidth={2}
           />
 
+          {/* Duration display in center */}
+          <SvgText
+            x={cx}
+            y={cy - 8}
+            textAnchor="middle"
+            fontSize={28}
+            fill="#e5e7eb"
+            fontWeight="bold"
+          >
+            {duration}
+          </SvgText>
+          <SvgText
+            x={cx}
+            y={cy + 12}
+            textAnchor="middle"
+            fontSize={14}
+            fill="#9ca3af"
+          >
+            min
+          </SvgText>
+
           {ATTRS.map((attr, i) => {
             const point = getPointOnAxis(i, stats[attr.key]);
             const isActive = activeAxis === i;
@@ -294,7 +479,7 @@ export function StandStatsChart({
         </Svg>
       </View>
       <Text style={styles.helper}>
-        Drag or tap in the chart to tell the app which stats you want to level.
+        Drag inside the chart to adjust stats. Rotate outside the ring to change duration.
       </Text>
     </View>
   );

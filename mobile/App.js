@@ -199,7 +199,12 @@ export default function App() {
     setScreen("quest");
   }
 
-  function handleStartSession({ description, durationMinutes, taskType }) {
+  function handleStartSession({
+    description,
+    durationMinutes,
+    taskType,
+    focusStats,
+  }) {
     const id = `session-${Date.now()}`;
     // Determine bonuses based on previous actions.
     const now = Date.now();
@@ -224,6 +229,7 @@ export default function App() {
       durationMinutes,
       taskType,
       startTime: new Date().toISOString(),
+      standStats: focusStats,
       comboBonus: hasCombo,
       restBonus: hasRest,
       bonusMultiplier,
@@ -255,6 +261,7 @@ export default function App() {
         durationMinutes: completedSession.durationMinutes,
         taskType: completedSession.taskType,
         completedAt: completedSession.endTime,
+        standStats: completedSession.standStats ?? null,
         expResult: exp,
         notes: "",
         bonusMultiplier: completedSession.bonusMultiplier ?? 1,
@@ -501,7 +508,7 @@ function HomeScreen({
 
 function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
   const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState("25");
+  const [duration, setDuration] = useState(25);
   const [taskType, setTaskType] = useState(TaskType.INTELLIGENCE);
   const [error, setError] = useState("");
   const [focusStats, setFocusStats] = useState({
@@ -532,7 +539,7 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
 
   function start() {
     const trimmed = description.trim();
-    const minutes = parseInt(duration, 10);
+    const minutes = duration;
     if (!trimmed) {
       setError("Please enter what you want to work on.");
       return;
@@ -546,6 +553,7 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
       description: trimmed,
       durationMinutes: minutes,
       taskType,
+      focusStats,
     });
   }
 
@@ -567,7 +575,7 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
   function applyQuestTemplate(template) {
     setDescription(template.description || template.label);
     if (template.defaultDurationMinutes) {
-      setDuration(String(template.defaultDurationMinutes));
+      setDuration(template.defaultDurationMinutes);
     }
     if (template.taskType) {
       setTaskType(template.taskType);
@@ -603,7 +611,12 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Pick your quest</Text>
-      <StandStatsChart value={focusStats} onChange={handleStatsChange} />
+      <StandStatsChart
+        value={focusStats}
+        onChange={handleStatsChange}
+        duration={duration}
+        onDurationChange={setDuration}
+      />
       <View style={styles.block}>
         <Text style={styles.label}>Quests</Text>
         <View style={styles.inputRow}>
@@ -652,25 +665,6 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
             </TouchableOpacity>
           )}
         </View>
-      </View>
-      <View style={styles.block}>
-        <Text style={styles.label}>Duration (minutes)</Text>
-        <View style={styles.rowWrap}>
-          {[15, 25, 45, 60].map((m) => (
-            <Chip
-              key={m}
-              label={`${m}`}
-              onPress={() => setDuration(String(m))}
-              active={duration === String(m)}
-            />
-          ))}
-        </View>
-        <TextInput
-          style={styles.input}
-          value={duration}
-          onChangeText={setDuration}
-          keyboardType="number-pad"
-        />
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.rowBetween}>
@@ -738,18 +732,17 @@ function CompleteScreen({
           <Text style={styles.label}>Total EXP</Text>
           <Text style={styles.expValue}>+{expResult.totalExp}</Text>
         </View>
-        <View style={styles.expCol}>
-          <Text style={styles.label}>Strength</Text>
-          <Text style={styles.expValue}>+{expResult.strengthExp}</Text>
-        </View>
-        <View style={styles.expCol}>
-          <Text style={styles.label}>Stamina</Text>
-          <Text style={styles.expValue}>+{expResult.staminaExp}</Text>
-        </View>
-        <View style={styles.expCol}>
-          <Text style={styles.label}>Intelligence</Text>
-          <Text style={styles.expValue}>+{expResult.intelligenceExp}</Text>
-        </View>
+        {expResult.standExp && (
+          <View style={styles.expCol}>
+            <Text style={styles.label}>Stand gains</Text>
+            <Text style={styles.expValue}>
+              {Object.entries(expResult.standExp)
+                .filter(([, v]) => (v ?? 0) > 0)
+                .map(([k, v]) => `${k}+${v}`)
+                .join("  ") || "—"}
+            </Text>
+          </View>
+        )}
       </View>
       <View style={styles.block}>
         <View style={styles.avatarHeader}>
@@ -1106,15 +1099,17 @@ const styles = StyleSheet.create({
 function applySessionBonuses(session, baseExp) {
   const mult = session.bonusMultiplier ?? 1;
   if (mult === 1) return baseExp;
-  const strengthExp = Math.round(baseExp.strengthExp * mult);
-  const staminaExp = Math.round(baseExp.staminaExp * mult);
-  const intelligenceExp = Math.round(baseExp.intelligenceExp * mult);
-  const totalExp = strengthExp + staminaExp + intelligenceExp;
+  const totalExp = Math.round(baseExp.totalExp * mult);
+  const standExp = {};
+  if (baseExp.standExp) {
+    Object.entries(baseExp.standExp).forEach(([key, value]) => {
+      const v = typeof value === "number" ? value : 0;
+      standExp[key] = Math.round(v * mult);
+    });
+  }
   return {
     totalExp,
-    strengthExp,
-    staminaExp,
-    intelligenceExp,
+    standExp,
   };
 }
 
