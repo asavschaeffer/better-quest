@@ -4,6 +4,7 @@ import { TaskType } from "./models.js";
 const EXP_PER_MINUTE = 10;
 const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;
+const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
 
 // Simple quadratic-ish level curve: totalExp required grows with level^2.
 // Level 1 starts at 0 EXP.
@@ -57,54 +58,65 @@ export function calculateExpForSession(session) {
     return zeroExpResult();
   }
 
-  const baseTotal = durationMinutes * EXP_PER_MINUTE;
-  const splits = getAttributeSplits(session.taskType);
+  const totalExp = durationMinutes * EXP_PER_MINUTE;
 
-  const strengthExp = Math.round(baseTotal * splits.strength);
-  const staminaExp = Math.round(baseTotal * splits.stamina);
-  const intelligenceExp = Math.round(baseTotal * splits.intelligence);
-
-  const totalExp = strengthExp + staminaExp + intelligenceExp;
+  const splits = getStandSplits(session.standStats);
+  const standExp = {};
+  STAND_KEYS.forEach((key) => {
+    const share = splits[key] ?? 0;
+    standExp[key] = Math.round(totalExp * share);
+  });
 
   return {
     totalExp,
-    strengthExp,
-    staminaExp,
-    intelligenceExp,
+    standExp,
   };
 }
 
 export function applyExpToAvatar(avatar, expResult) {
-  const totalExp = (avatar.totalExp ?? 0) + expResult.totalExp;
-  const strengthExp = (avatar.strengthExp ?? 0) + expResult.strengthExp;
-  const staminaExp = (avatar.staminaExp ?? 0) + expResult.staminaExp;
-  const intelligenceExp =
-    (avatar.intelligenceExp ?? 0) + expResult.intelligenceExp;
+  const totalExp = (avatar.totalExp ?? 0) + (expResult.totalExp ?? 0);
+
+  const standExp = { ...(avatar.standExp ?? {}) };
+  const gainedStand = expResult.standExp ?? {};
+  STAND_KEYS.forEach((key) => {
+    const prev = typeof standExp[key] === "number" ? standExp[key] : 0;
+    const add = typeof gainedStand[key] === "number" ? gainedStand[key] : 0;
+    standExp[key] = prev + add;
+  });
 
   const level = getLevelForTotalExp(totalExp);
 
   return {
     ...avatar,
     totalExp,
-    strengthExp,
-    staminaExp,
-    intelligenceExp,
+    standExp,
     level,
   };
 }
 
-function getAttributeSplits(taskType) {
-  switch (taskType) {
-    case TaskType.STRENGTH:
-      return { strength: 0.7, stamina: 0.3, intelligence: 0.0 };
-    case TaskType.STAMINA:
-      return { strength: 0.2, stamina: 0.8, intelligence: 0.0 };
-    case TaskType.INTELLIGENCE:
-      return { strength: 0.0, stamina: 0.0, intelligence: 1.0 };
-    case TaskType.MIXED:
-    default:
-      return { strength: 0.0, stamina: 0.5, intelligence: 0.5 };
+function getStandSplits(standStats) {
+  const weights = {};
+  let sum = 0;
+  STAND_KEYS.forEach((key) => {
+    const raw = standStats?.[key];
+    const val =
+      typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, raw - 1) : 0;
+    weights[key] = val;
+    sum += val;
+  });
+
+  if (sum <= 0) {
+    const uniform = 1 / STAND_KEYS.length;
+    STAND_KEYS.forEach((key) => {
+      weights[key] = uniform;
+    });
+    return weights;
   }
+
+  STAND_KEYS.forEach((key) => {
+    weights[key] = weights[key] / sum;
+  });
+  return weights;
 }
 
 function clamp(value, min, max) {
@@ -112,11 +124,16 @@ function clamp(value, min, max) {
 }
 
 function zeroExpResult() {
+  const standExp = {};
+  STAND_KEYS.forEach((key) => {
+    standExp[key] = 0;
+  });
   return {
     totalExp: 0,
     strengthExp: 0,
     staminaExp: 0,
     intelligenceExp: 0,
+    standExp,
   };
 }
 

@@ -11,9 +11,15 @@ export function createDefaultAvatar() {
     name: "Adventurer",
     level: 1,
     totalExp: 0,
-    strengthExp: 0,
-    staminaExp: 0,
-    intelligenceExp: 0,
+    standExp: {
+      STR: 0,
+      DEX: 0,
+      STA: 0,
+      INT: 0,
+      SPI: 0,
+      CRE: 0,
+      VIT: 0,
+    },
   };
 }
 
@@ -31,6 +37,7 @@ export function createTaskSession({
   durationMinutes,
   taskType,
   startTime,
+  standStats,
   isBreak = false,
   comboBonus = false,
   restBonus = false,
@@ -43,6 +50,7 @@ export function createTaskSession({
     taskType: taskType ?? TaskType.INTELLIGENCE,
     startTime: startTime ?? new Date().toISOString(),
     endTime: null,
+    standStats: standStats ?? null,
     isBreak,
     comboBonus,
     restBonus,
