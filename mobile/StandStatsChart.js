@@ -26,6 +26,9 @@ export function StandStatsChart({
   duration = 25,
   onDurationChange,
   size = 260,
+  progress = 0, // 0-1: session progress (0 = just started, 1 = complete)
+  readOnly = false, // disable all interaction during session
+  countdownText = null, // e.g. "23:45" - replaces duration display when provided
 }) {
   const [activeAxis, setActiveAxis] = useState(null);
   const [displayDuration, setDisplayDuration] = useState(duration);
@@ -177,6 +180,8 @@ export function StandStatsChart({
   };
 
   const handleStart = (nativeEvent) => {
+    if (readOnly) return; // No interaction during session
+    
     const x = nativeEvent.locationX ?? nativeEvent.clientX ?? 0;
     const y = nativeEvent.locationY ?? nativeEvent.clientY ?? 0;
 
@@ -287,21 +292,32 @@ export function StandStatsChart({
     };
   }, [isMouseDown]);
 
-  const polygonPoints = ATTRS.map((attr, i) => {
-    const point = getPointOnAxis(i, stats[attr.key]);
-    return `${point.x},${point.y}`;
-  }).join(" ");
-
   // Duration bonus: continuous scale, weighted by stat focus
   // High-focus stats (4-5) get full bonus, low-focus stats (1-2) get minimal bonus
   const maxBonusTicks = Math.min(2, displayDuration / 60);
+  
+  // Calculate bonus for each stat
+  const statBonuses = useMemo(() => {
+    return ATTRS.map((attr) => {
+      const baseStat = stats[attr.key];
+      const weight = (baseStat - 1) / 4; // stat 1 = 0%, stat 5 = 100%
+      return maxBonusTicks * weight;
+    });
+  }, [stats, maxBonusTicks]);
+
+  // Blue polygon: base stats + (bonus * progress) during session
+  const polygonPoints = ATTRS.map((attr, i) => {
+    const baseStat = stats[attr.key];
+    const currentStat = Math.min(5, baseStat + statBonuses[i] * progress);
+    const point = getPointOnAxis(i, currentStat);
+    return `${point.x},${point.y}`;
+  }).join(" ");
+
+  // Yellow polygon: shows full potential (base + full bonus)
   const bonusPolygonPoints = maxBonusTicks > 0.01
     ? ATTRS.map((attr, i) => {
         const baseStat = stats[attr.key];
-        // Weight: stat 1 = 0%, stat 5 = 100% of the bonus
-        const weight = (baseStat - 1) / 4;
-        const statBonus = maxBonusTicks * weight;
-        const boostedStat = Math.min(5, baseStat + statBonus);
+        const boostedStat = Math.min(5, baseStat + statBonuses[i]);
         const point = getPointOnAxis(i, boostedStat);
         return `${point.x},${point.y}`;
       }).join(" ")
@@ -324,7 +340,7 @@ export function StandStatsChart({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What do you want to level up?</Text>
+      {!readOnly && <Text style={styles.title}>What do you want to level up?</Text>}
       <View
         ref={containerRef}
         style={[styles.chartWrapper, { width: chartSize, height: chartSize }]}
@@ -340,15 +356,18 @@ export function StandStatsChart({
         onMouseUp={handleMouseUp}
       >
         <Svg width={chartSize} height={chartSize}>
-          {/* Interaction band */}
+          {/* Duration ring - depletes during session */}
           {(() => {
-            const progressRaw = durationToProgress(displayDuration);
-            const progress = Math.max(0, Math.min(1, progressRaw));
-            const isFull = progress >= 0.999;
+            // During session (readOnly + progress), show remaining time depleting
+            const remainingDuration = readOnly && progress > 0
+              ? displayDuration * (1 - progress)
+              : displayDuration;
+            const ringProgress = Math.max(0, Math.min(1, durationToProgress(remainingDuration)));
+            const isFull = ringProgress >= 0.999;
             const centerR = (bananaInnerR + bananaOuterR) / 2;
             const thickness = bananaOuterR - bananaInnerR;
             const startAngle = startAngleBase;
-            const endAngle = startAngle + progress * TWO_PI;
+            const endAngle = startAngle + ringProgress * TWO_PI;
             const handleAngle = endAngle;
             const handleX = cx + Math.cos(handleAngle) * centerR;
             const handleY = cy + Math.sin(handleAngle) * centerR;
@@ -373,7 +392,7 @@ export function StandStatsChart({
                     strokeLinecap="round"
                     fill="none"
                   />
-                ) : progress > 0 ? (
+                ) : ringProgress > 0 ? (
                   <Path
                     d={arcBandPath(bananaInnerR, bananaOuterR, startAngle, endAngle)}
                     fill={isDraggingDuration ? "rgba(99,102,241,0.35)" : "rgba(99,102,241,0.22)"}
@@ -383,15 +402,17 @@ export function StandStatsChart({
                     strokeLinejoin="round"
                   />
                 ) : null}
-                {/* Handle - larger and more prominent when dragging */}
-                <Circle
-                  cx={handleX}
-                  cy={handleY}
-                  r={isDraggingDuration ? thickness / 2 : thickness / 2.4}
-                  fill={isDraggingDuration ? "#a5b4fc" : "rgba(99,102,241,0.9)"}
-                  stroke={isDraggingDuration ? "#4f46e5" : "#1e1b4b"}
-                  strokeWidth={isDraggingDuration ? 3 : 2}
-                />
+                {/* Handle - hidden during session, larger when dragging */}
+                {!readOnly && (
+                  <Circle
+                    cx={handleX}
+                    cy={handleY}
+                    r={isDraggingDuration ? thickness / 2 : thickness / 2.4}
+                    fill={isDraggingDuration ? "#a5b4fc" : "rgba(99,102,241,0.9)"}
+                    stroke={isDraggingDuration ? "#4f46e5" : "#1e1b4b"}
+                    strokeWidth={isDraggingDuration ? 3 : 2}
+                  />
+                )}
               </G>
             );
           })()}
@@ -469,26 +490,41 @@ export function StandStatsChart({
             strokeWidth={2}
           />
 
-          {/* Duration display in center */}
-          <SvgText
-            x={cx}
-            y={cy - 8}
-            textAnchor="middle"
-            fontSize={28}
-            fill="#e5e7eb"
-            fontWeight="bold"
-          >
-            {displayDuration}
-          </SvgText>
-          <SvgText
-            x={cx}
-            y={cy + 12}
-            textAnchor="middle"
-            fontSize={14}
-            fill="#9ca3af"
-          >
-            min
-          </SvgText>
+          {/* Duration/countdown display in center */}
+          {countdownText ? (
+            <SvgText
+              x={cx}
+              y={cy + 6}
+              textAnchor="middle"
+              fontSize={26}
+              fill="#e5e7eb"
+              fontWeight="bold"
+            >
+              {countdownText}
+            </SvgText>
+          ) : (
+            <>
+              <SvgText
+                x={cx}
+                y={cy - 8}
+                textAnchor="middle"
+                fontSize={28}
+                fill="#e5e7eb"
+                fontWeight="bold"
+              >
+                {displayDuration}
+              </SvgText>
+              <SvgText
+                x={cx}
+                y={cy + 12}
+                textAnchor="middle"
+                fontSize={14}
+                fill="#9ca3af"
+              >
+                min
+              </SvgText>
+            </>
+          )}
 
           {/* Stat point circles - removed for cleaner look
           {ATTRS.map((attr, i) => {
@@ -539,11 +575,55 @@ export function StandStatsChart({
               </G>
             );
           })}
+
+          {/* Completion celebration - sparkles when quest complete! */}
+          {progress >= 0.99 && readOnly && (
+            <G>
+              {/* Glow ring */}
+              <Circle
+                cx={cx}
+                cy={cy}
+                r={maxRadius + 8}
+                fill="none"
+                stroke="rgba(251,191,36,0.6)"
+                strokeWidth={4}
+              />
+              {/* Sparkles at each stat point */}
+              {ATTRS.map((attr, i) => {
+                const baseStat = stats[attr.key];
+                const boostedStat = Math.min(5, baseStat + statBonuses[i]);
+                const point = getPointOnAxis(i, boostedStat);
+                return (
+                  <G key={`sparkle-${attr.key}`}>
+                    <SvgText
+                      x={point.x}
+                      y={point.y - 8}
+                      textAnchor="middle"
+                      fontSize={14}
+                    >
+                      ✨
+                    </SvgText>
+                  </G>
+                );
+              })}
+              {/* Center star */}
+              <SvgText
+                x={cx}
+                y={cy - 28}
+                textAnchor="middle"
+                fontSize={20}
+              >
+                ⭐
+              </SvgText>
+            </G>
+          )}
         </Svg>
       </View>
-      <Text style={styles.helper}>
-        Drag inside chart for stats • Drag the outer ring for duration
-      </Text>
+      {!readOnly && (
+        <Text style={styles.helper}>
+          Drag inside chart for stats • Drag the outer ring for duration
+        </Text>
+      )}
     </View>
   );
 }
