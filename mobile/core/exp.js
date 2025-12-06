@@ -1,5 +1,3 @@
-import { TaskType } from "./models";
-
 const EXP_PER_MINUTE = 10;
 const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;

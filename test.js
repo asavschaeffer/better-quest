@@ -1,4 +1,4 @@
-import { createUser, createTaskSession, TaskType, SessionStatus } from "./src/models.js";
+import { createUser, createTaskSession, SessionStatus } from "./src/models.js";
 import { calculateExpForSession, applyExpToAvatar, getLevelProgress } from "./src/exp.js";
 import { inferEmojiForDescription } from "./src/emoji.js";
 
@@ -128,14 +128,12 @@ async function runTests() {
       id: "test-1",
       description: "Test task",
       durationMinutes: 25,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     runner.assert(session, "Session should be created");
     runner.assertEqual(session.id, "test-1");
     runner.assertEqual(session.description, "Test task");
     runner.assertEqual(session.durationMinutes, 25);
-    runner.assertEqual(session.taskType, TaskType.INTELLIGENCE);
   });
 
   await runner.test(
@@ -160,7 +158,6 @@ async function runTests() {
         id: "break-1",
         description: "Break",
         durationMinutes: 5,
-        taskType: TaskType.STAMINA,
         startTime: new Date().toISOString(),
         isBreak: true,
       });
@@ -178,25 +175,21 @@ async function runTests() {
     {
       id: "reading",
       description: "Reading",
-      taskType: TaskType.INTELLIGENCE,
       duration: 25,
     },
     {
       id: "coding",
       description: "Coding",
-      taskType: TaskType.INTELLIGENCE,
       duration: 50,
     },
     {
       id: "weightlifting",
       description: "Weightlifting",
-      taskType: TaskType.STRENGTH,
       duration: 45,
     },
     {
       id: "yoga",
       description: "Yoga",
-      taskType: TaskType.MIXED,
       duration: 30,
     },
   ];
@@ -209,7 +202,6 @@ async function runTests() {
     const preset = QUEST_PRESETS.find((p) => p.id === "reading");
     runner.assert(preset, "Reading preset should exist");
     runner.assertEqual(preset.description, "Reading");
-    runner.assertEqual(preset.taskType, TaskType.INTELLIGENCE);
     runner.assertEqual(preset.duration, 25);
   });
 
@@ -217,7 +209,6 @@ async function runTests() {
     const preset = QUEST_PRESETS.find((p) => p.id === "coding");
     runner.assert(preset, "Coding preset should exist");
     runner.assertEqual(preset.description, "Coding");
-    runner.assertEqual(preset.taskType, TaskType.INTELLIGENCE);
     runner.assertEqual(preset.duration, 50);
   });
 
@@ -225,7 +216,6 @@ async function runTests() {
     const preset = QUEST_PRESETS.find((p) => p.id === "weightlifting");
     runner.assert(preset, "Weightlifting preset should exist");
     runner.assertEqual(preset.description, "Weightlifting");
-    runner.assertEqual(preset.taskType, TaskType.STRENGTH);
     runner.assertEqual(preset.duration, 45);
   });
 
@@ -233,7 +223,6 @@ async function runTests() {
     const preset = QUEST_PRESETS.find((p) => p.id === "yoga");
     runner.assert(preset, "Yoga preset should exist");
     runner.assertEqual(preset.description, "Yoga");
-    runner.assertEqual(preset.taskType, TaskType.MIXED);
     runner.assertEqual(preset.duration, 30);
   });
 
@@ -315,59 +304,15 @@ async function runTests() {
 
   console.log("\n>>> EXP CALCULATION TESTS\n");
 
-  await runner.test("30-minute Intelligence task grants correct EXP", async () => {
+  await runner.test("30-minute session grants 300 total EXP", async () => {
     const session = createTaskSession({
       id: "test-1",
       description: "Study",
       durationMinutes: 30,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     const result = calculateExpForSession(session);
     runner.assertEqual(result.totalExp, 300, "30 min × 10 EXP/min = 300 total");
-    runner.assertEqual(result.intelligenceExp, 300, "All EXP goes to Intelligence");
-  });
-
-  await runner.test("30-minute Strength task splits EXP correctly", async () => {
-    const session = createTaskSession({
-      id: "test-2",
-      description: "Lift",
-      durationMinutes: 30,
-      taskType: TaskType.STRENGTH,
-      startTime: new Date().toISOString(),
-    });
-    const result = calculateExpForSession(session);
-    runner.assertEqual(result.totalExp, 300);
-    runner.assertEqual(result.strengthExp, 210, "70% to Strength (300 × 0.7)");
-    runner.assertEqual(result.staminaExp, 90, "30% to Stamina (300 × 0.3)");
-  });
-
-  await runner.test("30-minute Stamina task splits EXP correctly", async () => {
-    const session = createTaskSession({
-      id: "test-3",
-      description: "Run",
-      durationMinutes: 30,
-      taskType: TaskType.STAMINA,
-      startTime: new Date().toISOString(),
-    });
-    const result = calculateExpForSession(session);
-    runner.assertEqual(result.totalExp, 300);
-    runner.assertEqual(result.staminaExp, 240, "80% to Stamina (300 × 0.8)");
-    runner.assertEqual(result.strengthExp, 60, "20% to Strength (300 × 0.2)");
-  });
-
-  await runner.test("30-minute Mixed task splits EXP equally", async () => {
-    const session = createTaskSession({
-      id: "test-4",
-      description: "Yoga",
-      durationMinutes: 30,
-      taskType: TaskType.MIXED,
-      startTime: new Date().toISOString(),
-    });
-    const result = calculateExpForSession(session);
-    runner.assertEqual(result.totalExp, 300);
-    runner.assertEqual(result.staminaExp, 150, "50% to Stamina");
-    runner.assertEqual(result.intelligenceExp, 150, "50% to Intelligence");
   });
 
   await runner.test("25-minute session (Pomodoro) grants 250 EXP", async () => {
@@ -375,7 +320,6 @@ async function runTests() {
       id: "test-5",
       description: "Quick task",
       durationMinutes: 25,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     const result = calculateExpForSession(session);
@@ -387,7 +331,6 @@ async function runTests() {
       id: "test-6",
       description: "Coding",
       durationMinutes: 50,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     const result = calculateExpForSession(session);
@@ -399,12 +342,10 @@ async function runTests() {
       id: "test-7",
       description: "Weightlifting",
       durationMinutes: 45,
-      taskType: TaskType.STRENGTH,
       startTime: new Date().toISOString(),
     });
     const result = calculateExpForSession(session);
     runner.assertEqual(result.totalExp, 450);
-    runner.assertEqual(result.strengthExp, 315, "70% of 450");
   });
 
   // ============================================================
@@ -424,7 +365,6 @@ async function runTests() {
     let avatar = user.avatar;
     avatar = applyExpToAvatar(avatar, {
       totalExp: 50,
-      intelligenceExp: 50,
     });
     runner.assertEqual(avatar.level, 1);
     runner.assertEqual(avatar.totalExp, 50);
@@ -435,7 +375,6 @@ async function runTests() {
     let avatar = user.avatar;
     avatar = applyExpToAvatar(avatar, {
       totalExp: 100,
-      intelligenceExp: 100,
     });
     runner.assertEqual(avatar.level, 2);
     runner.assertEqual(avatar.totalExp, 100);
@@ -447,7 +386,6 @@ async function runTests() {
     // Add 500 EXP (enough for multiple levels)
     avatar = applyExpToAvatar(avatar, {
       totalExp: 500,
-      intelligenceExp: 500,
     });
     runner.assertGreaterThan(avatar.level, 2, "Should level up multiple times");
     runner.assertEqual(avatar.totalExp, 500);
@@ -495,7 +433,6 @@ async function runTests() {
       id: "test-running",
       description: "Test",
       durationMinutes: 25,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     runner.assertEqual(session.status, SessionStatus.RUNNING);
@@ -506,13 +443,11 @@ async function runTests() {
       id: "test-full",
       description: "Full test",
       durationMinutes: 45,
-      taskType: TaskType.MIXED,
       startTime: new Date().toISOString(),
     });
     runner.assert(session.id, "Should have ID");
     runner.assert(session.description, "Should have description");
     runner.assertEqual(session.durationMinutes, 45, "Should have duration");
-    runner.assert(session.taskType, "Should have task type");
     runner.assert(session.status, "Should have status");
   });
 
@@ -527,7 +462,6 @@ async function runTests() {
       id: "test-min",
       description: "Quick",
       durationMinutes: 5,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     runner.assertEqual(session.durationMinutes, 5);
@@ -540,7 +474,6 @@ async function runTests() {
       id: "test-max",
       description: "Marathon",
       durationMinutes: 240,
-      taskType: TaskType.INTELLIGENCE,
       startTime: new Date().toISOString(),
     });
     runner.assertEqual(session.durationMinutes, 240);
@@ -554,7 +487,6 @@ async function runTests() {
         id: "test-zero",
         description: "Invalid",
         durationMinutes: 0,
-        taskType: TaskType.INTELLIGENCE,
         startTime: new Date().toISOString(),
       });
       runner.assert(false, "Should reject zero duration");
@@ -569,7 +501,6 @@ async function runTests() {
         id: "test-negative",
         description: "Invalid",
         durationMinutes: -10,
-        taskType: TaskType.INTELLIGENCE,
         startTime: new Date().toISOString(),
       });
       runner.assert(false, "Should reject negative duration");

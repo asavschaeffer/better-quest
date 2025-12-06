@@ -1,10 +1,3 @@
-export const TaskType = Object.freeze({
-  STRENGTH: "STRENGTH",
-  STAMINA: "STAMINA",
-  INTELLIGENCE: "INTELLIGENCE",
-  MIXED: "MIXED",
-});
-
 export function createDefaultAvatar() {
   return {
     id: "avatar-1",
@@ -35,7 +28,6 @@ export function createTaskSession({
   id,
   description,
   durationMinutes,
-  taskType,
   startTime,
   standStats,
   isBreak = false,
@@ -47,7 +39,6 @@ export function createTaskSession({
     id,
     description: description.trim(),
     durationMinutes,
-    taskType: taskType ?? TaskType.INTELLIGENCE,
     startTime: startTime ?? new Date().toISOString(),
     endTime: null,
     standStats: standStats ?? null,

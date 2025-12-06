@@ -12,12 +12,7 @@ import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import * as Clipboard from "expo-clipboard";
-import {
-  createDefaultAvatar,
-  createTaskSession,
-  createUser,
-  TaskType,
-} from "./core/models";
+import { createDefaultAvatar, createTaskSession, createUser } from "./core/models";
 import {
   calculateExpForSession,
   applyExpToAvatar,
@@ -46,7 +41,6 @@ const QUEST_TEMPLATES = [
     label: "Weightlifting",
     description: "Weightlifting",
     defaultDurationMinutes: 45,
-    taskType: TaskType.STRENGTH,
     stats: { STR: 2, DEX: 0, STA: 1, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STR +1 STA +1 VIT
     keywords: ["weightlifting", "weights", "gym", "strength"],
   },
@@ -55,7 +49,6 @@ const QUEST_TEMPLATES = [
     label: "Guitar practice",
     description: "Guitar",
     defaultDurationMinutes: 45,
-    taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 2, STA: 0, INT: 0, SPI: 1, CRE: 1, VIT: 0 }, // +2 DEX +1 SPI +1 CRE
     keywords: ["guitar", "music", "emo", "practice"],
   },
@@ -64,7 +57,6 @@ const QUEST_TEMPLATES = [
     label: "Running",
     description: "Running",
     defaultDurationMinutes: 30,
-    taskType: TaskType.STAMINA,
     stats: { STR: 1, DEX: 0, STA: 2, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STA +1 STR +1 VIT
     keywords: ["run", "running", "cardio"],
   },
@@ -73,7 +65,6 @@ const QUEST_TEMPLATES = [
     label: "Math study",
     description: "Math",
     defaultDurationMinutes: 60,
-    taskType: TaskType.INTELLIGENCE,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 2, SPI: 0, CRE: 1, VIT: 1 }, // +2 INT +1 CRE +1 VIT
     keywords: ["math", "study", "course"],
   },
@@ -82,7 +73,6 @@ const QUEST_TEMPLATES = [
     label: "Prayer / meditation",
     description: "Prayer / meditation",
     defaultDurationMinutes: 20,
-    taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 3, CRE: 0, VIT: 1 }, // +3 SPI +1 VIT
     keywords: ["prayer", "meditation", "spiritual", "faith"],
   },
@@ -91,7 +81,6 @@ const QUEST_TEMPLATES = [
     label: "Writing",
     description: "Writing",
     defaultDurationMinutes: 30,
-    taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 2, VIT: 1 }, // +2 CRE +1 SPI +1 VIT
     keywords: ["writing", "journal", "essay"],
   },
@@ -100,7 +89,6 @@ const QUEST_TEMPLATES = [
     label: "Shower / reset",
     description: "Shower / reset",
     defaultDurationMinutes: 15,
-    taskType: TaskType.MIXED,
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 0, VIT: 1 }, // +1 VIT +1 SPI
     keywords: ["shower", "reset", "clean"],
   },
@@ -202,7 +190,6 @@ export default function App() {
   function handleStartSession({
     description,
     durationMinutes,
-    taskType,
     focusStats,
   }) {
     const id = `session-${Date.now()}`;
@@ -227,7 +214,6 @@ export default function App() {
       id,
       description,
       durationMinutes,
-      taskType,
       startTime: new Date().toISOString(),
       standStats: focusStats,
       comboBonus: hasCombo,
@@ -259,7 +245,6 @@ export default function App() {
         id: completedSession.id,
         description: completedSession.description,
         durationMinutes: completedSession.durationMinutes,
-        taskType: completedSession.taskType,
         completedAt: completedSession.endTime,
         standStats: completedSession.standStats ?? null,
         expResult: exp,
@@ -509,7 +494,6 @@ function HomeScreen({
 function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
-  const [taskType, setTaskType] = useState(TaskType.INTELLIGENCE);
   const [error, setError] = useState("");
   const [focusStats, setFocusStats] = useState({
     STR: 3,
@@ -552,7 +536,6 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
     onStartSession({
       description: trimmed,
       durationMinutes: minutes,
-      taskType,
       focusStats,
     });
   }
@@ -576,9 +559,6 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
     setDescription(template.description || template.label);
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
-    }
-    if (template.taskType) {
-      setTaskType(template.taskType);
     }
     setFocusStats(questStatsToChartValue(template.stats));
     setSelectedQuestId(template.id);

@@ -1,4 +1,4 @@
-import { createUser, createTaskSession, TaskType } from "./models.js";
+import { createUser, createTaskSession } from "./models.js";
 import { SessionManager } from "./timer.js";
 import {
   calculateExpForSession,
@@ -210,25 +210,21 @@ const QUEST_PRESETS = [
   {
     id: "reading",
     description: "Reading",
-    taskType: TaskType.INTELLIGENCE,
     duration: 25,
   },
   {
     id: "coding",
     description: "Coding",
-    taskType: TaskType.INTELLIGENCE,
     duration: 50,
   },
   {
     id: "weightlifting",
     description: "Weightlifting",
-    taskType: TaskType.STRENGTH,
     duration: 45,
   },
   {
     id: "yoga",
     description: "Yoga",
-    taskType: TaskType.MIXED,
     duration: 30,
   },
 ];
@@ -241,7 +237,6 @@ function applyPreset(id) {
   const preset = QUEST_PRESETS.find((p) => p.id === id);
   if (!preset) return;
   descriptionInput.value = preset.description;
-  taskTypeSelect.value = preset.taskType;
   if (preset.duration) {
     durationInput.value = String(preset.duration);
   }
@@ -260,7 +255,6 @@ function setActiveChip(nodeList, activeBtn) {
 function startFocusSessionFromForm() {
   const description = descriptionInput.value.trim();
   const durationMinutes = Number.parseInt(durationInput.value, 10);
-  const taskTypeValue = taskTypeSelect.value || TaskType.INTELLIGENCE;
 
   if (!description) {
     showSetupError("Please enter what you want to work on.");
@@ -279,7 +273,6 @@ function startFocusSessionFromForm() {
     id,
     description,
     durationMinutes,
-    taskType: taskTypeValue,
     startTime: new Date().toISOString(),
   });
 
@@ -294,7 +287,7 @@ function startFocusSessionFromForm() {
   sessionManager.startSession(session);
 
   sessionTaskText.textContent = session.description;
-  sessionTaskType.textContent = prettyTaskType(taskTypeValue);
+  if (sessionTaskType) sessionTaskType.textContent = "";
   sessionEmoji.textContent = session.icon;
 
   showSessionView();
@@ -359,7 +352,7 @@ function updateAvatarUI() {
 }
 
 function populateCompletionUI(session, expResult) {
-  const vibe = vibeTextForTaskType(session.taskType);
+  const vibe = vibeTextForTaskType();
   let summary = `You focused on “${session.description}” for ${session.durationMinutes} minutes. ${vibe}`;
   if (session.bonusMultiplier && session.bonusMultiplier > 1) {
     const parts = [];
@@ -394,7 +387,6 @@ function populateCompletionUI(session, expResult) {
     id: session.id,
     description: session.description,
     durationMinutes: session.durationMinutes,
-    taskType: session.taskType,
     expResult,
     completedAt: session.endTime ?? new Date().toISOString(),
     notes: "",
@@ -460,20 +452,6 @@ function formatTime(ms) {
   )}`;
 }
 
-function prettyTaskType(value) {
-  switch (value) {
-    case TaskType.STRENGTH:
-      return "Strength";
-    case TaskType.STAMINA:
-      return "Stamina";
-    case TaskType.INTELLIGENCE:
-      return "Intelligence";
-    case TaskType.MIXED:
-    default:
-      return "Mixed";
-  }
-}
-
 function startBreakSession(durationMinutes) {
   const id = `break-${Date.now()}`;
   const description = "Break";
@@ -482,7 +460,6 @@ function startBreakSession(durationMinutes) {
     id,
     description,
     durationMinutes,
-    taskType: TaskType.STAMINA,
     startTime: new Date().toISOString(),
     isBreak: true,
   });
@@ -552,9 +529,7 @@ function renderHistory() {
     const meta = document.createElement("div");
     meta.className = "bq-history-item-meta";
     const when = formatShortDate(session.completedAt);
-    meta.textContent = `${when} • ${prettyTaskType(session.taskType)} • ${
-      session.durationMinutes
-    } min`;
+    meta.textContent = `${when} • ${session.durationMinutes} min`;
 
     li.appendChild(primary);
     li.appendChild(meta);
@@ -580,18 +555,8 @@ function formatShortDate(isoString) {
   });
 }
 
-function vibeTextForTaskType(taskType) {
-  switch (taskType) {
-    case TaskType.STRENGTH:
-      return "Strength training complete.";
-    case TaskType.STAMINA:
-      return "Stamina up – nice endurance work.";
-    case TaskType.INTELLIGENCE:
-      return "Intelligence leveled – your brain thanks you.";
-    case TaskType.MIXED:
-    default:
-      return "Balanced quest complete.";
-  }
+function vibeTextForTaskType() {
+  return "Quest complete – deliberate practice logged.";
 }
 
 function computeBonusesForNewSession() {
@@ -627,15 +592,17 @@ function computeBonusesForNewSession() {
 function applySessionBonuses(session, baseExp) {
   const mult = session.bonusMultiplier ?? 1;
   if (mult === 1) return baseExp;
-  const strengthExp = Math.round(baseExp.strengthExp * mult);
-  const staminaExp = Math.round(baseExp.staminaExp * mult);
-  const intelligenceExp = Math.round(baseExp.intelligenceExp * mult);
-  const totalExp = strengthExp + staminaExp + intelligenceExp;
+  const totalExp = Math.round(baseExp.totalExp * mult);
+  const standExp = {};
+  if (baseExp.standExp) {
+    Object.entries(baseExp.standExp).forEach(([key, value]) => {
+      const v = typeof value === "number" ? value : 0;
+      standExp[key] = Math.round(v * mult);
+    });
+  }
   return {
     totalExp,
-    strengthExp,
-    staminaExp,
-    intelligenceExp,
+    standExp,
   };
 }
 

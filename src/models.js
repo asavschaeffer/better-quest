@@ -1,10 +1,3 @@
-export const TaskType = Object.freeze({
-  STRENGTH: "STRENGTH",
-  STAMINA: "STAMINA",
-  INTELLIGENCE: "INTELLIGENCE",
-  MIXED: "MIXED",
-});
-
 export const SessionStatus = Object.freeze({
   IDLE: "idle",
   RUNNING: "running",
@@ -42,7 +35,6 @@ export function createTaskSession({
   id,
   description,
   durationMinutes,
-  taskType,
   startTime,
   isBreak = false,
 }) {
@@ -60,7 +52,6 @@ export function createTaskSession({
     id,
     description: description.trim(),
     durationMinutes,
-    taskType: taskType ?? TaskType.INTELLIGENCE,
     status: SessionStatus.RUNNING,
     startTime: startTime ?? new Date().toISOString(),
     endTime: null,

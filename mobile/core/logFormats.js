@@ -63,10 +63,7 @@ export function generateLinkedInLog(sessions) {
   )} into deliberate practice (${totalExp} EXP) in Better Quest:`;
 
   const bullets = sessions.map((s) => {
-    const category = s.taskType ?? "MIXED";
-    return `• ${s.description} – ${formatMinutes(
-      s.durationMinutes,
-    )} [${category}]`;
+    return `• ${s.description} – ${formatMinutes(s.durationMinutes)}`;
   });
 
   const footer =

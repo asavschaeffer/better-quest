@@ -1,5 +1,3 @@
-import { TaskType } from "./models.js";
-
 // Basic EXP tuning constants for the SLC.
 const EXP_PER_MINUTE = 10;
 const MIN_SESSION_MINUTES = 1;
