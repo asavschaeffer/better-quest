@@ -1,16 +1,8 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
-import Svg, {
-  Circle,
-  Line,
-  Polygon,
-  Text as SvgText,
-  G,
-  Path,
-} from "react-native-svg";
+import Svg, { Circle, Line, Polygon, Text as SvgText, G, Path } from "react-native-svg";
 
-// Radar chart for Better Quest:
-// STR, DEX, STA, INT, SPI, CRE, VIT (values 1–5, mapped to grades A–E).
+// Radar chart for Better Quest
 const ATTRS = [
   { key: "STR", label: "STR" },
   { key: "DEX", label: "DEX" },
@@ -36,16 +28,36 @@ export function StandStatsChart({
   size = 260,
 }) {
   const [activeAxis, setActiveAxis] = useState(null);
-  const [rotationMode, setRotationMode] = useState(false);
-  const [lastAngle, setLastAngle] = useState(null);
-  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [displayDuration, setDisplayDuration] = useState(duration);
+  const [isDraggingDuration, setIsDraggingDuration] = useState(false);
+  const rotationModeRef = useRef(false);
   const containerRef = useRef(null);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const durationValueRef = useRef(duration);
 
-  const cx = size / 2;
-  const cy = size / 2;
+  // Geometry
   const maxRadius = size * 0.35;
   const minRadius = size * 0.08;
   const totalAxes = ATTRS.length;
+  const durationMin = 1;
+  const durationMax = 120;
+  const TWO_PI = Math.PI * 2;
+  const startAngleBase = -Math.PI / 2; // 12 o'clock
+
+  // Duration arc geometry - define first so we can use for hit detection
+  const bananaGap = 14;
+  const bananaThickness = 52;
+  const bananaInnerR = maxRadius + bananaGap;
+  const bananaOuterR = bananaInnerR + bananaThickness;
+
+  // Duration drag UX - hit area starts slightly inside the visual arc for easier grabbing
+  const durationStartRadius = bananaInnerR - 8;
+
+  // Padding so arc never clips
+  const arcPadding = Math.max(0, bananaOuterR - size / 2 + 16);
+  const chartSize = size + arcPadding * 2;
+  const cx = chartSize / 2;
+  const cy = chartSize / 2;
 
   const stats = useMemo(() => {
     const base = {};
@@ -54,6 +66,33 @@ export function StandStatsChart({
     });
     return base;
   }, [value]);
+
+  useEffect(() => {
+    setDisplayDuration(duration);
+    durationValueRef.current = duration;
+  }, [duration]);
+
+  const durationToProgress = (dur) =>
+    Math.max(0, Math.min(1, (dur - durationMin) / (durationMax - durationMin)));
+
+  // Convert angle (from center) directly to duration - handle follows the finger
+  const angleToDuration = (angle) => {
+    // Normalize angle relative to 12 o'clock (startAngleBase)
+    let progress = (angle - startAngleBase) / TWO_PI;
+    // Handle wrap-around to keep in 0-1 range
+    progress = ((progress % 1) + 1) % 1;
+    // Convert to duration
+    return Math.max(durationMin, Math.min(durationMax, 
+      Math.round(durationMin + progress * (durationMax - durationMin))
+    ));
+  };
+
+  const setDurationFromAngle = (angle) => {
+    const next = angleToDuration(angle);
+    durationValueRef.current = next;
+    setDisplayDuration(next);
+    onDurationChange?.(next);
+  };
 
   const getPointOnAxis = (index, val) => {
     const angle = getAxisAngle(index, totalAxes);
@@ -90,6 +129,32 @@ export function StandStatsChart({
     };
   };
 
+  const arcBandPath = (innerR, outerR, startA, endA) => {
+    let s = startA;
+    let e = endA;
+    if (e < s) e += TWO_PI; // unwrap when crossing 0
+
+    const outerStartX = cx + Math.cos(s) * outerR;
+    const outerStartY = cy + Math.sin(s) * outerR;
+    const outerEndX = cx + Math.cos(e) * outerR;
+    const outerEndY = cy + Math.sin(e) * outerR;
+
+    const innerStartX = cx + Math.cos(s) * innerR;
+    const innerStartY = cy + Math.sin(s) * innerR;
+    const innerEndX = cx + Math.cos(e) * innerR;
+    const innerEndY = cy + Math.sin(e) * innerR;
+
+    const largeArcFlag = e - s > Math.PI ? 1 : 0;
+
+    return `
+      M ${outerStartX} ${outerStartY}
+      A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${outerEndX} ${outerEndY}
+      L ${innerEndX} ${innerEndY}
+      A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${innerStartX} ${innerStartY}
+      Z
+    `;
+  };
+
   const findNearestAxis = (x, y) => {
     const dx = x - cx;
     const dy = y - cy;
@@ -112,56 +177,44 @@ export function StandStatsChart({
   };
 
   const handleStart = (nativeEvent) => {
-    const { locationX, locationY } = nativeEvent;
-    const x = locationX;
-    const y = locationY;
+    const x = nativeEvent.locationX ?? nativeEvent.clientX ?? 0;
+    const y = nativeEvent.locationY ?? nativeEvent.clientY ?? 0;
 
     const dx = x - cx;
     const dy = y - cy;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Outer ring (beyond chart): rotation mode for duration
-    if (distance > maxRadius + 18) {
-      setRotationMode(true);
+    // Duration ring: activate when touching the arc area (with some tolerance)
+    if (distance >= durationStartRadius && distance <= bananaOuterR + 12) {
+      rotationModeRef.current = true;
+      setIsDraggingDuration(true);
+      // Immediately set duration to where user touched
       const angle = Math.atan2(dy, dx);
-      setLastAngle(angle);
+      setDurationFromAngle(angle);
+      return;
+    }
+
+    // Dead zone between stat chart and duration ring - ignore touches here
+    if (distance > maxRadius && distance < durationStartRadius) {
       return;
     }
 
     // Inner chart: stat adjustment mode
-    if (distance <= maxRadius * 1.2) {
-      setRotationMode(false);
+    if (distance <= maxRadius) {
       handleStatAdjust(x, y);
     }
   };
 
   const handleMove = (nativeEvent) => {
-    const { locationX, locationY } = nativeEvent;
-    const x = locationX;
-    const y = locationY;
+    const x = nativeEvent.locationX ?? nativeEvent.clientX ?? 0;
+    const y = nativeEvent.locationY ?? nativeEvent.clientY ?? 0;
 
-    if (rotationMode) {
+    if (rotationModeRef.current) {
+      // Direct positioning - handle follows the finger/mouse exactly
       const dx = x - cx;
       const dy = y - cy;
       const angle = Math.atan2(dy, dx);
-
-      if (lastAngle !== null) {
-        let delta = angle - lastAngle;
-        // Handle angle wrapping
-        if (delta > Math.PI) delta -= 2 * Math.PI;
-        if (delta < -Math.PI) delta += 2 * Math.PI;
-
-        // Map rotation to duration change (full circle = 60 minutes)
-        const minutesPerRadian = 60 / (Math.PI * 2);
-        const deltaMinutes = delta * minutesPerRadian;
-
-        onDurationChange?.((prev) => {
-          const next = Math.round(prev + deltaMinutes);
-          return Math.max(5, Math.min(120, next));
-        });
-      }
-
-      setLastAngle(angle);
+      setDurationFromAngle(angle);
     } else {
       handleStatAdjust(x, y);
     }
@@ -189,14 +242,15 @@ export function StandStatsChart({
 
   const handleRelease = () => {
     setActiveAxis(null);
-    setRotationMode(false);
-    setLastAngle(null);
+    rotationModeRef.current = false;
+    setIsDraggingDuration(false);
     setIsMouseDown(false);
   };
 
   // Web mouse event handlers
   const handleMouseDown = (e) => {
     if (Platform.OS !== "web") return;
+    e.preventDefault();
     setIsMouseDown(true);
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -221,6 +275,18 @@ export function StandStatsChart({
     handleRelease();
   };
 
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isMouseDown) return undefined;
+    const move = (e) => handleMouseMove(e);
+    const up = () => handleMouseUp();
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [isMouseDown]);
+
   const polygonPoints = ATTRS.map((attr, i) => {
     const point = getPointOnAxis(i, stats[attr.key]);
     return `${point.x},${point.y}`;
@@ -241,60 +307,13 @@ export function StandStatsChart({
     return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`;
   };
 
-  // Duration ring arc (0-120 minutes, fills clockwise from 12 o'clock)
-  const getDurationArcPath = () => {
-    const outerR = maxRadius + 18;
-    const innerR = maxRadius + 12;
-    const progress = Math.max(0, Math.min(1, duration / 120));
-    const endAngle = -Math.PI / 2 + progress * Math.PI * 2; // Start at top (-90°), go clockwise
-
-    // If duration is 0, don't draw anything
-    if (duration <= 0) return "";
-
-    const largeArcFlag = progress > 0.5 ? 1 : 0;
-
-    const outerStartX = cx + Math.cos(-Math.PI / 2) * outerR;
-    const outerStartY = cy + Math.sin(-Math.PI / 2) * outerR;
-    const outerEndX = cx + Math.cos(endAngle) * outerR;
-    const outerEndY = cy + Math.sin(endAngle) * outerR;
-
-    const innerStartX = cx + Math.cos(-Math.PI / 2) * innerR;
-    const innerStartY = cy + Math.sin(-Math.PI / 2) * innerR;
-    const innerEndX = cx + Math.cos(endAngle) * innerR;
-    const innerEndY = cy + Math.sin(endAngle) * innerR;
-
-    return `
-      M ${outerStartX} ${outerStartY}
-      A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${outerEndX} ${outerEndY}
-      L ${innerEndX} ${innerEndY}
-      A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${innerStartX} ${innerStartY}
-      Z
-    `;
-  };
-
-  // Chevron rotation hints around the ring
-  const getChevronPath = (angleOffset, direction) => {
-    const r = maxRadius + 15;
-    const angle = angleOffset;
-    const x = cx + Math.cos(angle) * r;
-    const y = cy + Math.sin(angle) * r;
-    const size = 6;
-
-    if (direction === "cw") {
-      // Clockwise chevron (>)
-      return `M ${x - size / 2} ${y - size} L ${x + size / 2} ${y} L ${x - size / 2} ${y + size}`;
-    } else {
-      // Counter-clockwise chevron (<)
-      return `M ${x + size / 2} ${y - size} L ${x - size / 2} ${y} L ${x + size / 2} ${y + size}`;
-    }
-  };
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What do you want to level up?</Text>
       <View
         ref={containerRef}
-        style={[styles.chartWrapper, { width: size, height: size }]}
+        style={[styles.chartWrapper, { width: chartSize, height: chartSize }]}
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
         onResponderGrant={(e) => handleStart(e.nativeEvent)}
@@ -304,48 +323,63 @@ export function StandStatsChart({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
       >
-        <Svg width={size} height={size}>
-          {/* Outer ring background */}
-          <Circle
-            cx={cx}
-            cy={cy}
-            r={maxRadius + 18}
-            fill="none"
-            stroke="#1f2937"
-            strokeWidth={6}
-          />
-
-          {/* Duration progress arc */}
-          <Path
-            d={getDurationArcPath()}
-            fill="#4f46e5"
-            opacity={0.8}
-          />
-
-          {/* Rotation hint chevrons */}
-          {[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle, i) => (
-            <Path
-              key={i}
-              d={getChevronPath(angle, "cw")}
-              fill="none"
-              stroke={rotationMode ? "#fbbf24" : "#6b7280"}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={rotationMode ? 0.9 : 0.4}
-            />
-          ))}
-
-          <Circle
-            cx={cx}
-            cy={cy}
-            r={maxRadius + 12}
-            fill="none"
-            stroke="#6366f1"
-            strokeWidth={1}
-          />
+        <Svg width={chartSize} height={chartSize}>
+          {/* Interaction band */}
+          {(() => {
+            const progressRaw = durationToProgress(displayDuration);
+            const progress = Math.max(0, Math.min(1, progressRaw));
+            const isFull = progress >= 0.999;
+            const centerR = (bananaInnerR + bananaOuterR) / 2;
+            const thickness = bananaOuterR - bananaInnerR;
+            const startAngle = startAngleBase;
+            const endAngle = startAngle + progress * TWO_PI;
+            const handleAngle = endAngle;
+            const handleX = cx + Math.cos(handleAngle) * centerR;
+            const handleY = cy + Math.sin(handleAngle) * centerR;
+            return (
+              <G pointerEvents="none">
+                <Circle
+                  cx={cx}
+                  cy={cy}
+                  r={centerR}
+                  stroke="rgba(99,102,241,0.16)"
+                  strokeWidth={thickness}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+                {isFull ? (
+                  <Circle
+                    cx={cx}
+                    cy={cy}
+                    r={centerR}
+                    stroke={isDraggingDuration ? "#818cf8" : "#6366f1"}
+                    strokeWidth={thickness}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                ) : progress > 0 ? (
+                  <Path
+                    d={arcBandPath(bananaInnerR, bananaOuterR, startAngle, endAngle)}
+                    fill={isDraggingDuration ? "rgba(99,102,241,0.35)" : "rgba(99,102,241,0.22)"}
+                    stroke={isDraggingDuration ? "#818cf8" : "#6366f1"}
+                    strokeWidth={isDraggingDuration ? 2 : 1}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : null}
+                {/* Handle - larger and more prominent when dragging */}
+                <Circle
+                  cx={handleX}
+                  cy={handleY}
+                  r={isDraggingDuration ? thickness / 2 : thickness / 2.4}
+                  fill={isDraggingDuration ? "#a5b4fc" : "rgba(99,102,241,0.9)"}
+                  stroke={isDraggingDuration ? "#4f46e5" : "#1e1b4b"}
+                  strokeWidth={isDraggingDuration ? 3 : 2}
+                />
+              </G>
+            );
+          })()}
 
           <Circle cx={cx} cy={cy} r={maxRadius + 10} fill="#020617" />
 
@@ -417,7 +451,7 @@ export function StandStatsChart({
             fill="#e5e7eb"
             fontWeight="bold"
           >
-            {duration}
+            {displayDuration}
           </SvgText>
           <SvgText
             x={cx}
@@ -479,7 +513,7 @@ export function StandStatsChart({
         </Svg>
       </View>
       <Text style={styles.helper}>
-        Drag inside the chart to adjust stats. Rotate outside the ring to change duration.
+        Drag inside chart for stats • Drag the outer ring for duration
       </Text>
     </View>
   );
@@ -520,5 +554,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-
-
