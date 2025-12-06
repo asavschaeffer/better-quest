@@ -292,6 +292,21 @@ export function StandStatsChart({
     return `${point.x},${point.y}`;
   }).join(" ");
 
+  // Duration bonus: continuous scale, weighted by stat focus
+  // High-focus stats (4-5) get full bonus, low-focus stats (1-2) get minimal bonus
+  const maxBonusTicks = Math.min(2, displayDuration / 60);
+  const bonusPolygonPoints = maxBonusTicks > 0.01
+    ? ATTRS.map((attr, i) => {
+        const baseStat = stats[attr.key];
+        // Weight: stat 1 = 0%, stat 5 = 100% of the bonus
+        const weight = (baseStat - 1) / 4;
+        const statBonus = maxBonusTicks * weight;
+        const boostedStat = Math.min(5, baseStat + statBonus);
+        const point = getPointOnAxis(i, boostedStat);
+        return `${point.x},${point.y}`;
+      }).join(" ")
+    : null;
+
   const getSectorPath = (index) => {
     const centerAngle = getAxisAngle(index, totalAxes);
     const span = (Math.PI * 2) / totalAxes / 2;
@@ -435,6 +450,18 @@ export function StandStatsChart({
             );
           })}
 
+          {/* Duration bonus polygon - golden glow behind main stats */}
+          {bonusPolygonPoints && (
+            <Polygon
+              points={bonusPolygonPoints}
+              fill="rgba(251,191,36,0.25)"
+              stroke="rgba(251,191,36,0.6)"
+              strokeWidth={2}
+              strokeDasharray="4,3"
+            />
+          )}
+
+          {/* Main stat polygon */}
           <Polygon
             points={polygonPoints}
             fill="rgba(56,189,248,0.45)"
@@ -463,6 +490,7 @@ export function StandStatsChart({
             min
           </SvgText>
 
+          {/* Stat point circles - removed for cleaner look
           {ATTRS.map((attr, i) => {
             const point = getPointOnAxis(i, stats[attr.key]);
             const isActive = activeAxis === i;
@@ -471,13 +499,14 @@ export function StandStatsChart({
                 key={attr.key}
                 cx={point.x}
                 cy={point.y}
-                r={isActive ? 9 : 6}
+                r={isActive ? 6 : 4}
                 fill={isActive ? "#f97316" : "#0ea5e9"}
                 stroke="#0b1120"
-                strokeWidth={2}
+                strokeWidth={1.5}
               />
             );
           })}
+          */}
 
           {ATTRS.map((attr, i) => {
             const labelPos = getLabelPosition(i);
