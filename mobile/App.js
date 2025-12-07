@@ -477,6 +477,7 @@ export default function App() {
           <HomeScreen
             avatar={avatar}
             levelInfo={levelInfo}
+            fatigueOverlayStats={fatigueOverlayStats}
             onStartQuest={handleStartQuest}
             onQuickstart={handleQuickstartPress}
             onQuickstartSelect={handleQuickstartSelect}
@@ -702,6 +703,7 @@ function playerStatsToChartValues(standExp) {
 function HomeScreen({
   avatar,
   levelInfo,
+  fatigueOverlayStats,
   onStartQuest,
   onQuickstart,
   onQuickstartSelect,
@@ -911,15 +913,19 @@ function HomeScreen({
             size={chartSize}
             showTotalExp={avatar.totalExp}
             hideOuterRing
-            overlays={[
-              {
-                value: fatigueOverlayStats,
-                stroke: "rgba(251,191,36,0.7)",
-                fill: "rgba(251,191,36,0.16)",
-                dash: "4,3",
-                strokeWidth: 2,
-              },
-            ]}
+            overlays={
+              fatigueOverlayStats
+                ? [
+                    {
+                      value: fatigueOverlayStats,
+                      stroke: "rgba(251,191,36,0.7)",
+                      fill: "rgba(251,191,36,0.16)",
+                      dash: "4,3",
+                      strokeWidth: 2,
+                    },
+                  ]
+                : undefined
+            }
           />
         </View>
 
@@ -2739,10 +2745,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1f2937",
     padding: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 6px 10px rgba(0,0,0,0.3)" }
+      : {
+          shadowColor: "#000",
+          shadowOpacity: 0.3,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 6 },
+        }),
     elevation: 8,
   },
   notificationDropdownHeader: {
@@ -2974,10 +2984,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: -20,
-    shadowColor: "#4f46e5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 4px 8px rgba(79,70,229,0.4)" }
+      : {
+          shadowColor: "#4f46e5",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+        }),
     elevation: 8,
     borderWidth: 3,
     borderColor: "#0f172a",
