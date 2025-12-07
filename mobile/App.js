@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,24 @@ import {
   FlatList,
   StyleSheet,
   Platform,
+  ScrollView,
+  Linking,
 } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import * as Clipboard from "expo-clipboard";
-import { createDefaultAvatar, createTaskSession, createUser } from "./core/models";
+import { 
+  createDefaultAvatar, 
+  createTaskSession, 
+  createUser, 
+  createQuest,
+  STAT_KEYS,
+  suggestStatsForLabel,
+  validateQuestStats,
+  getQuestStatTotal,
+  QUEST_STAT_MAX_TOTAL,
+} from "./core/models";
 import {
   calculateExpForSession,
   applyExpToAvatar,
@@ -25,79 +37,26 @@ import {
   generateLinkedInLog,
 } from "./core/logFormats";
 import { StandStatsChart } from "./StandStatsChart";
+import { QuestStatsWheel } from "./QuestStatsWheel";
+import { QuickLaunchEditor } from "./QuickLaunchEditor";
+import { 
+  loadUserQuests, 
+  addUserQuest,
+  deleteUserQuest,
+  BUILT_IN_QUEST_TEMPLATES,
+  questStatsToChartStats,
+} from "./core/questStorage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v1";
 const COMBO_BONUS_MULTIPLIER = 1.2;
 const REST_BONUS_MULTIPLIER = 1.1;
 const REST_BONUS_WINDOW_MINUTES = 45;
 
-// Fixed stat set for radar and quest templates.
-const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
-
-// Deterministic quest templates. Stat levels are integers 0–3.
-const QUEST_TEMPLATES = [
-  {
-    id: "weightlifting",
-    label: "Weightlifting",
-    description: "Weightlifting",
-    defaultDurationMinutes: 45,
-    stats: { STR: 2, DEX: 0, STA: 1, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STR +1 STA +1 VIT
-    keywords: ["weightlifting", "weights", "gym", "strength"],
-  },
-  {
-    id: "guitar",
-    label: "Guitar practice",
-    description: "Guitar",
-    defaultDurationMinutes: 45,
-    stats: { STR: 0, DEX: 2, STA: 0, INT: 0, SPI: 1, CRE: 1, VIT: 0 }, // +2 DEX +1 SPI +1 CRE
-    keywords: ["guitar", "music", "emo", "practice"],
-  },
-  {
-    id: "running",
-    label: "Running",
-    description: "Running",
-    defaultDurationMinutes: 30,
-    stats: { STR: 1, DEX: 0, STA: 2, INT: 0, SPI: 0, CRE: 0, VIT: 1 }, // +2 STA +1 STR +1 VIT
-    keywords: ["run", "running", "cardio"],
-  },
-  {
-    id: "math",
-    label: "Math study",
-    description: "Math",
-    defaultDurationMinutes: 60,
-    stats: { STR: 0, DEX: 0, STA: 0, INT: 2, SPI: 0, CRE: 1, VIT: 1 }, // +2 INT +1 CRE +1 VIT
-    keywords: ["math", "study", "course"],
-  },
-  {
-    id: "prayer",
-    label: "Prayer / meditation",
-    description: "Prayer / meditation",
-    defaultDurationMinutes: 20,
-    stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 3, CRE: 0, VIT: 1 }, // +3 SPI +1 VIT
-    keywords: ["prayer", "meditation", "spiritual", "faith"],
-  },
-  {
-    id: "writing",
-    label: "Writing",
-    description: "Writing",
-    defaultDurationMinutes: 30,
-    stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 2, VIT: 1 }, // +2 CRE +1 SPI +1 VIT
-    keywords: ["writing", "journal", "essay"],
-  },
-  {
-    id: "shower",
-    label: "Shower / reset",
-    description: "Shower / reset",
-    defaultDurationMinutes: 15,
-    stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CRE: 0, VIT: 1 }, // +1 VIT +1 SPI
-    keywords: ["shower", "reset", "clean"],
-  },
-];
-
 export default function App() {
   const [user, setUser] = useState(() => createUser());
   const [sessions, setSessions] = useState([]);
   const [motivation, setMotivation] = useState("");
+  const [userQuests, setUserQuests] = useState([]);
 
   const [screen, setScreen] = useState("home"); // home | quest | newQuest | session | complete
   const [currentSession, setCurrentSession] = useState(null);
@@ -107,29 +66,36 @@ export default function App() {
   const [comboFromSessionId, setComboFromSessionId] = useState(null);
   const [wellRestedUntil, setWellRestedUntil] = useState(null);
   const [draftQuestName, setDraftQuestName] = useState("");
+  const [pendingQuestAction, setPendingQuestAction] = useState(null); // action to open after save & start
 
   // Hydrate on mount
   useEffect(() => {
     (async () => {
       try {
+        // Load main app state
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (parsed.avatar) {
-          setUser({ ...createUser(), avatar: parsed.avatar });
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.avatar) {
+            setUser({ ...createUser(), avatar: parsed.avatar });
+          }
+          if (Array.isArray(parsed.sessions)) {
+            setSessions(parsed.sessions);
+          }
+          if (typeof parsed.motivation === "string") {
+            setMotivation(parsed.motivation);
+          }
+          if (parsed.comboFromSessionId) {
+            setComboFromSessionId(parsed.comboFromSessionId);
+          }
+          if (parsed.wellRestedUntil) {
+            setWellRestedUntil(parsed.wellRestedUntil);
+          }
         }
-        if (Array.isArray(parsed.sessions)) {
-          setSessions(parsed.sessions);
-        }
-        if (typeof parsed.motivation === "string") {
-          setMotivation(parsed.motivation);
-        }
-        if (parsed.comboFromSessionId) {
-          setComboFromSessionId(parsed.comboFromSessionId);
-        }
-        if (parsed.wellRestedUntil) {
-          setWellRestedUntil(parsed.wellRestedUntil);
-        }
+        
+        // Load user quests
+        const quests = await loadUserQuests();
+        setUserQuests(quests);
       } catch {
         // ignore
       }
@@ -308,6 +274,54 @@ export default function App() {
     setScreen("home");
   }
 
+  // Helper to open quest action (URL or app)
+  async function openQuestAction(action) {
+    if (!action || !action.value) return;
+    
+    try {
+      let url = action.value.trim();
+      
+      if (action.type === "url") {
+        // Ensure URL has protocol
+        if (!/^https?:\/\//i.test(url)) {
+          url = "https://" + url;
+        }
+      } else if (action.type === "file") {
+        // Convert file path to file:// URL
+        if (!url.startsWith("file://")) {
+          // Handle Windows paths (C:\path\to\file)
+          if (/^[a-zA-Z]:/.test(url)) {
+            url = "file:///" + url.replace(/\\/g, "/");
+          } else if (!url.startsWith("/")) {
+            url = "file:///" + url;
+          } else {
+            url = "file://" + url;
+          }
+        }
+      }
+      // For "app" type, use the value as-is (protocol handler like spotify:)
+      
+      if (Platform.OS === "web") {
+        window.open(url, "_blank");
+      } else {
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        }
+      }
+    } catch (e) {
+      console.log("Failed to open quest action:", e);
+    }
+  }
+
+  // Open pending action when session starts
+  useEffect(() => {
+    if (pendingQuestAction && screen === "session") {
+      openQuestAction(pendingQuestAction);
+      setPendingQuestAction(null);
+    }
+  }, [pendingQuestAction, screen]);
+
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const handler = (e) => {
@@ -336,20 +350,45 @@ export default function App() {
         )}
         {screen === "quest" && (
           <QuestSetupScreen
+            userQuests={userQuests}
             onBack={() => setScreen("home")}
-            onStartSession={handleStartSession}
+            onStartSession={(params) => {
+              // Check if quest has an action to open
+              if (params.questAction) {
+                setPendingQuestAction(params.questAction);
+              }
+              handleStartSession(params);
+            }}
             onCreateQuestDraft={(name) => {
               const trimmed = (name ?? "").trim();
               if (!trimmed) return;
               setDraftQuestName(trimmed);
               setScreen("newQuest");
             }}
+            onDeleteQuest={async (questId) => {
+              const updated = await deleteUserQuest(questId);
+              setUserQuests(updated);
+            }}
           />
         )}
         {screen === "newQuest" && (
           <NewQuestScreen
-            name={draftQuestName}
+            initialName={draftQuestName}
             onBack={() => setScreen("quest")}
+            onSave={async (quest) => {
+              const updated = await addUserQuest(quest);
+              setUserQuests(updated);
+              setScreen("quest");
+            }}
+            onSaveAndStart={async (quest, sessionParams) => {
+              const updated = await addUserQuest(quest);
+              setUserQuests(updated);
+              // Open quick launch action if present
+              if (quest.action) {
+                openQuestAction(quest.action);
+              }
+              handleStartSession(sessionParams);
+            }}
           />
         )}
         {screen === "session" && currentSession && (
@@ -491,7 +530,7 @@ function HomeScreen({
   );
 }
 
-function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
+function QuestSetupScreen({ userQuests = [], onBack, onStartSession, onCreateQuestDraft, onDeleteQuest }) {
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
   const [error, setError] = useState("");
@@ -505,10 +544,16 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
     VIT: 3,
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
+  const [selectedQuestAction, setSelectedQuestAction] = useState(null);
+
+  // Combine user quests with built-in templates
+  const allQuests = useMemo(() => {
+    return [...userQuests, ...BUILT_IN_QUEST_TEMPLATES];
+  }, [userQuests]);
 
   const sortedQuests = useMemo(
-    () => rankQuests(QUEST_TEMPLATES, focusStats, description),
-    [focusStats, description],
+    () => rankQuests(allQuests, focusStats, description),
+    [allQuests, focusStats, description],
   );
 
   const hasDirectNameMatch = useMemo(() => {
@@ -537,6 +582,7 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
       description: trimmed,
       durationMinutes: minutes,
       focusStats,
+      questAction: selectedQuestAction,
     });
   }
 
@@ -556,12 +602,13 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
   }
 
   function applyQuestTemplate(template) {
-    setDescription(template.description || template.label);
+    setDescription(template.label);
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
     }
-    setFocusStats(questStatsToChartValue(template.stats));
+    setFocusStats(questStatsToChartStats(template.stats));
     setSelectedQuestId(template.id);
+    setSelectedQuestAction(template.action || null);
   }
 
   function handleStatsChange(nextStats, meta) {
@@ -585,7 +632,8 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
     if (!sortedQuests.length) return;
     const top = sortedQuests[0];
     if (!top?.stats) return;
-    setFocusStats(questStatsToChartValue(top.stats));
+    setFocusStats(questStatsToChartStats(top.stats));
+    setSelectedQuestAction(top.action || null);
   }, [sortedQuests, selectedQuestId, description]);
 
   return (
@@ -603,7 +651,17 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
           <TextInput
             style={[styles.input, styles.inputGrow]}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(text) => {
+              setDescription(text);
+              // Clear selection when user types something different
+              if (selectedQuestId) {
+                const selected = allQuests.find(q => q.id === selectedQuestId);
+                if (selected && text.trim().toLowerCase() !== selected.label.toLowerCase()) {
+                  setSelectedQuestId(null);
+                  setSelectedQuestAction(null);
+                }
+              }
+            }}
             placeholder="e.g. Study math, go for a run, practice guitar"
             autoFocus={Platform.OS === "web"}
             onSubmitEditing={handleSubmitFromInput}
@@ -619,23 +677,47 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
               <Text style={styles.questItemLabel}>＋ New</Text>
             </TouchableOpacity>
           )}
-          {sortedQuests.map((q) => (
-            <TouchableOpacity
-              key={q.id}
-              style={[
-                styles.questItem,
-                selectedQuestId === q.id && styles.questItemActive,
-              ]}
-              onPress={() => applyQuestTemplate(q)}
-            >
-              <Text style={styles.questItemLabel}>{q.label}</Text>
-              {q.defaultDurationMinutes ? (
-                <Text style={styles.questItemMeta}>
-                  {q.defaultDurationMinutes}m
-                </Text>
-              ) : null}
-            </TouchableOpacity>
-          ))}
+          {sortedQuests.map((q) => {
+            const isUserQuest = userQuests.some(uq => uq.id === q.id);
+            return (
+              <TouchableOpacity
+                key={q.id}
+                style={[
+                  styles.questItem,
+                  selectedQuestId === q.id && styles.questItemActive,
+                  isUserQuest && styles.questItemUser,
+                ]}
+                onPress={() => applyQuestTemplate(q)}
+                onLongPress={isUserQuest ? () => {
+                  // Long press to delete user quest
+                  if (Platform.OS === "web") {
+                    if (window.confirm(`Delete "${q.label}"?`)) {
+                      onDeleteQuest?.(q.id);
+                      if (selectedQuestId === q.id) {
+                        setSelectedQuestId(null);
+                        setSelectedQuestAction(null);
+                      }
+                    }
+                  } else {
+                    // On native, just delete (could add Alert later)
+                    onDeleteQuest?.(q.id);
+                    if (selectedQuestId === q.id) {
+                      setSelectedQuestId(null);
+                      setSelectedQuestAction(null);
+                    }
+                  }
+                } : undefined}
+              >
+                {isUserQuest && <Text style={styles.questItemUserBadge}>★</Text>}
+                <Text style={styles.questItemLabel}>{q.label}</Text>
+                {q.defaultDurationMinutes ? (
+                  <Text style={styles.questItemMeta}>
+                    {q.defaultDurationMinutes}m
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
           {hasDirectNameMatch && (
             <TouchableOpacity
               style={styles.questItem}
@@ -646,6 +728,16 @@ function QuestSetupScreen({ onBack, onStartSession, onCreateQuestDraft }) {
           )}
         </View>
       </View>
+      {selectedQuestAction && (
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => openQuestAction(selectedQuestAction)}
+        >
+          <Text style={styles.actionBtnText}>
+            {selectedQuestAction.type === "url" ? "🔗" : selectedQuestAction.type === "file" ? "📁" : "📱"} Open resource
+          </Text>
+        </TouchableOpacity>
+      )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.rowBetween}>
         <TouchableOpacity style={styles.ghostBtn} onPress={onBack}>
@@ -782,21 +874,241 @@ function CompleteScreen({
   );
 }
 
-function NewQuestScreen({ name, onBack }) {
-  const title = (name ?? "").trim() || "Untitled quest";
+const DURATION_PRESETS = [10, 20, 30, 45, 60];
+
+function NewQuestScreen({ initialName = "", onBack, onSave, onSaveAndStart }) {
+  const [label, setLabel] = useState(initialName);
+  const [description, setDescription] = useState("");
+  const [duration, setDuration] = useState(25);
+  const [customDuration, setCustomDuration] = useState("");
+  const [stats, setStats] = useState(() => suggestStatsForLabel(initialName));
+  const [keywords, setKeywords] = useState("");
+  const [action, setAction] = useState(null);
+  const [error, setError] = useState("");
+
+  // Update stats suggestion when label changes
+  useEffect(() => {
+    if (!label.trim()) return;
+    const suggested = suggestStatsForLabel(label);
+    const total = getQuestStatTotal(suggested);
+    if (total > 0) {
+      setStats(suggested);
+    }
+  }, [label]);
+
+  function validate() {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) {
+      setError("Quest title is required");
+      return null;
+    }
+    
+    const finalDuration = customDuration ? parseInt(customDuration, 10) : duration;
+    if (!Number.isFinite(finalDuration) || finalDuration <= 0) {
+      setError("Please enter a valid duration");
+      return null;
+    }
+    if (finalDuration > 240) {
+      setError("Duration cannot exceed 240 minutes");
+      return null;
+    }
+    
+    // Validate stats
+    const validatedStats = validateQuestStats(stats);
+    
+    // Parse keywords
+    const keywordList = keywords
+      .split(/[,\s]+/)
+      .map(k => k.trim().toLowerCase())
+      .filter(k => k.length > 0);
+    
+    setError("");
+    
+    return {
+      id: `quest-${Date.now()}`,
+      label: trimmedLabel,
+      description: description.trim(),
+      defaultDurationMinutes: finalDuration,
+      stats: validatedStats,
+      keywords: keywordList,
+      action: action?.value?.trim() ? action : null,
+    };
+  }
+
+  function handleSave() {
+    const questData = validate();
+    if (!questData) return;
+    
+    try {
+      const quest = createQuest(questData);
+      onSave?.(quest);
+    } catch (e) {
+      setError(e.message || "Failed to create quest");
+    }
+  }
+
+  function handleSaveAndStart() {
+    const questData = validate();
+    if (!questData) return;
+    
+    try {
+      const quest = createQuest(questData);
+      const sessionParams = {
+        description: quest.label,
+        durationMinutes: quest.defaultDurationMinutes,
+        focusStats: questStatsToChartStats(quest.stats),
+        questAction: quest.action,
+      };
+      onSaveAndStart?.(quest, sessionParams);
+    } catch (e) {
+      setError(e.message || "Failed to create quest");
+    }
+  }
+
+  const statTotal = getQuestStatTotal(stats);
+  const pointsLeft = QUEST_STAT_MAX_TOTAL - statTotal;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>New quest (coming soon)</Text>
-      <Text style={[styles.muted, { marginTop: 8 }]}>
-        We&apos;ll turn &ldquo;{title}&rdquo; into a reusable quest template here.
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <Text style={styles.title}>Create Quest</Text>
+      <Text style={styles.muted}>
+        Build a reusable quest template with stats and quick launch
       </Text>
-      <TouchableOpacity
-        style={[styles.ghostBtn, { marginTop: 24 }]}
-        onPress={onBack}
-      >
-        <Text style={styles.ghostBtnText}>Back to setup</Text>
-      </TouchableOpacity>
-    </View>
+
+      {/* Title */}
+      <View style={styles.block}>
+        <Text style={styles.label}>Title *</Text>
+        <TextInput
+          style={styles.input}
+          value={label}
+          onChangeText={setLabel}
+          placeholder="e.g., Math study, Morning run"
+          placeholderTextColor="#6b7280"
+          autoFocus={Platform.OS === "web"}
+        />
+      </View>
+
+      {/* Description / Why */}
+      <View style={styles.block}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Description / Why</Text>
+          <Text style={styles.optional}>(optional)</Text>
+        </View>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Why are you doing this? What does it involve?"
+          placeholderTextColor="#6b7280"
+          multiline
+          numberOfLines={2}
+        />
+      </View>
+
+      {/* Stats allocation with integrated duration ring */}
+      <QuestStatsWheel 
+        value={stats} 
+        onChange={setStats}
+        duration={customDuration ? parseInt(customDuration, 10) || duration : duration}
+        onDurationChange={(d) => {
+          setDuration(d);
+          setCustomDuration("");
+        }}
+      />
+
+      {/* Duration quick-select chips + input */}
+      <View style={styles.durationSection}>
+        <View style={styles.durationRow}>
+          {DURATION_PRESETS.map(d => (
+            <TouchableOpacity
+              key={d}
+              style={[
+                styles.durationChip,
+                duration === d && !customDuration && styles.durationChipActive,
+              ]}
+              onPress={() => {
+                setDuration(d);
+                setCustomDuration("");
+              }}
+            >
+              <Text style={[
+                styles.durationChipText,
+                duration === d && !customDuration && styles.durationChipTextActive,
+              ]}>
+                {d}m
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TextInput
+            style={[styles.input, styles.durationInput]}
+            value={customDuration || (DURATION_PRESETS.includes(duration) ? "" : duration.toString())}
+            onChangeText={(text) => {
+              const cleaned = text.replace(/[^0-9]/g, "");
+              setCustomDuration(cleaned);
+              if (cleaned) {
+                const num = parseInt(cleaned, 10);
+                if (num > 0 && num <= 240) {
+                  setDuration(num);
+                }
+              }
+            }}
+            placeholder="min"
+            placeholderTextColor="#6b7280"
+            keyboardType="numeric"
+            maxLength={3}
+          />
+        </View>
+      </View>
+      {statTotal > 0 && (
+        <TouchableOpacity 
+          style={styles.resetLink}
+          onPress={() => {
+            const empty = {};
+            STAT_KEYS.forEach(k => { empty[k] = 0; });
+            setStats(empty);
+          }}
+        >
+          <Text style={styles.resetLinkText}>Reset stats</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Tags */}
+      <View style={styles.block}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Tags</Text>
+          <Text style={styles.optional}>(optional, comma or space separated)</Text>
+        </View>
+        <TextInput
+          style={styles.input}
+          value={keywords}
+          onChangeText={setKeywords}
+          placeholder="e.g., study, morning, focus"
+          placeholderTextColor="#6b7280"
+          autoCapitalize="none"
+        />
+      </View>
+
+      {/* Quick Launch */}
+      <QuickLaunchEditor value={action} onChange={setAction} />
+
+      {/* Error */}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {/* Actions */}
+      <View style={styles.actionsRow}>
+        <TouchableOpacity style={styles.ghostBtn} onPress={onBack}>
+          <Text style={styles.ghostBtnText}>Cancel</Text>
+        </TouchableOpacity>
+        <View style={styles.actionsRight}>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={handleSave}>
+            <Text style={styles.secondaryBtnText}>Save</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAndStart}>
+            <Text style={styles.primaryBtnText}>Save & Start</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -1089,6 +1401,95 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginLeft: 4,
   },
+  questItemUser: {
+    borderColor: "#4f46e5",
+    borderWidth: 1,
+  },
+  questItemUserBadge: {
+    color: "#a78bfa",
+    fontSize: 10,
+    marginRight: 4,
+  },
+  actionBtn: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#1e3a5f",
+    alignSelf: "flex-start",
+  },
+  actionBtnText: {
+    color: "#93c5fd",
+    fontSize: 13,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  optional: {
+    color: "#6b7280",
+    fontSize: 11,
+  },
+  durationRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 6,
+  },
+  durationChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  durationChipActive: {
+    borderColor: "#4f46e5",
+    backgroundColor: "#1e1b4b",
+  },
+  durationChipText: {
+    color: "#9ca3af",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  durationChipTextActive: {
+    color: "#e5e7eb",
+  },
+  durationInput: {
+    width: 70,
+    textAlign: "center",
+    marginTop: 0,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 24,
+    paddingBottom: 20,
+  },
+  actionsRight: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  resetLink: {
+    alignSelf: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  resetLinkText: {
+    color: "#6b7280",
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
+  durationSection: {
+    marginTop: 4,
+    alignItems: "center",
+  },
 });
 
 function applySessionBonuses(session, baseExp) {
@@ -1173,14 +1574,3 @@ function rankQuests(templates, focusStats, query) {
     .sort((a, b) => b.score - a.score);
 }
 
-function questStatsToChartValue(stats) {
-  const next = {};
-  STAT_KEYS.forEach((key) => {
-    const level = stats?.[key] ?? 0; // 0–3
-    const clamped = Math.max(0, Math.min(3, level));
-    // Map 0–3 → 1–5 roughly linearly.
-    const val = 1 + Math.round((clamped / 3) * 4);
-    next[key] = val;
-  });
-  return next;
-}

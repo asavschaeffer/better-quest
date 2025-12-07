@@ -1,0 +1,7 @@
+user pulls on a direction, a ghosted boundary shows their current threshold for improvement. the position of release on the pull determines teh stat spread of the proposed quest and the proposed duration (larger change = more time) 
+
+we use psychological principles to power our progression math:
+
+- reward a break after a focus session 
+- limit total time in any one category, but increase that limit as time is spent over long term (i.e. today's limit for physical is 1 hour, after completing one hour, tomorrow's limit will be 1.1 hours) not a hard limit, but an exp reward multiplier/dampener.
+- streaking increases exp by 2x. so doing the same quest everyday is a really good idea, called a mandala. we can use yogic numbers for thresholds to grant exp rewards like 33, 60 days for a habit etc

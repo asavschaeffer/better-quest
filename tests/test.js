@@ -1,6 +1,6 @@
-import { createUser, createTaskSession, SessionStatus } from "./src/models.js";
-import { calculateExpForSession, applyExpToAvatar, getLevelProgress } from "./src/exp.js";
-import { inferEmojiForDescription } from "./src/emoji.js";
+import { createUser, createTaskSession, SessionStatus } from "../src/models.js";
+import { calculateExpForSession, applyExpToAvatar, getLevelProgress } from "../src/exp.js";
+import { inferEmojiForDescription } from "../src/emoji.js";
 
 // Test utilities
 class TestRunner {
