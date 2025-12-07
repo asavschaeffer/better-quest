@@ -32,6 +32,10 @@ import {
   applyExpToAvatar,
   getLevelProgress,
 } from "./core/exp";
+import {
+  computeDailyBudgets,
+  dampingMultiplier,
+} from "./core/fatigue";
 import { inferEmojiForDescription } from "./core/emoji";
 import {
   generateRawLog,
@@ -60,6 +64,7 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [motivation, setMotivation] = useState("");
   const [userQuests, setUserQuests] = useState([]);
+  const [questStreaks, setQuestStreaks] = useState({});
 
   const [screen, setScreen] = useState("home"); // home | library | history | leaderboard | settings | quest | newQuest | session | complete
   const [activeTab, setActiveTab] = useState("home"); // tracks navbar selection
@@ -99,6 +104,9 @@ export default function App() {
           if (typeof parsed.motivation === "string") {
             setMotivation(parsed.motivation);
           }
+        if (parsed.questStreaks && typeof parsed.questStreaks === "object") {
+          setQuestStreaks(parsed.questStreaks);
+        }
           if (parsed.comboFromSessionId) {
             setComboFromSessionId(parsed.comboFromSessionId);
           }
@@ -133,6 +141,7 @@ export default function App() {
           avatar: user.avatar,
           sessions,
           motivation,
+          questStreaks,
           comboFromSessionId,
           wellRestedUntil,
           homeFooterConfig,
@@ -144,7 +153,7 @@ export default function App() {
       }
     };
     save();
-  }, [user, sessions, motivation, comboFromSessionId, wellRestedUntil, homeFooterConfig, quickStartMode]);
+  }, [user, sessions, motivation, questStreaks, comboFromSessionId, wellRestedUntil, homeFooterConfig, quickStartMode]);
 
   // Timer effect
   useEffect(() => {
@@ -179,6 +188,32 @@ export default function App() {
     [userQuests, avatar],
   );
 
+  const todayStandExp = useMemo(() => computeTodayStandExp(sessions), [sessions]);
+  const mandalaStreak = useMemo(() => getMaxMandalaStreak(questStreaks), [questStreaks]);
+  const aggregateConsistency = useMemo(
+    () => computeAggregateConsistency(sessions),
+    [sessions],
+  );
+  const dailyBudgets = useMemo(() => {
+    const chartStats = playerStatsToChartValues(avatar.standExp);
+    return computeDailyBudgets({
+      chartStats,
+      level: avatar.level ?? 1,
+      mandalaStreak,
+      aggregateConsistency,
+    });
+  }, [avatar, mandalaStreak, aggregateConsistency]);
+  const fatigueOverlayStats = useMemo(() => {
+    const remaining = {};
+    STAT_KEYS.forEach((k) => {
+      const budget = dailyBudgets[k] ?? 0;
+      const spent = todayStandExp[k] ?? 0;
+      remaining[k] = Math.max(0, budget - spent);
+    });
+    const previewStand = addStandExp(avatar.standExp, remaining);
+    return playerStatsToChartValues(previewStand);
+  }, [dailyBudgets, todayStandExp, avatar]);
+
   function handleStartQuest() {
     setScreen("quest");
   }
@@ -194,6 +229,7 @@ export default function App() {
       description: template.label || "Quest",
       durationMinutes: template.defaultDurationMinutes || 25,
       focusStats: questStatsToChartStats(template.stats || {}),
+      questKey: template.id || template.label || null,
       questAction: template.action || null,
     };
 
@@ -208,6 +244,7 @@ export default function App() {
     description,
     durationMinutes,
     focusStats,
+    questKey = null,
   }) {
     const id = `session-${Date.now()}`;
     // Determine bonuses based on previous actions.
@@ -227,12 +264,15 @@ export default function App() {
     if (hasCombo) bonusMultiplier *= COMBO_BONUS_MULTIPLIER;
     if (hasRest) bonusMultiplier *= REST_BONUS_MULTIPLIER;
 
+    const resolvedQuestKey = questKey || (description ? description.trim() : null);
+
     const session = createTaskSession({
       id,
       description,
       durationMinutes,
       startTime: new Date().toISOString(),
       standStats: focusStats,
+      questKey: resolvedQuestKey,
       comboBonus: hasCombo,
       restBonus: hasRest,
       bonusMultiplier,
@@ -252,10 +292,23 @@ export default function App() {
       endTime: new Date(endTimeMs).toISOString(),
     };
     const baseExp = calculateExpForSession(completedSession);
-    const exp = applySessionBonuses(completedSession, baseExp);
+    const expWithBonuses = applySessionBonuses(completedSession, baseExp);
+    const exp = applyFatigueDamping({
+      baseExp: expWithBonuses,
+      avatar,
+      sessions,
+      questStreaks,
+    });
     setLastExpResult(exp);
     const nextAvatar = applyExpToAvatar(avatar, exp);
     setUser((prev) => ({ ...prev, avatar: nextAvatar }));
+
+    const updatedQuestStreaks = updateQuestStreaks(
+      questStreaks,
+      completedSession.questKey,
+      completedSession.endTime,
+    );
+    setQuestStreaks(updatedQuestStreaks);
 
     setSessions((prev) => [
       {
@@ -264,6 +317,7 @@ export default function App() {
         durationMinutes: completedSession.durationMinutes,
         completedAt: completedSession.endTime,
         standStats: completedSession.standStats ?? null,
+        questKey: completedSession.questKey ?? null,
         expResult: exp,
         notes: "",
         bonusMultiplier: completedSession.bonusMultiplier ?? 1,
@@ -484,7 +538,10 @@ export default function App() {
               if (params.questAction) {
                 setPendingQuestAction(params.questAction);
               }
-              handleStartSession(params);
+              handleStartSession({
+                ...params,
+                questKey: params.questKey || params.questId || params.description || null,
+              });
             }}
             onCreateQuestDraft={(name) => {
               const trimmed = (name ?? "").trim();
@@ -526,7 +583,10 @@ export default function App() {
               if (quest.action) {
                 openQuestAction(quest.action);
               }
-              handleStartSession(sessionParams);
+              handleStartSession({
+                ...sessionParams,
+                questKey: quest.id || sessionParams.questKey || quest.label || null,
+              });
             }}
             onDelete={async (questId) => {
               const updated = await deleteUserQuest(questId);
@@ -656,6 +716,7 @@ function HomeScreen({
   announcements = [],
 }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Pick a random quote on mount (or cycle daily)
   const [quoteIndex] = useState(() => {
@@ -698,6 +759,22 @@ function HomeScreen({
     }
     return list.slice(0, 3);
   }, [userQuests]);
+
+  useEffect(() => {
+    if (!announcements.length && isNotificationsOpen) {
+      setIsNotificationsOpen(false);
+    }
+  }, [announcements.length, isNotificationsOpen]);
+
+  function handleNotificationsPress() {
+    if (announcements.length === 0) {
+      return;
+    }
+    setIsNotificationsOpen((open) => !open);
+    if (onOpenNotifications) {
+      onOpenNotifications();
+    }
+  }
 
   // Avatar roaming animation
   const avatarX = useRef(new Animated.Value(0)).current;
@@ -772,16 +849,6 @@ function HomeScreen({
 
   return (
     <View style={styles.homeContainer}>
-      {announcements.length > 0 && (
-        <View style={styles.announcements}>
-          {announcements.map((a) => (
-            <View key={a.id} style={styles.announcementCard}>
-              <Text style={styles.announcementTitle}>{a.title}</Text>
-              <Text style={styles.announcementBody}>{a.body}</Text>
-            </View>
-          ))}
-        </View>
-      )}
       {/* Header Row: Username | Level + Title | Bell + Cog */}
       <View style={styles.homeHeader}>
         <Text style={styles.headerUsername}>{avatar.name}</Text>
@@ -792,7 +859,7 @@ function HomeScreen({
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.headerIconBtn}
-            onPress={onOpenNotifications}
+            onPress={handleNotificationsPress}
           >
             <Text style={styles.headerIcon}>🔔</Text>
           </TouchableOpacity>
@@ -805,6 +872,35 @@ function HomeScreen({
         </View>
       </View>
 
+      {isNotificationsOpen && announcements.length > 0 && (
+        <View style={styles.notificationDropdownContainer} pointerEvents="box-none">
+          <TouchableOpacity
+            style={styles.notificationBackdrop}
+            activeOpacity={1}
+            onPress={() => setIsNotificationsOpen(false)}
+          />
+          <View style={styles.notificationDropdown}>
+            <View style={styles.notificationDropdownHeader}>
+              <Text style={styles.notificationDropdownTitle}>Notifications</Text>
+              <TouchableOpacity
+                style={styles.notificationCloseBtn}
+                onPress={() => setIsNotificationsOpen(false)}
+              >
+                <Text style={styles.notificationCloseIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.notificationList}>
+              {announcements.map((a) => (
+                <View key={a.id} style={styles.announcementCard}>
+                  <Text style={styles.announcementTitle}>{a.title}</Text>
+                  <Text style={styles.announcementBody}>{a.body}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
       {/* Stage: Chart as background, Avatar roams in foreground */}
       <View style={[styles.stage, { height: stageHeight }]}>
         {/* Background: Stats Chart in top-right corner */}
@@ -815,6 +911,15 @@ function HomeScreen({
             size={chartSize}
             showTotalExp={avatar.totalExp}
             hideOuterRing
+            overlays={[
+              {
+                value: fatigueOverlayStats,
+                stroke: "rgba(251,191,36,0.7)",
+                fill: "rgba(251,191,36,0.16)",
+                dash: "4,3",
+                strokeWidth: 2,
+              },
+            ]}
           />
         </View>
 
@@ -2545,6 +2650,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#020617",
     paddingHorizontal: 16,
+    position: "relative",
   },
   announcements: {
     marginTop: 8,
@@ -2607,6 +2713,58 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     fontSize: 20,
+  },
+  notificationDropdownContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    paddingHorizontal: 16,
+  },
+  notificationBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  notificationDropdown: {
+    marginTop: 8,
+    marginLeft: "auto",
+    width: 320,
+    maxWidth: "100%",
+    backgroundColor: "#0b1220",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    padding: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  notificationDropdownHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  notificationDropdownTitle: {
+    color: "#e5e7eb",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  notificationCloseBtn: {
+    padding: 6,
+  },
+  notificationCloseIcon: {
+    color: "#9ca3af",
+    fontSize: 14,
+  },
+  notificationList: {
+    maxHeight: 260,
   },
   // Stage layout: chart background, roaming avatar foreground
   stage: {
@@ -3266,5 +3424,129 @@ function aggregateStandGains(sessions = []) {
     });
   });
   return totals;
+}
+
+function computeTodayStandExp(sessions = []) {
+  const totals = {};
+  STAT_KEYS.forEach((k) => {
+    totals[k] = 0;
+  });
+  if (!sessions.length) return totals;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+  sessions.forEach((s) => {
+    const d = new Date(s.completedAt || s.endTime || s.startTime);
+    if (Number.isNaN(d.getTime())) return;
+    d.setHours(0, 0, 0, 0);
+    if (d.getTime() !== todayMs) return;
+    const gains = s.expResult?.standExp || {};
+    STAT_KEYS.forEach((k) => {
+      totals[k] += typeof gains[k] === "number" ? gains[k] : 0;
+    });
+  });
+  return totals;
+}
+
+function addStandExp(current = {}, delta = {}) {
+  const next = {};
+  STAT_KEYS.forEach((k) => {
+    const base = typeof current[k] === "number" ? current[k] : 0;
+    const add = typeof delta[k] === "number" ? delta[k] : 0;
+    next[k] = base + add;
+  });
+  return next;
+}
+
+function updateQuestStreaks(prev = {}, questKey, completedAt) {
+  if (!questKey) return prev;
+  const d = new Date(completedAt || Date.now());
+  if (Number.isNaN(d.getTime())) return prev;
+  d.setHours(0, 0, 0, 0);
+  const day = d.toISOString();
+  const existing = prev[questKey];
+  const lastDay = existing?.lastDay ? new Date(existing.lastDay) : null;
+  let streak = 1;
+  if (lastDay && !Number.isNaN(lastDay.getTime())) {
+    lastDay.setHours(0, 0, 0, 0);
+    const diff = d.getTime() - lastDay.getTime();
+    if (diff === 0) {
+      // Same day, keep streak
+      streak = existing.streak || 1;
+    } else if (diff === 86400000) {
+      streak = (existing.streak || 1) + 1;
+    }
+  }
+  return {
+    ...prev,
+    [questKey]: {
+      lastDay: day,
+      streak,
+    },
+  };
+}
+
+function getMaxMandalaStreak(streaks = {}) {
+  const values = Object.values(streaks).map((s) => s?.streak || 0);
+  if (!values.length) return 0;
+  return Math.max(...values);
+}
+
+function computeAggregateConsistency(sessions = []) {
+  if (!sessions.length) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const msPerDay = 86400000;
+  const activeDays = { week: new Set(), month: new Set() };
+  sessions.forEach((s) => {
+    const d = new Date(s.completedAt || s.endTime || s.startTime);
+    if (Number.isNaN(d.getTime())) return;
+    d.setHours(0, 0, 0, 0);
+    const diffDays = (today.getTime() - d.getTime()) / msPerDay;
+    if (diffDays >= 0 && diffDays < 7) {
+      activeDays.week.add(d.toDateString());
+    }
+    if (diffDays >= 0 && diffDays < 30) {
+      activeDays.month.add(d.toDateString());
+    }
+  });
+  const weekRatio = activeDays.week.size / 7;
+  const monthRatio = activeDays.month.size / 30;
+  return Math.max(0, Math.min(1, weekRatio * 0.6 + monthRatio * 0.4));
+}
+
+function applyFatigueDamping({ baseExp, avatar, sessions, questStreaks }) {
+  if (!baseExp || !baseExp.standExp) return baseExp;
+  const todaySpent = computeTodayStandExp(sessions);
+  const mandalaStreak = getMaxMandalaStreak(questStreaks);
+  const aggregateConsistency = computeAggregateConsistency(sessions);
+  const chartStats = playerStatsToChartValues(avatar?.standExp || {});
+  const budgets = computeDailyBudgets({
+    chartStats,
+    level: avatar?.level ?? 1,
+    mandalaStreak,
+    aggregateConsistency,
+  });
+
+  const adjustedStand = {};
+  STAT_KEYS.forEach((k) => {
+    const gain = baseExp.standExp?.[k] ?? 0;
+    const spent = todaySpent[k] ?? 0;
+    const budget = budgets[k] ?? 0;
+    const mult = dampingMultiplier({
+      spent: spent + gain,
+      budget,
+      floor: 0.4,
+    });
+    adjustedStand[k] = Math.round(gain * mult);
+  });
+  const adjustedTotal = Math.max(
+    0,
+    Math.round(Object.values(adjustedStand).reduce((sum, v) => sum + v, 0)),
+  );
+  return {
+    totalExp: adjustedTotal,
+    standExp: adjustedStand,
+  };
 }
 

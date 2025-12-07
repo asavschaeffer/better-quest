@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "start:web": "npx serve .",
-    "test": "node test.js",
+    "test": "node tests/test.js && node tests/fatigue.test.js",
     "test:browser": "node browser-test.js",
     "test:all": "npm run test && npm run test:browser",
     "dev:mobile": "cd mobile && npm run start"
