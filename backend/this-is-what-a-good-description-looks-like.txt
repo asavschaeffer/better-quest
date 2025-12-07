@@ -1,0 +1,2 @@
+While not approaching the benefits of the {quest: dry sauna[str:1 sta:1 spi:1 vit:1]} taking a bath has a relaxing effect on the mind and the muscles. There is a significant water loss though so keep that in mind. I recommend {quest: drinking water [vit: 1 spi:1 int:1]} beforehand.
+

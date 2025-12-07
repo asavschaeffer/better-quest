@@ -29,6 +29,9 @@ export function StandStatsChart({
   progress = 0, // 0-1: session progress (0 = just started, 1 = complete)
   readOnly = false, // disable all interaction during session
   countdownText = null, // e.g. "23:45" - replaces duration display when provided
+  showTotalExp = null, // number: show total EXP in center instead of duration (for profile view)
+  hideOuterRing = false, // hide the duration ring entirely (for profile view)
+  overlays = [], // [{ value, stroke, fill }]
 }) {
   const [activeAxis, setActiveAxis] = useState(null);
   const [displayDuration, setDisplayDuration] = useState(duration);
@@ -356,8 +359,8 @@ export function StandStatsChart({
         onMouseUp={handleMouseUp}
       >
         <Svg width={chartSize} height={chartSize}>
-          {/* Duration ring - depletes during session */}
-          {(() => {
+          {/* Duration ring - depletes during session, hidden in profile mode */}
+          {!hideOuterRing && (() => {
             // During session (readOnly + progress), show remaining time depleting
             const remainingDuration = readOnly && progress > 0
               ? displayDuration * (1 - progress)
@@ -482,6 +485,25 @@ export function StandStatsChart({
             />
           )}
 
+          {/* Overlays for comparison (e.g., day/week/month) */}
+          {overlays.map((overlay, idx) => {
+            const oStats = ATTRS.map((attr, i) => {
+              const val = overlay.value?.[attr.key] ?? stats[attr.key];
+              const point = getPointOnAxis(i, val);
+              return `${point.x},${point.y}`;
+            }).join(" ");
+            return (
+              <Polygon
+                key={`overlay-${idx}`}
+                points={oStats}
+                fill={overlay.fill || "rgba(255,255,255,0.08)"}
+                stroke={overlay.stroke || "#ffffff"}
+                strokeWidth={overlay.strokeWidth || 2}
+                strokeDasharray={overlay.dash || "4,3"}
+              />
+            );
+          })}
+
           {/* Main stat polygon */}
           <Polygon
             points={polygonPoints}
@@ -490,7 +512,7 @@ export function StandStatsChart({
             strokeWidth={2}
           />
 
-          {/* Duration/countdown display in center */}
+          {/* Center display: countdown, total EXP, or duration */}
           {countdownText ? (
             <SvgText
               x={cx}
@@ -502,6 +524,28 @@ export function StandStatsChart({
             >
               {countdownText}
             </SvgText>
+          ) : showTotalExp !== null ? (
+            <>
+              <SvgText
+                x={cx}
+                y={cy - 4}
+                textAnchor="middle"
+                fontSize={22}
+                fill="#fbbf24"
+                fontWeight="bold"
+              >
+                {showTotalExp.toLocaleString()}
+              </SvgText>
+              <SvgText
+                x={cx}
+                y={cy + 14}
+                textAnchor="middle"
+                fontSize={11}
+                fill="#9ca3af"
+              >
+                TOTAL EXP
+              </SvgText>
+            </>
           ) : (
             <>
               <SvgText
