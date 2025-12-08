@@ -13,7 +13,8 @@ const ATTRS = [
   { key: "VIT", label: "VIT" },
 ];
 
-const VALUE_TO_GRADE = { 5: "A", 4: "B", 3: "C", 2: "D", 1: "E" };
+const VALUE_TO_GRADE = { 6: "S", 5: "A", 4: "B", 3: "C", 2: "D", 1: "E" };
+const MAX_STAT = 6; // S tier
 
 function getAxisAngle(index, total) {
   // Start from top, go clockwise.
@@ -22,6 +23,7 @@ function getAxisAngle(index, total) {
 
 export function StandStatsChart({
   value,
+  targetValue = null, // optional: end-of-session stats (if provided, used for yellow outline)
   onChange,
   duration = 25,
   onDurationChange,
@@ -102,7 +104,8 @@ export function StandStatsChart({
 
   const getPointOnAxis = (index, val) => {
     const angle = getAxisAngle(index, totalAxes);
-    const radius = minRadius + ((val - 1) / 4) * (maxRadius - minRadius);
+    // Scale: E=1, D=2, C=3, B=4, A=5, S=6
+    const radius = minRadius + ((val - 1) / (MAX_STAT - 1)) * (maxRadius - minRadius);
     return {
       x: cx + Math.cos(angle) * radius,
       y: cy + Math.sin(angle) * radius,
@@ -178,8 +181,8 @@ export function StandStatsChart({
     const dy = y - cy;
     const projectedDistance = dx * Math.cos(angle) + dy * Math.sin(angle);
     const clampedDistance = Math.max(0, Math.min(maxRadius, projectedDistance));
-    const val = Math.round(1 + (clampedDistance / maxRadius) * 4);
-    return Math.max(1, Math.min(5, val));
+    const val = Math.round(1 + (clampedDistance / maxRadius) * (MAX_STAT - 1));
+    return Math.max(1, Math.min(MAX_STAT, val));
   };
 
   const handleStart = (nativeEvent) => {
@@ -295,33 +298,34 @@ export function StandStatsChart({
     };
   }, [isMouseDown]);
 
-  // Duration bonus: continuous scale, weighted by stat focus
-  // High-focus stats (4-5) get full bonus, low-focus stats (1-2) get minimal bonus
-  const maxBonusTicks = Math.min(2, displayDuration / 60);
-  
-  // Calculate bonus for each stat
-  const statBonuses = useMemo(() => {
-    return ATTRS.map((attr) => {
-      const baseStat = stats[attr.key];
-      const weight = (baseStat - 1) / 4; // stat 1 = 0%, stat 5 = 100%
-      return maxBonusTicks * weight;
-    });
-  }, [stats, maxBonusTicks]);
+  // Target stats: use provided targetValue or fall back to base stats
+  const targetStats = useMemo(() => {
+    if (targetValue) {
+      const result = {};
+      ATTRS.forEach((attr) => {
+        result[attr.key] = targetValue[attr.key] ?? stats[attr.key];
+      });
+      return result;
+    }
+    return stats; // No target = no growth animation
+  }, [targetValue, stats]);
 
-  // Blue polygon: base stats + (bonus * progress) during session
+  // Check if there's any difference between base and target
+  const hasBonus = ATTRS.some((attr) => targetStats[attr.key] > stats[attr.key]);
+
+  // Blue polygon: interpolate between base and target based on progress
   const polygonPoints = ATTRS.map((attr, i) => {
     const baseStat = stats[attr.key];
-    const currentStat = Math.min(5, baseStat + statBonuses[i] * progress);
-    const point = getPointOnAxis(i, currentStat);
+    const target = targetStats[attr.key];
+    const currentStat = baseStat + (target - baseStat) * progress;
+    const point = getPointOnAxis(i, Math.min(MAX_STAT, currentStat));
     return `${point.x},${point.y}`;
   }).join(" ");
 
-  // Yellow polygon: shows full potential (base + full bonus)
-  const bonusPolygonPoints = maxBonusTicks > 0.01
+  // Yellow polygon: shows full potential (target stats)
+  const bonusPolygonPoints = hasBonus
     ? ATTRS.map((attr, i) => {
-        const baseStat = stats[attr.key];
-        const boostedStat = Math.min(5, baseStat + statBonuses[i]);
-        const point = getPointOnAxis(i, boostedStat);
+        const point = getPointOnAxis(i, Math.min(MAX_STAT, targetStats[attr.key]));
         return `${point.x},${point.y}`;
       }).join(" ")
     : null;
@@ -426,8 +430,8 @@ export function StandStatsChart({
             <Path d={getSectorPath(activeAxis)} fill="rgba(59,130,246,0.18)" />
           )}
 
-          {[1, 2, 3, 4, 5].map((grade) => {
-            const radius = minRadius + ((grade - 1) / 4) * (maxRadius - minRadius);
+          {[1, 2, 3, 4, 5, 6].map((grade) => {
+            const radius = minRadius + ((grade - 1) / (MAX_STAT - 1)) * (maxRadius - minRadius);
             return (
               <Circle
                 key={grade}
@@ -442,15 +446,15 @@ export function StandStatsChart({
             );
           })}
 
-          {["A", "B", "C", "D", "E"].map((grade, i) => {
-            const radius = minRadius + ((4 - i) / 4) * (maxRadius - minRadius);
+          {["S", "A", "B", "C", "D", "E"].map((grade, i) => {
+            const radius = minRadius + (((MAX_STAT - 1) - i) / (MAX_STAT - 1)) * (maxRadius - minRadius);
             return (
               <SvgText
                 key={grade}
                 x={cx + 6}
                 y={cy - radius + 4}
                 fontSize={10}
-                fill="#6b7280"
+                fill={grade === "S" ? "#fbbf24" : "#6b7280"}
                 fontWeight="bold"
               >
                 {grade}
@@ -634,8 +638,7 @@ export function StandStatsChart({
               />
               {/* Sparkles at each stat point */}
               {ATTRS.map((attr, i) => {
-                const baseStat = stats[attr.key];
-                const boostedStat = Math.min(5, baseStat + statBonuses[i]);
+                const boostedStat = Math.min(MAX_STAT, targetStats[attr.key]);
                 const point = getPointOnAxis(i, boostedStat);
                 return (
                   <G key={`sparkle-${attr.key}`}>

@@ -349,10 +349,16 @@ function AppShell() {
       return;
     }
 
+    // Extract raw allocation (0-3 scale)
+    const allocation = {};
+    STAT_KEYS.forEach(key => {
+      allocation[key] = template.stats?.[key] ?? 0;
+    });
+
     const sessionParams = {
       description: template.label || "Quest",
       durationMinutes: template.defaultDurationMinutes || 25,
-      focusStats: questStatsToChartStats(template.stats || {}),
+      allocation,
       questKey: template.id || template.label || null,
       questAction: template.action || null,
     };
@@ -367,7 +373,7 @@ function AppShell() {
   function handleStartSession({
     description,
     durationMinutes,
-    focusStats,
+    allocation,
     questKey = null,
   }) {
     const id = `session-${Date.now()}`;
@@ -390,12 +396,18 @@ function AppShell() {
 
     const resolvedQuestKey = questKey || (description ? description.trim() : null);
 
+    // Compute chart values from allocation
+    const baseStats = questStatsToChartStats(allocation, 0);
+    const targetStats = questStatsToChartStats(allocation, durationMinutes);
+
     const session = createTaskSession({
       id,
       description,
       durationMinutes,
       startTime: new Date().toISOString(),
-      standStats: focusStats,
+      allocation,
+      standStats: baseStats,
+      targetStats,
       questKey: resolvedQuestKey,
       comboBonus: hasCombo,
       restBonus: hasRest,

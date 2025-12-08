@@ -21,18 +21,19 @@ export default function QuestSetupScreen({
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
   const [error, setError] = useState("");
-  const [focusStats, setFocusStats] = useState({
-    STR: 3,
-    DEX: 3,
-    STA: 3,
-    INT: 3,
-    SPI: 3,
-    CRE: 3,
-    VIT: 3,
+  // Store raw allocation (0-3 scale)
+  const [allocation, setAllocation] = useState({
+    STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CRE: 0, VIT: 0,
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
   const autoApplyRef = useRef({ desc: "", questId: null });
+
+  // Compute chart values from allocation + duration
+  const baseStats = useMemo(() => questStatsToChartStats(allocation, 0), [allocation]);
+  const targetStats = useMemo(() => questStatsToChartStats(allocation, duration), [allocation, duration]);
+  // Legacy: keep focusStats for compatibility with existing code
+  const focusStats = baseStats;
 
   // Combine user quests with built-in templates
   const allQuests = useMemo(() => {
@@ -69,7 +70,7 @@ export default function QuestSetupScreen({
     onStartSession({
       description: trimmed,
       durationMinutes: minutes,
-      focusStats,
+      allocation,
       questAction: selectedQuestAction,
     });
   }
@@ -95,14 +96,16 @@ export default function QuestSetupScreen({
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
     }
-    setFocusStats(questStatsToChartStats(template.stats));
+    // Store raw allocation (0-3 scale)
+    const rawStats = {};
+    STAT_KEYS.forEach(key => {
+      rawStats[key] = template.stats?.[key] ?? 0;
+    });
+    setAllocation(rawStats);
     setSelectedQuestId(template.id);
     setSelectedQuestAction(template.action || null);
   }
 
-  function handleStatsChange(nextStats) {
-    setFocusStats(nextStats);
-  }
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -126,12 +129,16 @@ export default function QuestSetupScreen({
     // Avoid feedback loop: only auto-apply once per description change
     if (autoApplyRef.current.desc === trimmed) return;
 
-    const suggestedStats = questStatsToChartStats(top.stats);
-    const statsChanged = STAT_KEYS.some(
-      (key) => focusStats[key] !== suggestedStats[key]
+    // Update allocation from top matching quest
+    const suggestedAlloc = {};
+    STAT_KEYS.forEach(key => {
+      suggestedAlloc[key] = top.stats?.[key] ?? 0;
+    });
+    const allocChanged = STAT_KEYS.some(
+      (key) => allocation[key] !== suggestedAlloc[key]
     );
-    if (statsChanged) {
-      setFocusStats(suggestedStats);
+    if (allocChanged) {
+      setAllocation(suggestedAlloc);
     }
 
     const actionChanged =
@@ -142,7 +149,7 @@ export default function QuestSetupScreen({
     }
 
     autoApplyRef.current = { desc: trimmed, questId: top.id || null };
-  }, [sortedQuests, selectedQuestId, description, focusStats, selectedQuestAction]);
+  }, [sortedQuests, selectedQuestId, description, allocation, selectedQuestAction]);
 
   // Auto-select quest when provided (e.g., saved from library)
   useEffect(() => {
@@ -168,8 +175,8 @@ export default function QuestSetupScreen({
     <View style={styles.container}>
       <Text style={styles.title}>Pick your quest</Text>
       <StandStatsChart
-        value={focusStats}
-        onChange={handleStatsChange}
+        value={baseStats}
+        targetValue={targetStats}
         duration={duration}
         onDurationChange={setDuration}
       />
@@ -240,7 +247,6 @@ export default function QuestSetupScreen({
                     : undefined
                 }
               >
-                {isUserQuest && <Text style={styles.questItemUserBadge}>★</Text>}
                 <Text style={styles.questItemLabel}>{q.label}</Text>
                 {q.defaultDurationMinutes ? (
                   <Text style={styles.questItemMeta}>{q.defaultDurationMinutes}m</Text>

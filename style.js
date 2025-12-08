@@ -270,7 +270,7 @@ export const styles = StyleSheet.create({
   },
   questItemActive: {
     borderColor: "#4f46e5",
-    backgroundColor: "#0f172a",
+    backgroundColor: "#1e1b4b",
   },
   questItemHeader: {
     flexDirection: "row",
@@ -287,13 +287,10 @@ export const styles = StyleSheet.create({
     marginLeft: 4,
   },
   questItemUser: {
-    borderColor: "#4f46e5",
-    borderWidth: 1,
+    // No special styling - user quests look like regular quests
   },
   questItemUserBadge: {
-    color: "#a78bfa",
-    fontSize: 10,
-    marginRight: 4,
+    display: "none",
   },
   questActionsRow: {
     flexDirection: "row",

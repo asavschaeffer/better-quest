@@ -240,18 +240,55 @@ export function chartStatsToQuestStats(chartStats) {
 }
 
 /**
- * Convert quest stats (0-3) to chart values (1-5)
+ * Convert quest stats (0-3) to chart values (1-6) based on allocation AND duration
+ * Scale: E=1, D=2, C=3, B=4, A=5, S=6
+ * 
+ * Calibration: Max allocation (3) at 120 min = S (6)
+ * - 30 min: C (3), 60 min: B (4), 90 min: A (5), 120 min: S (6)
+ * - Formula: chart_value = 1 + (allocation/3) * (1 + duration/30)
+ * 
  * @param {object} questStats - { STR: 0-3, ... }
- * @returns {object} - { STR: 1-5, ... }
+ * @param {number} duration - Duration in minutes (default 0 for base allocation view)
+ * @returns {object} - { STR: 1-6, ... }
  */
-export function questStatsToChartStats(questStats) {
+export function questStatsToChartStats(questStats, duration = 0) {
   const result = {};
   STAT_KEYS.forEach(key => {
-    const raw = questStats?.[key] ?? 0;
-    const clamped = Math.max(0, Math.min(3, raw));
-    // Map 0-3 to 1-5
-    const mapped = 1 + Math.round((clamped / 3) * 4);
-    result[key] = Math.min(5, mapped);
+    const allocation = Math.max(0, Math.min(3, questStats?.[key] ?? 0));
+    if (allocation === 0) {
+      result[key] = 1; // E tier - no focus
+    } else {
+      // Formula: 1 + (allocation/3) * (1 + duration/30)
+      // At duration=0: base tier proportional to allocation
+      // At duration=120 with allocation=3: reaches S (6)
+      const value = 1 + (allocation / 3) * (1 + duration / 30);
+      result[key] = Math.min(6, value); // Cap at S
+    }
   });
+  return result;
+}
+
+/**
+ * Get the EXP gain distribution ratios for a quest
+ * @param {object} questStats - { STR: 0-3, ... }
+ * @returns {object} - { STR: 0-1, ... } ratios that sum to 1
+ */
+export function getExpDistribution(questStats) {
+  const result = {};
+  let total = 0;
+  
+  STAT_KEYS.forEach(key => {
+    const allocation = Math.max(0, questStats?.[key] ?? 0);
+    result[key] = allocation;
+    total += allocation;
+  });
+  
+  // Normalize to ratios
+  if (total > 0) {
+    STAT_KEYS.forEach(key => {
+      result[key] = result[key] / total;
+    });
+  }
+  
   return result;
 }

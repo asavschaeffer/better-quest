@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from "r
 import styles from "../../style";
 import { QuestStatsWheel } from "../QuestStatsWheel";
 import { QuickLaunchEditor } from "../QuickLaunchEditor";
-import { questStatsToChartStats } from "../core/questStorage";
 import {
   createQuest,
   suggestStatsForLabel,
@@ -105,7 +104,7 @@ export default function NewQuestScreen({
       const sessionParams = {
         description: quest.label,
         durationMinutes: quest.defaultDurationMinutes,
-        focusStats: questStatsToChartStats(quest.stats),
+        allocation: quest.stats,
         questAction: quest.action,
       };
       onSaveAndStart?.(quest, sessionParams);

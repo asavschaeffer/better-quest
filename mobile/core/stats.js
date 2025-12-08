@@ -27,6 +27,9 @@ export function getUnlockedAccessories(level) {
   return accessories;
 }
 
+// Chart scale: E=1, D=2, C=3, B=4, A=5, S=6
+const MAX_CHART_VALUE = 6;
+
 export function playerStatsToChartValues(standExp) {
   const chartValues = {};
   const values = STAT_KEYS.map((key) => standExp?.[key] ?? 0);
@@ -40,7 +43,12 @@ export function playerStatsToChartValues(standExp) {
       const logValue = Math.log10(exp + 1);
       const logMax = Math.log10(maxStat + 1);
       const normalized = logMax > 0 ? logValue / logMax : 0;
-      chartValues[key] = 1 + normalized * 4;
+      // Base value from relative normalization (1 to MAX_CHART_VALUE)
+      const baseValue = 1 + normalized * (MAX_CHART_VALUE - 1);
+      // Add floor so stats with meaningful EXP don't sit at E
+      // 100+ EXP = at least D (2), 50+ EXP = at least D- (1.5)
+      const floor = exp >= 100 ? 2 : exp >= 50 ? 1.5 : 1;
+      chartValues[key] = Math.max(floor, baseValue);
     }
   });
 

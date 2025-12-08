@@ -113,10 +113,29 @@ test("STAT_KEYS contains expected stats", async () => {
 
 test("questStatsToChartStats converts quest stats correctly", async () => {
   const { questStatsToChartStats } = await import("../core/questStorage.js");
-  const questStats = { STR: 3, INT: 2 };
-  const chartStats = questStatsToChartStats(questStats);
-  assert.equal(chartStats.STR, 3);
-  assert.equal(chartStats.INT, 2);
-  // Should have defaults for missing stats
-  assert.ok(typeof chartStats.DEX === "number");
+  const questStats = { STR: 3, INT: 2, VIT: 1, DEX: 0 };
+  
+  // At duration=0: base tier
+  const baseStats = questStatsToChartStats(questStats, 0);
+  assert.ok(baseStats.STR > 1, "allocation 3 at t=0 should be above E");
+  assert.ok(baseStats.INT > 1, "allocation 2 at t=0 should be above E");
+  assert.ok(baseStats.VIT > 1, "allocation 1 at t=0 should be above E");
+  assert.equal(baseStats.DEX, 1, "allocation 0 should always be E (1)");
+  
+  // At duration=120: max tier for max allocation
+  const targetStats = questStatsToChartStats(questStats, 120);
+  assert.equal(targetStats.STR, 6, "allocation 3 at 120min should reach S (6)");
+  assert.ok(targetStats.INT > baseStats.INT, "allocation 2 should grow with duration");
+  assert.ok(targetStats.VIT > baseStats.VIT, "allocation 1 should grow with duration");
+  assert.equal(targetStats.DEX, 1, "allocation 0 should always be E (1)");
+});
+
+test("getExpDistribution returns correct ratios", async () => {
+  const { getExpDistribution } = await import("../core/questStorage.js");
+  const questStats = { STR: 2, VIT: 1, STA: 1 }; // total 4
+  const dist = getExpDistribution(questStats);
+  assert.equal(dist.STR, 0.5, "STR should get 50% (2/4)");
+  assert.equal(dist.VIT, 0.25, "VIT should get 25% (1/4)");
+  assert.equal(dist.STA, 0.25, "STA should get 25% (1/4)");
+  assert.equal(dist.INT, 0, "INT should get 0% (0/4)");
 });

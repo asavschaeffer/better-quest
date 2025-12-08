@@ -24,6 +24,7 @@ export default function SessionScreen({ session, remainingMs, avatar, onCancel }
       {/* Live stat growth visualization with countdown in center */}
       <StandStatsChart
         value={session.standStats}
+        targetValue={session.targetStats}
         duration={session.durationMinutes}
         progress={progress}
         readOnly
