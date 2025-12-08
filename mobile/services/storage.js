@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "better-quest-mobile-state-v2";
-const CURRENT_VERSION = 2;
+const STORAGE_KEY = "better-quest-mobile-state-v3";
+const CURRENT_VERSION = 3;
 
 const migrations = {
   // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
@@ -22,6 +22,13 @@ const migrations = {
     }
     return next;
   },
+  // v2 -> v3: add userQuotes array and includeBuiltInQuotes preference
+  2: (state) => {
+    const next = { ...state };
+    next.userQuotes = state.userQuotes ?? [];
+    next.includeBuiltInQuotes = state.includeBuiltInQuotes ?? true;
+    return next;
+  },
 };
 
 function defaultState() {
@@ -37,6 +44,8 @@ function defaultState() {
     quickStartMode: "picker",
     pickerDefaultMode: "top",
     postSaveBehavior: "library",
+    userQuotes: [],
+    includeBuiltInQuotes: true,
   };
 }
 

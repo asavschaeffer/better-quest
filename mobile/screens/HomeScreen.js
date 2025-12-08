@@ -107,10 +107,13 @@ export default function HomeScreen({
   // Avatar roaming animation
   const avatarX = useRef(new Animated.Value(0)).current;
   const avatarY = useRef(new Animated.Value(0)).current;
-  const bubbleX = useRef(new Animated.Value(0)).current;
-  const bubbleY = useRef(new Animated.Value(0)).current;
   const [showQuoteBubble, setShowQuoteBubble] = useState(true);
   const [lookAtChart, setLookAtChart] = useState(false);
+  const [bubbleOnRight, setBubbleOnRight] = useState(true);
+
+  // Bubble position derived from avatar position with offset
+  const bubbleOffsetX = bubbleOnRight ? avatarSize * 0.6 : -140;
+  const bubbleOffsetY = -60; // Above the avatar
 
   // Roaming animation - avatar wanders around
   // Occasionally glance at the chart
@@ -128,46 +131,36 @@ export default function HomeScreen({
     const maxY = Math.max(0, stageHeight - avatarSize);
 
     const roam = () => {
-      // Random position: stick to left (A/C) with rare excursions right
+      // Random position: stick to left/center with rare excursions to chart
       const goRight = Math.random() > 0.85; // 15% chance to venture toward chart
-      const leftRange = maxX * 0.6;
+      const leftRange = maxX * 0.5;
       const rightStart = Math.min(maxX, maxX * 0.55);
       const targetX = goRight
         ? rightStart + Math.random() * Math.max(12, maxX - rightStart)
         : Math.random() * Math.max(20, leftRange);
-      const targetY = Math.random() * Math.max(12, maxY);
+      const targetY = 20 + Math.random() * Math.max(12, maxY - 40);
 
-      // Show quote bubble when avatar is on the left
+      // Show quote bubble when avatar is not too far right
       setShowQuoteBubble(!goRight);
+      // Position bubble on the side with more space
+      setBubbleOnRight(targetX < stageWidth * 0.4);
       // If we move toward the chart, glance at it
       if (goRight) setLookAtChart(true);
 
-      // Bubble prefers bottom-right quadrant (D) while tracking avatar
-      const bubbleTargetX = Math.max(
-        stageWidth * 0.55,
-        Math.min(stageWidth - 160, targetX + avatarSize * 0.6)
-      );
-      const bubbleTargetY = Math.max(
-        stageHeight * 0.5,
-        Math.min(stageHeight - 60, targetY + avatarSize * 0.6)
-      );
+      const duration = 3000 + Math.random() * 2000;
 
       Animated.parallel([
         Animated.timing(avatarX, {
           toValue: targetX,
-          duration: 3000 + Math.random() * 2000,
+          duration,
           useNativeDriver: false,
         }),
         Animated.timing(avatarY, {
           toValue: targetY,
-          duration: 3000 + Math.random() * 2000,
+          duration,
           useNativeDriver: false,
         }),
       ]).start();
-
-      // Snap bubble into place (no slide transition)
-      bubbleX.setValue(bubbleTargetX);
-      bubbleY.setValue(bubbleTargetY);
     };
 
     roam();
@@ -275,21 +268,29 @@ export default function HomeScreen({
           />
         </Animated.View>
 
-        {/* Quote Speech Bubble - appears when avatar is on the left */}
+        {/* Quote Speech Bubble - follows avatar */}
         {showQuoteBubble && (
           <Animated.View
             style={[
               styles.quoteBubble,
               {
-                left: bubbleX,
-                top: bubbleY,
+                left: Animated.add(avatarX, bubbleOffsetX),
+                top: Animated.add(avatarY, bubbleOffsetY),
+                maxWidth: 160,
               },
             ]}
           >
-            <Text style={styles.quoteBubbleText} numberOfLines={3}>
+            <Text style={styles.quoteBubbleText} numberOfLines={4}>
               "{currentQuote}"
             </Text>
-            <View style={styles.quoteBubbleTail} />
+            <View
+              style={[
+                styles.quoteBubbleTail,
+                bubbleOnRight
+                  ? { left: -6, transform: [{ rotate: "-90deg" }] }
+                  : { right: -6, left: "auto", transform: [{ rotate: "90deg" }] },
+              ]}
+            />
           </Animated.View>
         )}
       </View>

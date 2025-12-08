@@ -1040,6 +1040,28 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 4,
   },
+  settingsQuoteItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 6,
+  },
+  settingsQuoteText: {
+    flex: 1,
+    color: "#e5e7eb",
+    fontSize: 13,
+    fontStyle: "italic",
+  },
+  settingsQuoteDelete: {
+    padding: 6,
+    marginLeft: 8,
+  },
+  settingsQuoteDeleteText: {
+    color: "#ef4444",
+    fontSize: 14,
+  },
 });
 
 export default styles;

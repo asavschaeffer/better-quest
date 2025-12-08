@@ -15,11 +15,18 @@ export default function SettingsScreen({
   onUpdatePickerDefaultMode,
   onUpdatePostSaveBehavior,
   showToast,
+  // Quote props
+  userQuotes = [],
+  includeBuiltInQuotes = true,
+  onAddQuote,
+  onDeleteQuote,
+  onToggleBuiltInQuotes,
 }) {
   const [name, setName] = useState(avatar.name);
   const [localFooterConfig, setLocalFooterConfig] = useState(
     footerConfig || { showCompletedToday: true, showUpcoming: true }
   );
+  const [newQuote, setNewQuote] = useState("");
 
   useEffect(() => {
     setLocalFooterConfig(footerConfig);
@@ -39,6 +46,14 @@ export default function SettingsScreen({
     const next = { ...localFooterConfig, [key]: !localFooterConfig[key] };
     setLocalFooterConfig(next);
     onUpdateFooterConfig(next);
+  }
+
+  function handleAddQuote() {
+    const trimmed = newQuote.trim();
+    if (!trimmed) return;
+    onAddQuote?.(trimmed);
+    setNewQuote("");
+    showToast?.("Quote added");
   }
 
   return (
@@ -142,8 +157,59 @@ export default function SettingsScreen({
         <View style={styles.settingsSection}>
           <Text style={styles.settingsSectionTitle}>Motivational Quotes</Text>
           <Text style={styles.settingsDescription}>
-            Custom quotes coming soon! For now, enjoy the defaults.
+            Add your own quotes to appear on the home screen.
           </Text>
+          
+          {/* Toggle built-in quotes */}
+          <TouchableOpacity
+            style={styles.settingsOption}
+            onPress={() => onToggleBuiltInQuotes?.(!includeBuiltInQuotes)}
+          >
+            <Text style={styles.settingsOptionText}>Include built-in quotes</Text>
+            {includeBuiltInQuotes && <Text style={styles.settingsOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+          
+          {/* Add new quote */}
+          <View style={[styles.settingsRow, { marginTop: 12 }]}>
+            <TextInput
+              style={[styles.settingsInput, { flex: 1 }]}
+              value={newQuote}
+              onChangeText={setNewQuote}
+              placeholder="Add a new quote..."
+              placeholderTextColor="#6b7280"
+              multiline
+              onSubmitEditing={handleAddQuote}
+            />
+            <TouchableOpacity
+              style={[styles.addBtn, { marginLeft: 8 }]}
+              onPress={handleAddQuote}
+            >
+              <Text style={styles.addBtnText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* User quotes list */}
+          {userQuotes.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.sectionLabel}>Your Quotes ({userQuotes.length})</Text>
+              {userQuotes.map((quote) => (
+                <View key={quote.id} style={styles.settingsQuoteItem}>
+                  <Text style={styles.settingsQuoteText} numberOfLines={2}>
+                    "{quote.text}"
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.settingsQuoteDelete}
+                    onPress={() => {
+                      onDeleteQuote?.(quote.id);
+                      showToast?.("Quote removed");
+                    }}
+                  >
+                    <Text style={styles.settingsQuoteDeleteText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Home footer content */}

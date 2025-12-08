@@ -39,6 +39,13 @@ import {
   computeAggregateConsistency,
 } from "./core/quests";
 import { applySessionBonuses, applyFatigueDamping } from "./core/sessions";
+import {
+  getAllQuotes,
+  getQuoteOfTheDay,
+  addUserQuote,
+  deleteUserQuote as deleteQuote,
+  loadUserQuotes,
+} from "./core/quotes";
 import { AppStateProvider, useAppState, useAppActions } from "./state/store";
 import { loadAppState, saveAppState, getDefaultState } from "./services/storage";
 import { useNavigation, Screens } from "./navigation/navigator";
@@ -83,6 +90,8 @@ function AppShell() {
     quickStartMode,
     pickerDefaultMode,
     postSaveBehavior,
+    userQuotes,
+    includeBuiltInQuotes,
   } = useAppState();
   const {
     setUser,
@@ -95,6 +104,8 @@ function AppShell() {
     setQuickStartMode,
     setPickerDefaultMode,
     setPostSaveBehavior,
+    setUserQuotes,
+    setIncludeBuiltInQuotes,
   } = useAppActions();
   const [userQuests, setUserQuests] = useState([]);
 
@@ -179,6 +190,14 @@ function AppShell() {
           setPostSaveBehavior(persisted.postSaveBehavior);
         }
 
+        // Load quotes preferences
+        if (Array.isArray(persisted.userQuotes)) {
+          setUserQuotes(persisted.userQuotes);
+        }
+        if (typeof persisted.includeBuiltInQuotes === "boolean") {
+          setIncludeBuiltInQuotes(persisted.includeBuiltInQuotes);
+        }
+
         // Load user quests
         const quests = await loadUserQuests();
         setUserQuests(quests);
@@ -198,6 +217,8 @@ function AppShell() {
     setQuickStartMode,
     setPickerDefaultMode,
     setPostSaveBehavior,
+    setUserQuotes,
+    setIncludeBuiltInQuotes,
   ]);
 
   // Persist on change
@@ -215,6 +236,8 @@ function AppShell() {
         quickStartMode,
         pickerDefaultMode,
         postSaveBehavior,
+        userQuotes,
+        includeBuiltInQuotes,
       });
     };
     save();
@@ -229,6 +252,8 @@ function AppShell() {
     quickStartMode,
     pickerDefaultMode,
     postSaveBehavior,
+    userQuotes,
+    includeBuiltInQuotes,
   ]);
 
   // Timer effect
@@ -289,6 +314,30 @@ function AppShell() {
     const previewStand = addStandExp(avatar.standExp, remaining);
     return playerStatsToChartValues(previewStand);
   }, [dailyBudgets, todayStandExp, avatar]);
+
+  // Quotes
+  const allQuotes = useMemo(
+    () => getAllQuotes(userQuotes ?? [], includeBuiltInQuotes ?? true),
+    [userQuotes, includeBuiltInQuotes]
+  );
+  const currentQuote = useMemo(
+    () => getQuoteOfTheDay(allQuotes),
+    [allQuotes]
+  );
+
+  async function handleAddQuote(text) {
+    const updated = await addUserQuote(text);
+    setUserQuotes(updated);
+  }
+
+  async function handleDeleteQuote(quoteId) {
+    const updated = await deleteQuote(quoteId);
+    setUserQuotes(updated);
+  }
+
+  function handleToggleBuiltInQuotes(enabled) {
+    setIncludeBuiltInQuotes(enabled);
+  }
 
   function handleStartQuest() {
     navigate(Screens.QUEST);
@@ -580,6 +629,7 @@ function AppShell() {
             userQuests={userQuests}
             homeFooterConfig={homeFooterConfig}
             announcements={announcements}
+            quotes={allQuotes.map((q) => q.text)}
           />
         )}
         {screen === Screens.LIBRARY && (
@@ -641,6 +691,11 @@ function AppShell() {
               showToast("Saved");
             }}
             showToast={showToast}
+            userQuotes={userQuotes ?? []}
+            includeBuiltInQuotes={includeBuiltInQuotes ?? true}
+            onAddQuote={handleAddQuote}
+            onDeleteQuote={handleDeleteQuote}
+            onToggleBuiltInQuotes={handleToggleBuiltInQuotes}
           />
         )}
         {screen === Screens.QUEST && (

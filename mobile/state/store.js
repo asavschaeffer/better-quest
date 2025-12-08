@@ -42,6 +42,10 @@ export function AppStateProvider({ children, initialState }) {
         dispatch({ type: "SET_FIELD", key: "pickerDefaultMode", value }),
       setPostSaveBehavior: (value) =>
         dispatch({ type: "SET_FIELD", key: "postSaveBehavior", value }),
+      setUserQuotes: (value) =>
+        dispatch({ type: "SET_FIELD", key: "userQuotes", value }),
+      setIncludeBuiltInQuotes: (value) =>
+        dispatch({ type: "SET_FIELD", key: "includeBuiltInQuotes", value }),
       merge: (payload) => dispatch({ type: "MERGE", payload }),
     }),
     [],
@@ -94,5 +98,13 @@ export function usePreferences() {
     quickStartMode: state.quickStartMode,
     pickerDefaultMode: state.pickerDefaultMode,
     postSaveBehavior: state.postSaveBehavior,
+  };
+}
+
+export function useQuotes() {
+  const state = useAppState();
+  return {
+    userQuotes: state.userQuotes ?? [],
+    includeBuiltInQuotes: state.includeBuiltInQuotes ?? true,
   };
 }
