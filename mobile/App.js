@@ -13,7 +13,6 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import * as Clipboard from "expo-clipboard";
 import { 
@@ -67,37 +66,38 @@ import {
 import { applySessionBonuses, applyFatigueDamping } from "./core/sessions";
 import { buildLogText } from "./core/logs";
 import { Avatar3D } from "./Avatar3D";
+import { AppStateProvider, useAppState, useAppActions } from "./state/store";
+import { loadAppState, saveAppState, getDefaultState } from "./services/storage";
+import { useNavigation, Screens } from "./navigation/navigator";
 
-const STORAGE_KEY = "better-quest-mobile-state-v1";
 const COMBO_BONUS_MULTIPLIER = 1.2;
 const REST_BONUS_MULTIPLIER = 1.1;
 const REST_BONUS_WINDOW_MINUTES = 45;
 
 export default function App() {
-  const [user, setUser] = useState(() => createUser());
-  const [sessions, setSessions] = useState([]);
-  const [motivation, setMotivation] = useState("");
-  const [userQuests, setUserQuests] = useState([]);
-  const [questStreaks, setQuestStreaks] = useState({});
+  return (
+    <AppStateProvider initialState={getDefaultState()}>
+      <AppShell />
+    </AppStateProvider>
+  );
+}
 
-  const [screen, setScreen] = useState("home"); // home | library | history | leaderboard | settings | quest | newQuest | session | complete
-  const [activeTab, setActiveTab] = useState("home"); // tracks navbar selection
+function AppShell() {
+  const { user, sessions, motivation, questStreaks, comboFromSessionId, wellRestedUntil, homeFooterConfig, quickStartMode, pickerDefaultMode, postSaveBehavior } = useAppState();
+  const { setUser, setSessions, setMotivation, setQuestStreaks, setComboFromSessionId, setWellRestedUntil, setHomeFooterConfig, setQuickStartMode, setPickerDefaultMode, setPostSaveBehavior } = useAppActions();
+  const [userQuests, setUserQuests] = useState([]);
+
+  const { state: navState, navigate, setActiveTab } = useNavigation(Screens.HOME);
+  const screen = navState.screen;
+  const activeTab = navState.activeTab;
+
   const [currentSession, setCurrentSession] = useState(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [notes, setNotes] = useState("");
   const [lastExpResult, setLastExpResult] = useState(null);
-  const [comboFromSessionId, setComboFromSessionId] = useState(null);
-  const [wellRestedUntil, setWellRestedUntil] = useState(null);
   const [draftQuestName, setDraftQuestName] = useState("");
   const [editingQuest, setEditingQuest] = useState(null); // quest being edited
   const [pendingQuestAction, setPendingQuestAction] = useState(null); // action to open after save & start
-  const [homeFooterConfig, setHomeFooterConfig] = useState({
-    showCompletedToday: true,
-    showUpcoming: true,
-  });
-  const [quickStartMode, setQuickStartMode] = useState("picker"); // picker | instant
-  const [pickerDefaultMode, setPickerDefaultMode] = useState("top"); // top | blank
-  const [postSaveBehavior, setPostSaveBehavior] = useState("library"); // library | picker
   const [pendingQuestSelection, setPendingQuestSelection] = useState(null);
   const [toastMessage, setToastMessage] = useState("");
   const toastTimerRef = useRef(null);
@@ -110,74 +110,68 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        // Load main app state
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.avatar) {
-            setUser({ ...createUser(), avatar: parsed.avatar });
-          }
-          if (Array.isArray(parsed.sessions)) {
-            setSessions(parsed.sessions);
-          }
-          if (typeof parsed.motivation === "string") {
-            setMotivation(parsed.motivation);
-          }
-        if (parsed.questStreaks && typeof parsed.questStreaks === "object") {
-          setQuestStreaks(parsed.questStreaks);
+        const { state: persisted } = await loadAppState();
+        const hydratedUser =
+          persisted.user ??
+          (persisted.avatar ? { ...createUser(), avatar: persisted.avatar } : createUser());
+        setUser(hydratedUser);
+        if (Array.isArray(persisted.sessions)) {
+          setSessions(persisted.sessions);
         }
-          if (parsed.comboFromSessionId) {
-            setComboFromSessionId(parsed.comboFromSessionId);
-          }
-          if (parsed.wellRestedUntil) {
-            setWellRestedUntil(parsed.wellRestedUntil);
-          }
-          if (parsed.homeFooterConfig) {
-            setHomeFooterConfig({
-              showCompletedToday: parsed.homeFooterConfig.showCompletedToday ?? true,
-              showUpcoming: parsed.homeFooterConfig.showUpcoming ?? true,
-            });
-          }
-          if (parsed.quickStartMode === "instant" || parsed.quickStartMode === "picker") {
-            setQuickStartMode(parsed.quickStartMode);
-          }
-          if (parsed.pickerDefaultMode === "top" || parsed.pickerDefaultMode === "blank") {
-            setPickerDefaultMode(parsed.pickerDefaultMode);
-          }
-          if (parsed.postSaveBehavior === "library" || parsed.postSaveBehavior === "picker") {
-            setPostSaveBehavior(parsed.postSaveBehavior);
-          }
+        if (typeof persisted.motivation === "string") {
+          setMotivation(persisted.motivation);
         }
-        
+        if (persisted.questStreaks && typeof persisted.questStreaks === "object") {
+          setQuestStreaks(persisted.questStreaks);
+        }
+        if (persisted.comboFromSessionId) {
+          setComboFromSessionId(persisted.comboFromSessionId);
+        }
+        if (persisted.wellRestedUntil) {
+          setWellRestedUntil(persisted.wellRestedUntil);
+        }
+        if (persisted.homeFooterConfig) {
+          setHomeFooterConfig({
+            showCompletedToday: persisted.homeFooterConfig.showCompletedToday ?? true,
+            showUpcoming: persisted.homeFooterConfig.showUpcoming ?? true,
+          });
+        }
+        if (persisted.quickStartMode === "instant" || persisted.quickStartMode === "picker") {
+          setQuickStartMode(persisted.quickStartMode);
+        }
+        if (persisted.pickerDefaultMode === "top" || persisted.pickerDefaultMode === "blank") {
+          setPickerDefaultMode(persisted.pickerDefaultMode);
+        }
+        if (persisted.postSaveBehavior === "library" || persisted.postSaveBehavior === "picker") {
+          setPostSaveBehavior(persisted.postSaveBehavior);
+        }
+
         // Load user quests
         const quests = await loadUserQuests();
         setUserQuests(quests);
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn("Failed to hydrate state", err);
+        setUser(createUser());
       }
     })();
-  }, []);
+  }, [setUser, setSessions, setMotivation, setQuestStreaks, setComboFromSessionId, setWellRestedUntil, setHomeFooterConfig, setQuickStartMode, setPickerDefaultMode, setPostSaveBehavior]);
 
   // Persist on change
   useEffect(() => {
     const save = async () => {
-      try {
-        const state = {
-          avatar: user.avatar,
-          sessions,
-          motivation,
-          questStreaks,
-          comboFromSessionId,
-          wellRestedUntil,
-          homeFooterConfig,
-          quickStartMode,
-          pickerDefaultMode,
-          postSaveBehavior,
-        };
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch {
-        // ignore
-      }
+      await saveAppState({
+        user,
+        avatar: user?.avatar,
+        sessions,
+        motivation,
+        questStreaks,
+        comboFromSessionId,
+        wellRestedUntil,
+        homeFooterConfig,
+        quickStartMode,
+        pickerDefaultMode,
+        postSaveBehavior,
+      });
     };
     save();
   }, [user, sessions, motivation, questStreaks, comboFromSessionId, wellRestedUntil, homeFooterConfig, quickStartMode, pickerDefaultMode, postSaveBehavior]);
@@ -204,7 +198,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSession?.id, screen]);
 
-  const avatar = user.avatar ?? createDefaultAvatar();
+  const avatar = user?.avatar ?? createDefaultAvatar();
   const levelInfo = useMemo(
     () => getLevelProgress(avatar.totalExp ?? 0),
     [avatar.totalExp],
@@ -242,13 +236,13 @@ export default function App() {
   }, [dailyBudgets, todayStandExp, avatar]);
 
   function handleStartQuest() {
-    setScreen("quest");
+    navigate(Screens.QUEST);
   }
 
   function startQuestFromTemplate(template) {
     if (!template) {
       // Fallback to manual selection
-      setScreen("quest");
+      navigate(Screens.QUEST);
       return;
     }
 
@@ -312,7 +306,7 @@ export default function App() {
     // Clear one-shot bonus flags once consumed.
     if (hasCombo) setComboFromSessionId(null);
     if (hasRest) setWellRestedUntil(null);
-    setScreen("session");
+    navigate(Screens.SESSION);
   }
 
   function handleTimerComplete(endTimeMs) {
@@ -359,12 +353,12 @@ export default function App() {
 
     setCurrentSession(completedSession);
     setNotes("");
-    setScreen("complete");
+    navigate(Screens.COMPLETE);
   }
 
   function handleCancelSession() {
     setCurrentSession(null);
-    setScreen("home");
+    navigate(Screens.HOME);
   }
 
   function handleContinueQuest() {
@@ -379,7 +373,7 @@ export default function App() {
     if (sessions[0]) {
       setComboFromSessionId(sessions[0].id);
     }
-    setScreen("quest");
+    navigate(Screens.QUEST);
   }
 
   function handleTakeBreak() {
@@ -394,7 +388,7 @@ export default function App() {
     const windowMs = REST_BONUS_WINDOW_MINUTES * 60 * 1000;
     setWellRestedUntil(new Date(Date.now() + windowMs).toISOString());
     setCurrentSession(null);
-    setScreen("home");
+    navigate(Screens.HOME);
   }
 
   function handleEndForNow() {
@@ -406,7 +400,7 @@ export default function App() {
       });
     }
     setCurrentSession(null);
-    setScreen("home");
+    navigate(Screens.HOME);
   }
 
   // Helper to open quest action (URL or app)
@@ -451,7 +445,7 @@ export default function App() {
 
   // Open pending action when session starts
   useEffect(() => {
-    if (pendingQuestAction && screen === "session") {
+    if (pendingQuestAction && screen === Screens.SESSION) {
       openQuestAction(pendingQuestAction);
       setPendingQuestAction(null);
     }
@@ -460,7 +454,7 @@ export default function App() {
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const handler = (e) => {
-      if (e.key === "Escape" && screen === "session" && currentSession) {
+      if (e.key === "Escape" && screen === Screens.SESSION && currentSession) {
         e.preventDefault();
         handleCancelSession();
       }
@@ -480,7 +474,7 @@ export default function App() {
   // Navigation helpers
   function handleNavigation(tab) {
     setActiveTab(tab);
-    setScreen(tab);
+    navigate(tab);
   }
 
   function handleQuickstartPress() {
@@ -488,7 +482,7 @@ export default function App() {
       startQuestFromTemplate(quickstartSuggestions[0]);
       return;
     }
-    setScreen("quest");
+    navigate(Screens.QUEST);
   }
 
   function handleQuickstartSelect(template) {
@@ -505,7 +499,7 @@ export default function App() {
   }
 
   function handleOpenSettings() {
-    setScreen("settings");
+    navigate(Screens.SETTINGS);
   }
 
   function handleOpenNotifications() {
@@ -514,13 +508,18 @@ export default function App() {
   }
 
   // Determine if navbar should show
-  const showNavbar = ["home", "library", "history", "leaderboard"].includes(screen);
+  const showNavbar = [
+    Screens.HOME,
+    Screens.LIBRARY,
+    Screens.HISTORY,
+    Screens.LEADERBOARD,
+  ].includes(screen);
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safe}>
         <StatusBar style="light" />
-        {screen === "home" && (
+        {screen === Screens.HOME && (
           <HomeScreen
             avatar={avatar}
             levelInfo={levelInfo}
@@ -538,32 +537,32 @@ export default function App() {
             announcements={announcements}
           />
         )}
-        {screen === "library" && (
+        {screen === Screens.LIBRARY && (
           <LibraryScreen
             userQuests={userQuests}
             onSelectQuest={(quest) => {
               setEditingQuest(quest);
               setDraftQuestName("");
-              setScreen("newQuest");
+              navigate(Screens.NEW_QUEST);
             }}
             onCreateQuest={() => {
               setDraftQuestName("");
               setEditingQuest(null);
-              setScreen("newQuest");
+              navigate(Screens.NEW_QUEST);
             }}
           />
         )}
-        {screen === "history" && (
+        {screen === Screens.HISTORY && (
           <HistoryScreen sessions={sessions} />
         )}
-        {screen === "leaderboard" && (
+        {screen === Screens.LEADERBOARD && (
           <LeaderboardScreen avatar={avatar} sessions={sessions} />
         )}
-        {screen === "settings" && (
+        {screen === Screens.SETTINGS && (
           <SettingsScreen
             avatar={avatar}
             onBack={() => {
-              setScreen(activeTab);
+              navigate(activeTab);
             }}
             onUpdateAvatar={(updates) => {
               setUser((prev) => ({
@@ -601,13 +600,13 @@ export default function App() {
             showToast={showToast}
           />
         )}
-        {screen === "quest" && (
+        {screen === Screens.QUEST && (
           <QuestSetupScreen
             userQuests={userQuests}
             pickerDefaultMode={pickerDefaultMode}
             autoSelectQuest={pendingQuestSelection}
             onAutoSelectConsumed={() => setPendingQuestSelection(null)}
-            onBack={() => setScreen("home")}
+            onBack={() => navigate(Screens.HOME)}
             onStartSession={(params) => {
               // Check if quest has an action to open
               if (params.questAction) {
@@ -622,7 +621,7 @@ export default function App() {
               const trimmed = (name ?? "").trim();
               if (!trimmed) return;
               setDraftQuestName(trimmed);
-              setScreen("newQuest");
+              navigate(Screens.NEW_QUEST);
             }}
             onDeleteQuest={async (questId) => {
               const updated = await deleteUserQuest(questId);
@@ -631,18 +630,18 @@ export default function App() {
             onEditQuest={(quest) => {
               setEditingQuest(quest);
               setDraftQuestName("");
-              setScreen("newQuest");
+              navigate(Screens.NEW_QUEST);
             }}
             onOpenQuestAction={openQuestAction}
           />
         )}
-        {screen === "newQuest" && (
+        {screen === Screens.NEW_QUEST && (
           <NewQuestScreen
             initialName={draftQuestName}
             editQuest={editingQuest}
             onBack={() => {
               setEditingQuest(null);
-              setScreen("quest");
+              navigate(Screens.QUEST);
             }}
             onSave={async (quest) => {
               const updated = await addUserQuest(quest);
@@ -650,9 +649,9 @@ export default function App() {
               setEditingQuest(null);
               if (postSaveBehavior === "picker") {
                 setPendingQuestSelection(quest);
-                setScreen("quest");
+                navigate(Screens.QUEST);
               } else {
-                setScreen("library");
+                navigate(Screens.LIBRARY);
               }
               showToast("Quest saved");
             }}
@@ -673,12 +672,12 @@ export default function App() {
               const updated = await deleteUserQuest(questId);
               setUserQuests(updated);
               setEditingQuest(null);
-              setScreen("quest");
+              navigate(Screens.QUEST);
               showToast("Quest deleted");
             }}
           />
         )}
-        {screen === "session" && currentSession && (
+        {screen === Screens.SESSION && currentSession && (
           <SessionScreen
             session={currentSession}
             remainingMs={remainingMs}
@@ -686,7 +685,7 @@ export default function App() {
             onCancel={handleCancelSession}
           />
         )}
-        {screen === "complete" && currentSession && lastExpResult && (
+        {screen === Screens.COMPLETE && currentSession && lastExpResult && (
           <CompleteScreen
             session={currentSession}
             expResult={lastExpResult}
