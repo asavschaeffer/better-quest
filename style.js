@@ -256,6 +256,48 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
   },
+  questCategoryList: {
+    marginTop: 8,
+    maxHeight: 280,
+  },
+  questCategory: {
+    marginBottom: 8,
+  },
+  questCategoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  questCategoryIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  questCategoryLabel: {
+    color: "#e5e7eb",
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
+  questCategoryCount: {
+    color: "#6b7280",
+    fontSize: 12,
+    marginRight: 8,
+  },
+  questCategoryChevron: {
+    color: "#6b7280",
+    fontSize: 10,
+  },
+  questCategoryItems: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingLeft: 12,
+    paddingTop: 8,
+  },
   questItem: {
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -272,6 +314,16 @@ export const styles = StyleSheet.create({
     borderColor: "#4f46e5",
     backgroundColor: "#1e1b4b",
   },
+  questItemParentActive: {
+    borderColor: "#6366f1",
+    backgroundColor: "#1e1b4b33",
+  },
+  questItemExpander: {
+    color: "#6b7280",
+    fontSize: 10,
+    marginRight: 6,
+    width: 12,
+  },
   questItemHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -280,6 +332,32 @@ export const styles = StyleSheet.create({
     color: "#e5e7eb",
     fontSize: 13,
     fontWeight: "500",
+  },
+  // Subquest styles
+  subquestList: {
+    marginLeft: 20,
+    marginTop: -4,
+    marginBottom: 4,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: "#374151",
+  },
+  subquestItem: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "#020617",
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    marginRight: 8,
+    marginBottom: 6,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  subquestItemLabel: {
+    color: "#d1d5db",
+    fontSize: 12,
+    fontWeight: "400",
   },
   questItemMeta: {
     color: "#9ca3af",
@@ -635,6 +713,38 @@ export const styles = StyleSheet.create({
   quickstartChipMeta: {
     color: "#9ca3af",
     fontSize: 12,
+  },
+  // Programs card on Home screen
+  programsCard: {
+    backgroundColor: "#1e1b4b",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#4f46e5",
+  },
+  programsCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  programsCardIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  programsCardTitle: {
+    color: "#e5e7eb",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  programsCardMeta: {
+    color: "#a5b4fc",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  programsCardArrow: {
+    color: "#a5b4fc",
+    fontSize: 20,
+    fontWeight: "700",
   },
   quoteSection: {
     backgroundColor: "#0f172a",
@@ -1202,6 +1312,254 @@ export const styles = StyleSheet.create({
     color: "#9ca3af",
     fontSize: 12,
     marginTop: 4,
+  },
+  // Programs screen styles
+  programsSection: {
+    marginTop: 16,
+  },
+  programActiveSection: {
+    marginBottom: 24,
+  },
+  programCard: {
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  programCardActive: {
+    borderColor: "#4f46e5",
+    backgroundColor: "#1e1b4b",
+  },
+  programCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  programCardIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  programCardTitleArea: {
+    flex: 1,
+  },
+  programCardName: {
+    color: "#e5e7eb",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  programCardDifficulty: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  programCardBadge: {
+    backgroundColor: "#22c55e",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  programCardBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  programCardDesc: {
+    color: "#9ca3af",
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  programCardQuests: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 12,
+  },
+  programCardQuestChip: {
+    backgroundColor: "#1f2937",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  programCardQuestText: {
+    color: "#e5e7eb",
+    fontSize: 12,
+  },
+  programCardMoreQuests: {
+    color: "#6b7280",
+    fontSize: 12,
+    alignSelf: "center",
+  },
+  programCardProgress: {
+    marginBottom: 12,
+  },
+  programCardProgressBar: {
+    height: 8,
+    backgroundColor: "#1f2937",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  programCardProgressFill: {
+    height: "100%",
+    backgroundColor: "#22c55e",
+    borderRadius: 4,
+  },
+  programCardProgressText: {
+    color: "#9ca3af",
+    fontSize: 12,
+  },
+  programCardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  programCardMilestones: {
+    color: "#6b7280",
+    fontSize: 12,
+  },
+  programCardStartBtn: {
+    backgroundColor: "#4f46e5",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  programCardStartBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  programCardViewBtn: {
+    backgroundColor: "#1f2937",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  programCardViewBtnText: {
+    color: "#e5e7eb",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  programDetail: {
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#4f46e5",
+  },
+  programDetailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  programDetailIcon: {
+    fontSize: 40,
+    marginRight: 12,
+  },
+  programDetailName: {
+    color: "#e5e7eb",
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  programDetailStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#020617",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  programDetailStat: {
+    alignItems: "center",
+  },
+  programDetailStatValue: {
+    color: "#fbbf24",
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  programDetailStatLabel: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  programDetailMilestone: {
+    backgroundColor: "#1e1b4b",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#fbbf24",
+  },
+  programDetailMilestoneLabel: {
+    color: "#9ca3af",
+    fontSize: 10,
+    textTransform: "uppercase",
+  },
+  programDetailMilestoneTitle: {
+    color: "#e5e7eb",
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  programDetailMilestoneDesc: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  programDetailSchedule: {
+    marginBottom: 16,
+  },
+  programDetailScheduleTitle: {
+    color: "#e5e7eb",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  programDetailTimeBlock: {
+    marginBottom: 12,
+  },
+  programDetailTimeLabel: {
+    color: "#9ca3af",
+    fontSize: 12,
+    textTransform: "capitalize",
+    marginBottom: 6,
+  },
+  programDetailTimeQuests: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  programDetailQuestChip: {
+    backgroundColor: "#1f2937",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  programDetailQuestText: {
+    color: "#e5e7eb",
+    fontSize: 14,
+  },
+  programDetailQuestTime: {
+    color: "#6b7280",
+    fontSize: 12,
+  },
+  programDetailActions: {
+    marginTop: 16,
+  },
+  programQuitBtn: {
+    backgroundColor: "#7f1d1d",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  programQuitBtnText: {
+    color: "#fca5a5",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

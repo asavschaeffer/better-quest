@@ -4,22 +4,50 @@ import styles from "../../style";
 import { StandStatsChart } from "../StandStatsChart";
 import { playerStatsToChartValues } from "../core/stats";
 import { Avatar3D } from "../Avatar3D";
+import { getPlayerTitle } from "../core/stats";
 
-export default function ProfileScreen({ player, onBack }) {
+/**
+ * ProfileScreen - Shows a player's profile
+ *
+ * Supports both:
+ * - Legacy player object: { name, level, exp, standExp, minutes, recentQuests }
+ * - New Profile entity: { name, avatar: { level, standExp, ... }, privacy: { ... } }
+ */
+export default function ProfileScreen({ player, profile, onBack }) {
+  // Support both legacy player object and new Profile entity
+  const displayProfile = useMemo(() => {
+    if (profile) {
+      return {
+        name: profile.name,
+        level: profile.avatar?.level || 1,
+        exp: profile.avatar?.totalExp || 0,
+        standExp: profile.avatar?.standExp || {},
+        minutes: profile.stats?.totalMinutes || 0,
+        recentQuests: profile.recentQuests || [],
+        privacy: profile.privacy || { showQuests: true, showOnLeaderboard: true },
+      };
+    }
+    // Legacy player object
+    return {
+      ...player,
+      privacy: { showQuests: true, showOnLeaderboard: true },
+    };
+  }, [player, profile]);
+
   // Convert player's standExp to chart values (normalized 1-6 scale)
   const chartStats = useMemo(() => {
-    return playerStatsToChartValues(player.standExp || {});
-  }, [player.standExp]);
+    return playerStatsToChartValues(playerData.standExp || {});
+  }, [playerData.standExp]);
 
   // Calculate total stats for display
   const totalStats = useMemo(() => {
-    const exp = player.standExp || {};
+    const exp = playerData.standExp || {};
     return Object.values(exp).reduce((sum, val) => sum + (val || 0), 0);
-  }, [player.standExp]);
+  }, [playerData.standExp]);
 
   // Find dominant stat
   const dominantStat = useMemo(() => {
-    const exp = player.standExp || {};
+    const exp = playerData.standExp || {};
     let maxKey = "STR";
     let maxVal = 0;
     Object.entries(exp).forEach(([key, val]) => {
@@ -29,7 +57,12 @@ export default function ProfileScreen({ player, onBack }) {
       }
     });
     return maxKey;
-  }, [player.standExp]);
+  }, [playerData.standExp]);
+
+  // Get player title based on level
+  const playerTitle = useMemo(() => {
+    return getPlayerTitle(playerData.level || 1);
+  }, [playerData.level]);
 
   const statLabels = {
     STR: "Strength",
@@ -48,7 +81,7 @@ export default function ProfileScreen({ player, onBack }) {
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.profileTitle}>{player.name}</Text>
+        <Text style={styles.profileTitle}>{playerData.name}</Text>
       </View>
 
       {/* Avatar section */}
@@ -60,9 +93,10 @@ export default function ProfileScreen({ player, onBack }) {
           />
         </View>
         <View style={styles.profileLevelBadge}>
-          <Text style={styles.profileLevelText}>Lv {player.level}</Text>
+          <Text style={styles.profileLevelText}>Lv {playerData.level}</Text>
         </View>
-        <Text style={styles.profileExp}>{player.exp?.toLocaleString()} EXP</Text>
+        <Text style={styles.profileExp}>{playerData.exp?.toLocaleString()} EXP</Text>
+        <Text style={styles.profileTitle2}>{playerTitle}</Text>
         <Text style={styles.profileDominant}>
           {statLabels[dominantStat]} specialist
         </Text>
@@ -81,15 +115,15 @@ export default function ProfileScreen({ player, onBack }) {
 
       {/* Stat breakdown */}
       <View style={styles.profileStatBreakdown}>
-        {Object.entries(player.standExp || {}).map(([key, val]) => (
+        {Object.entries(playerData.standExp || {}).map(([key, val]) => (
           <View key={key} style={styles.profileStatRow}>
             <Text style={styles.profileStatLabel}>{statLabels[key] || key}</Text>
             <View style={styles.profileStatBarBg}>
-              <View 
+              <View
                 style={[
                   styles.profileStatBar,
-                  { width: `${Math.min(100, (val / Math.max(...Object.values(player.standExp || {}), 1)) * 100)}%` }
-                ]} 
+                  { width: `${Math.min(100, (val / Math.max(...Object.values(playerData.standExp || {}), 1)) * 100)}%` }
+                ]}
               />
             </View>
             <Text style={styles.profileStatValue}>{val?.toLocaleString()}</Text>
@@ -97,26 +131,28 @@ export default function ProfileScreen({ player, onBack }) {
         ))}
       </View>
 
-      {/* Recent activity */}
-      <View style={styles.profileActivitySection}>
-        <Text style={styles.sectionLabel}>Favorite Quests</Text>
-        <View style={styles.profileQuestList}>
-          {(player.recentQuests || []).map((quest, i) => (
-            <View key={i} style={styles.profileQuestItem}>
-              <Text style={styles.profileQuestEmoji}>⚔️</Text>
-              <Text style={styles.profileQuestName}>{quest}</Text>
-            </View>
-          ))}
-          {(!player.recentQuests || player.recentQuests.length === 0) && (
-            <Text style={styles.muted}>No recent activity</Text>
-          )}
+      {/* Recent activity - respect privacy settings */}
+      {playerData.privacy?.showQuests !== false && (
+        <View style={styles.profileActivitySection}>
+          <Text style={styles.sectionLabel}>Favorite Quests</Text>
+          <View style={styles.profileQuestList}>
+            {(playerData.recentQuests || []).map((quest, i) => (
+              <View key={i} style={styles.profileQuestItem}>
+                <Text style={styles.profileQuestEmoji}>⚔️</Text>
+                <Text style={styles.profileQuestName}>{quest}</Text>
+              </View>
+            ))}
+            {(!playerData.recentQuests || playerData.recentQuests.length === 0) && (
+              <Text style={styles.muted}>No recent activity</Text>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Stats summary */}
       <View style={styles.profileSummary}>
         <View style={styles.profileSummaryStat}>
-          <Text style={styles.profileSummaryValue}>{Math.round((player.minutes || 0) / 60)}h</Text>
+          <Text style={styles.profileSummaryValue}>{Math.round((playerData.minutes || 0) / 60)}h</Text>
           <Text style={styles.profileSummaryLabel}>Time Questing</Text>
         </View>
         <View style={styles.profileSummaryStat}>

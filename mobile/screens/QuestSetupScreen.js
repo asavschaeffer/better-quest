@@ -1,10 +1,24 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Platform, ScrollView } from "react-native";
 import styles from "../../style";
 import { StandStatsChart } from "../StandStatsChart";
-import { BUILT_IN_QUEST_TEMPLATES, questStatsToChartStats } from "../core/questStorage";
+import { BUILT_IN_QUEST_TEMPLATES, QUEST_CATEGORIES, questStatsToChartStats } from "../core/questStorage";
 import { rankQuests } from "../core/quests";
 import { STAT_KEYS } from "../core/models";
+
+/**
+ * Get subquests for a parent quest
+ */
+function getSubquestsForParent(parentId, allQuests) {
+  return allQuests.filter(q => q.parentQuestId === parentId);
+}
+
+/**
+ * Check if a quest is a parent (has subquests)
+ */
+function isParentQuest(questId, allQuests) {
+  return allQuests.some(q => q.parentQuestId === questId);
+}
 
 export default function QuestSetupScreen({
   userQuests = [],
@@ -26,7 +40,10 @@ export default function QuestSetupScreen({
     STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CRE: 0, VIT: 0,
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
+  const [selectedSubquestId, setSelectedSubquestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
+  const [collapsedCategories, setCollapsedCategories] = useState({});
+  const [expandedParentQuests, setExpandedParentQuests] = useState({});
   const autoApplyRef = useRef({ desc: "", questId: null });
 
   // Compute chart values from allocation + duration
@@ -40,10 +57,69 @@ export default function QuestSetupScreen({
     return [...userQuests, ...BUILT_IN_QUEST_TEMPLATES];
   }, [userQuests]);
 
-  const sortedQuests = useMemo(
+  // Rank all quests (including subquests for search)
+  const rankedQuests = useMemo(
     () => rankQuests(allQuests, focusStats, description),
     [allQuests, focusStats, description]
   );
+
+  // Filter to only show top-level quests (not subquests) in main list
+  // Subquests will be shown nested under their parent
+  const sortedQuests = useMemo(() => {
+    const searchTerm = description.trim().toLowerCase();
+    // If searching, show all matches including subquests
+    if (searchTerm) {
+      return rankedQuests;
+    }
+    // Otherwise, hide subquests (they'll show under their parent)
+    return rankedQuests.filter(q => !q.parentQuestId);
+  }, [rankedQuests, description]);
+
+  // Group quests by category
+  const questsByCategory = useMemo(() => {
+    const groups = {};
+    // Initialize all categories
+    Object.keys(QUEST_CATEGORIES).forEach(cat => {
+      groups[cat] = [];
+    });
+    // Assign quests to categories
+    sortedQuests.forEach(quest => {
+      const category = quest.category || "other";
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(quest);
+    });
+    return groups;
+  }, [sortedQuests]);
+
+  // Get sorted category keys (by order, then filter out empty ones unless searching)
+  const sortedCategoryKeys = useMemo(() => {
+    const isSearching = description.trim().length > 0;
+    return Object.keys(QUEST_CATEGORIES)
+      .filter(cat => isSearching || questsByCategory[cat]?.length > 0)
+      .sort((a, b) => (QUEST_CATEGORIES[a]?.order || 99) - (QUEST_CATEGORIES[b]?.order || 99));
+  }, [questsByCategory, description]);
+
+  // Find which category contains the top-ranked quest
+  const topQuestCategory = useMemo(() => {
+    if (sortedQuests.length === 0) return null;
+    return sortedQuests[0].category || "other";
+  }, [sortedQuests]);
+
+  // Toggle category collapse
+  const toggleCategory = (category) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  // Toggle parent quest expansion (to show/hide subquests)
+  const toggleParentExpansion = (questId) => {
+    setExpandedParentQuests(prev => ({
+      ...prev,
+      [questId]: !prev[questId]
+    }));
+  };
 
   const hasDirectNameMatch = useMemo(() => {
     const q = description.trim().toLowerCase();
@@ -90,20 +166,35 @@ export default function QuestSetupScreen({
     start();
   }
 
-  function applyQuestTemplate(template) {
+  function applyQuestTemplate(template, isSubquest = false, parentQuest = null) {
     if (!template) return;
     setDescription(template.label);
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
     }
-    // Store raw allocation (0-3 scale)
+    // Store raw allocation (0-3 scale) - use baseStats with stats fallback
     const rawStats = {};
+    const templateStats = template.baseStats || template.stats || {};
     STAT_KEYS.forEach(key => {
-      rawStats[key] = template.stats?.[key] ?? 0;
+      rawStats[key] = templateStats[key] ?? 0;
     });
     setAllocation(rawStats);
-    setSelectedQuestId(template.id);
+
+    if (isSubquest && parentQuest) {
+      // If selecting a subquest, track both parent and subquest
+      setSelectedQuestId(parentQuest.id);
+      setSelectedSubquestId(template.id);
+    } else {
+      setSelectedQuestId(template.id);
+      setSelectedSubquestId(null);
+    }
+
     setSelectedQuestAction(template.action || null);
+
+    // Auto-expand parent when selecting it
+    if (isParentQuest(template.id, allQuests)) {
+      setExpandedParentQuests(prev => ({ ...prev, [template.id]: true }));
+    }
   }
 
 
@@ -203,66 +294,141 @@ export default function QuestSetupScreen({
             returnKeyType="done"
           />
         </View>
-        <View style={styles.questList}>
-          {!hasDirectNameMatch && (
+        <ScrollView style={styles.questCategoryList} nestedScrollEnabled>
+          {/* New quest button at top if no direct match */}
+          {!hasDirectNameMatch && description.trim() && (
             <TouchableOpacity
               style={styles.questItem}
               onPress={() => onCreateQuestDraft?.(description)}
             >
-              <Text style={styles.questItemLabel}>＋ New</Text>
+              <Text style={styles.questItemLabel}>＋ Create "{description.trim()}"</Text>
             </TouchableOpacity>
           )}
-          {sortedQuests.map((q) => {
-            const isUserQuest = userQuests.some((uq) => uq.id === q.id);
+          
+          {/* Categorized quest sections */}
+          {sortedCategoryKeys.map(categoryKey => {
+            const category = QUEST_CATEGORIES[categoryKey];
+            const quests = questsByCategory[categoryKey] || [];
+            if (quests.length === 0) return null;
+            
+            // Auto-expand category containing top quest, collapse others by default
+            const isCollapsed = collapsedCategories[categoryKey] ?? (categoryKey !== topQuestCategory);
+            
             return (
-              <TouchableOpacity
-                key={q.id}
-                style={[
-                  styles.questItem,
-                  selectedQuestId === q.id && styles.questItemActive,
-                  isUserQuest && styles.questItemUser,
-                ]}
-                onPress={() => applyQuestTemplate(q)}
-                onLongPress={
-                  isUserQuest
-                    ? () => {
-                        // Long press to delete user quest
-                        if (Platform.OS === "web") {
-                          if (window.confirm(`Delete "${q.label}"?`)) {
-                            onDeleteQuest?.(q.id);
-                            if (selectedQuestId === q.id) {
-                              setSelectedQuestId(null);
-                              setSelectedQuestAction(null);
+              <View key={categoryKey} style={styles.questCategory}>
+                <TouchableOpacity 
+                  style={styles.questCategoryHeader}
+                  onPress={() => toggleCategory(categoryKey)}
+                >
+                  <Text style={styles.questCategoryIcon}>{category.icon}</Text>
+                  <Text style={styles.questCategoryLabel}>{category.label}</Text>
+                  <Text style={styles.questCategoryCount}>({quests.length})</Text>
+                  <Text style={styles.questCategoryChevron}>{isCollapsed ? "▶" : "▼"}</Text>
+                </TouchableOpacity>
+                
+                {!isCollapsed && (
+                  <View style={styles.questCategoryItems}>
+                    {quests.map((q) => {
+                      const isUserQuest = userQuests.some((uq) => uq.id === q.id);
+                      const hasSubquests = isParentQuest(q.id, allQuests);
+                      const isExpanded = expandedParentQuests[q.id];
+                      const subquests = hasSubquests ? getSubquestsForParent(q.id, allQuests) : [];
+                      const isSelected = selectedQuestId === q.id && !selectedSubquestId;
+                      const hasSelectedSubquest = selectedQuestId === q.id && selectedSubquestId;
+
+                      return (
+                        <View key={q.id}>
+                          <TouchableOpacity
+                            style={[
+                              styles.questItem,
+                              isSelected && styles.questItemActive,
+                              hasSelectedSubquest && styles.questItemParentActive,
+                            ]}
+                            onPress={() => {
+                              if (hasSubquests) {
+                                toggleParentExpansion(q.id);
+                              }
+                              applyQuestTemplate(q);
+                            }}
+                            onLongPress={
+                              isUserQuest
+                                ? () => {
+                                    if (Platform.OS === "web") {
+                                      if (window.confirm(`Delete "${q.label}"?`)) {
+                                        onDeleteQuest?.(q.id);
+                                        if (selectedQuestId === q.id) {
+                                          setSelectedQuestId(null);
+                                          setSelectedSubquestId(null);
+                                          setSelectedQuestAction(null);
+                                        }
+                                      }
+                                    } else {
+                                      onDeleteQuest?.(q.id);
+                                      if (selectedQuestId === q.id) {
+                                        setSelectedQuestId(null);
+                                        setSelectedSubquestId(null);
+                                        setSelectedQuestAction(null);
+                                      }
+                                    }
+                                  }
+                                : undefined
                             }
-                          }
-                        } else {
-                          // On native, just delete (could add Alert later)
-                          onDeleteQuest?.(q.id);
-                          if (selectedQuestId === q.id) {
-                            setSelectedQuestId(null);
-                            setSelectedQuestAction(null);
-                          }
-                        }
-                      }
-                    : undefined
-                }
-              >
-                <Text style={styles.questItemLabel}>{q.label}</Text>
-                {q.defaultDurationMinutes ? (
-                  <Text style={styles.questItemMeta}>{q.defaultDurationMinutes}m</Text>
-                ) : null}
-              </TouchableOpacity>
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                              {hasSubquests && (
+                                <Text style={styles.questItemExpander}>
+                                  {isExpanded ? "▼" : "▶"}
+                                </Text>
+                              )}
+                              <Text style={styles.questItemLabel}>{q.label}</Text>
+                            </View>
+                            {q.defaultDurationMinutes ? (
+                              <Text style={styles.questItemMeta}>{q.defaultDurationMinutes}m</Text>
+                            ) : null}
+                          </TouchableOpacity>
+
+                          {/* Subquests (nested under parent) */}
+                          {hasSubquests && isExpanded && (
+                            <View style={styles.subquestList}>
+                              {subquests.map((sub) => {
+                                const isSubSelected = selectedSubquestId === sub.id;
+                                return (
+                                  <TouchableOpacity
+                                    key={sub.id}
+                                    style={[
+                                      styles.subquestItem,
+                                      isSubSelected && styles.questItemActive,
+                                    ]}
+                                    onPress={() => applyQuestTemplate(sub, true, q)}
+                                  >
+                                    <Text style={styles.subquestItemLabel}>{sub.label}</Text>
+                                    {sub.defaultDurationMinutes ? (
+                                      <Text style={styles.questItemMeta}>{sub.defaultDurationMinutes}m</Text>
+                                    ) : null}
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
             );
           })}
+          
+          {/* New quest button at bottom if there's a direct match */}
           {hasDirectNameMatch && (
             <TouchableOpacity
-              style={styles.questItem}
+              style={[styles.questItem, { marginTop: 8 }]}
               onPress={() => onCreateQuestDraft?.(description)}
             >
-              <Text style={styles.questItemLabel}>＋ New</Text>
+              <Text style={styles.questItemLabel}>＋ New quest</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       </View>
       {/* Action buttons row */}
       {(selectedQuestAction ||

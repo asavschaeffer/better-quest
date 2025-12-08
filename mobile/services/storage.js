@@ -1,7 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createProfile, createDefaultAvatar } from "../core/dataModel";
+import { migrateLegacyProgramState } from "../core/starterKits";
 
-const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 3;
+const STORAGE_KEY = "better-quest-mobile-state-v5";
+const CURRENT_VERSION = 5;
+
+// =====================================================
+// MIGRATIONS
+// =====================================================
 
 const migrations = {
   // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
@@ -29,15 +35,116 @@ const migrations = {
     next.includeBuiltInQuotes = state.includeBuiltInQuotes ?? true;
     return next;
   },
+  // v3 -> v4: add activeProgram for starter kits
+  3: (state) => {
+    const next = { ...state };
+    next.activeProgram = state.activeProgram ?? null;
+    return next;
+  },
+  // v4 -> v5: Migrate to new data model with Profile, ProgramSubscription, TodoLists
+  4: (state) => {
+    const next = { ...state };
+    const now = new Date().toISOString();
+
+    // Generate a profile ID (will be used for all entities)
+    const profileId = `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // Migrate user/avatar to Profile structure
+    if (!next.profile) {
+      const existingAvatar = state.avatar || state.user?.avatar;
+      const existingName = state.user?.name || existingAvatar?.name || "Adventurer";
+
+      next.profile = {
+        id: profileId,
+        name: existingName,
+        avatar: existingAvatar || createDefaultAvatar(),
+        programSubscriptionIds: [],
+        settings: {
+          quickStartMode: state.quickStartMode ?? "picker",
+          pickerDefaultMode: state.pickerDefaultMode ?? "top",
+          postSaveBehavior: state.postSaveBehavior ?? "library",
+          includeBuiltInQuotes: state.includeBuiltInQuotes ?? true,
+        },
+        privacy: {
+          showOnLeaderboard: true,
+          showQuests: true,
+          showPrograms: true,
+        },
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+
+    // Migrate activeProgram to ProgramSubscription
+    if (state.activeProgram && !next.programSubscriptions) {
+      const subscription = migrateLegacyProgramState(state.activeProgram, profileId);
+      if (subscription) {
+        next.programSubscriptions = [subscription];
+        next.profile.programSubscriptionIds = [subscription.id];
+      } else {
+        next.programSubscriptions = [];
+      }
+    } else if (!next.programSubscriptions) {
+      next.programSubscriptions = [];
+    }
+
+    // Initialize empty collections for new entities
+    next.todoLists = next.todoLists ?? [];
+    next.dailySeries = next.dailySeries ?? [];
+
+    // Keep legacy fields for backward compatibility during transition
+    // These will be read by App.js until fully migrated
+    next.user = next.user ?? { id: profileId, name: next.profile.name, avatar: next.profile.avatar };
+    next.avatar = next.profile.avatar;
+
+    return next;
+  },
 };
 
+// =====================================================
+// DEFAULT STATE
+// =====================================================
+
 function defaultState() {
+  const now = new Date().toISOString();
+  const profileId = `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const defaultAvatar = createDefaultAvatar();
+
   return {
-    user: null,
-    avatar: null,
+    // New Profile-based structure
+    profile: {
+      id: profileId,
+      name: "Adventurer",
+      avatar: defaultAvatar,
+      programSubscriptionIds: [],
+      settings: {
+        quickStartMode: "picker",
+        pickerDefaultMode: "top",
+        postSaveBehavior: "library",
+        includeBuiltInQuotes: true,
+      },
+      privacy: {
+        showOnLeaderboard: true,
+        showQuests: true,
+        showPrograms: true,
+      },
+      createdAt: now,
+      updatedAt: now,
+    },
+
+    // New entity collections
+    programSubscriptions: [],
+    dailySeries: [],
+    todoLists: [],
+
+    // Existing data (kept for compatibility)
     sessions: [],
-    motivation: "",
     questStreaks: {},
+
+    // Legacy fields (kept for backward compatibility)
+    user: { id: profileId, name: "Adventurer", avatar: defaultAvatar },
+    avatar: defaultAvatar,
+    motivation: "",
     comboFromSessionId: null,
     wellRestedUntil: null,
     homeFooterConfig: { showCompletedToday: true, showUpcoming: true },
@@ -46,6 +153,7 @@ function defaultState() {
     postSaveBehavior: "library",
     userQuotes: [],
     includeBuiltInQuotes: true,
+    activeProgram: null, // Legacy: { kitId, startDate, completedDays: [] }
   };
 }
 
