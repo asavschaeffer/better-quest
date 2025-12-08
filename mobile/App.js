@@ -37,11 +37,6 @@ import {
   dampingMultiplier,
 } from "./core/fatigue";
 import { inferEmojiForDescription } from "./core/emoji";
-import {
-  generateRawLog,
-  generateTwitterLog,
-  generateLinkedInLog,
-} from "./core/logFormats";
 import { StandStatsChart } from "./StandStatsChart";
 import { QuestStatsWheel } from "./QuestStatsWheel";
 import { QuickLaunchEditor } from "./QuickLaunchEditor";
@@ -52,6 +47,25 @@ import {
   BUILT_IN_QUEST_TEMPLATES,
   questStatsToChartStats,
 } from "./core/questStorage";
+import {
+  getPlayerTitle,
+  getAvatarPose,
+  getUnlockedAccessories,
+  playerStatsToChartValues,
+  aggregateStandGains,
+  computeTodayStandExp,
+  addStandExp,
+} from "./core/stats";
+import {
+  computeQuickstartSuggestions,
+  updateQuestStreaks,
+  getMaxMandalaStreak,
+  computeAggregateConsistency,
+  computeStreakDays,
+  rankQuests,
+} from "./core/quests";
+import { applySessionBonuses, applyFatigueDamping } from "./core/sessions";
+import { buildLogText } from "./core/logs";
 import { Avatar3D } from "./Avatar3D";
 
 const STORAGE_KEY = "better-quest-mobile-state-v1";
@@ -711,66 +725,6 @@ const DEFAULT_QUOTES = [
   "Discipline is choosing between what you want now and what you want most.",
   "The only way to do great work is to love what you do.",
 ];
-
-// Get player title based on level
-function getPlayerTitle(level) {
-  if (level >= 50) return "Legendary Hero";
-  if (level >= 40) return "Master";
-  if (level >= 30) return "Expert";
-  if (level >= 20) return "Veteran";
-  if (level >= 10) return "Adventurer";
-  if (level >= 5) return "Apprentice";
-  return "Novice";
-}
-
-// Choose a simple pose based on dominant stat
-function getAvatarPose(standExp = {}) {
-  const entries = STAT_KEYS.map((k) => [k, standExp[k] ?? 0]);
-  const [topKey] = entries.sort((a, b) => b[1] - a[1])[0] || ["STR", 0];
-  if (topKey === "STR") return "flex";
-  if (topKey === "SPI") return "serene";
-  return "idle";
-}
-
-// Determine which accessories are unlocked based on level
-function getUnlockedAccessories(level) {
-  const accessories = [];
-  if (level >= 3) accessories.push("wand");        // Early unlock - magic wand
-  if (level >= 10) accessories.push("wizardHat");  // Wizard hat at level 10
-  if (level >= 25) accessories.push("crown");      // Crown at level 25
-  if (level >= 50) accessories.push("popeHat");    // Pope hat at level 50 (legendary)
-  return accessories;
-}
-
-// Convert player's total stat EXP to chart values (1-5 scale)
-// Uses logarithmic scaling so early progress feels impactful
-function playerStatsToChartValues(standExp) {
-  const chartValues = {};
-
-  // Find the max stat to use for relative scaling
-  const values = STAT_KEYS.map(key => standExp?.[key] ?? 0);
-  const maxStat = Math.max(...values, 1); // At least 1 to avoid division by zero
-
-  STAT_KEYS.forEach(key => {
-    const exp = standExp?.[key] ?? 0;
-
-    if (exp === 0) {
-      chartValues[key] = 1; // Minimum value for empty stats
-    } else {
-      // Logarithmic scale: log(exp+1) normalized to 1-5 range
-      // This makes early gains feel significant while still showing growth at higher levels
-      const logValue = Math.log10(exp + 1);
-      const logMax = Math.log10(maxStat + 1);
-
-      // Scale to 1-5 range (1 is min, 5 is max)
-      // Stats are shown relative to your highest stat
-      const normalized = logMax > 0 ? (logValue / logMax) : 0;
-      chartValues[key] = 1 + (normalized * 4); // 1-5 range
-    }
-  });
-
-  return chartValues;
-}
 
 function HomeScreen({
   avatar,
@@ -3458,269 +3412,4 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 });
-
-function applySessionBonuses(session, baseExp) {
-  const mult = session.bonusMultiplier ?? 1;
-  if (mult === 1) return baseExp;
-  const totalExp = Math.round(baseExp.totalExp * mult);
-  const standExp = {};
-  if (baseExp.standExp) {
-    Object.entries(baseExp.standExp).forEach(([key, value]) => {
-      const v = typeof value === "number" ? value : 0;
-      standExp[key] = Math.round(v * mult);
-    });
-  }
-  return {
-    totalExp,
-    standExp,
-  };
-}
-
-function buildLogText(style, sessions) {
-  switch (style) {
-    case "twitter":
-      return generateTwitterLog(sessions);
-    case "linkedin":
-      return generateLinkedInLog(sessions);
-    case "raw":
-    default:
-      return generateRawLog(sessions);
-  }
-}
-
-// --- Quest ranking helpers ---
-
-function normalizePrefs(focusStats) {
-  const prefs = {};
-  STAT_KEYS.forEach((key) => {
-    const raw = focusStats?.[key] ?? 1;
-    const clamped = Math.max(1, Math.min(5, raw));
-    prefs[key] = (clamped - 1) / 4; // map 1–5 to 0–1
-  });
-  return prefs;
-}
-
-function scoreQuest(template, prefs) {
-  let score = 0;
-  const stats = template.stats || {};
-  STAT_KEYS.forEach((key) => {
-    const level = stats[key] ?? 0; // 0–3
-    const levelNorm = Math.max(0, Math.min(3, level)) / 3; // 0–1
-    score += prefs[key] * levelNorm;
-  });
-  return score;
-}
-
-function computeTextScore(template, query) {
-  const q = (query ?? "").trim().toLowerCase();
-  if (!q) return 0;
-
-  const parts = [
-    template.label,
-    template.description,
-    ...(template.keywords ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (!parts) return 0;
-  if (parts.startsWith(q)) return 3;
-  if (parts.includes(` ${q}`)) return 2;
-  if (parts.includes(q)) return 1;
-  return 0;
-}
-
-function rankQuests(templates, focusStats, query) {
-  const prefs = normalizePrefs(focusStats);
-  return templates
-    .map((t) => ({
-      ...t,
-      score: scoreQuest(t, prefs) + computeTextScore(t, query) * 0.5,
-    }))
-    .sort((a, b) => b.score - a.score);
-}
-
-// Pick quickstart suggestions based on player stats and available quests
-function computeQuickstartSuggestions(userQuests, avatar) {
-  const focusStats = playerStatsToChartValues(avatar?.standExp || {});
-  const templates = [...(userQuests || []), ...BUILT_IN_QUEST_TEMPLATES];
-  const ranked = rankQuests(templates, focusStats, "");
-  return ranked.slice(0, 3);
-}
-
-// Compute a simple daily streak from session completions (consecutive days ending today)
-function computeStreakDays(sessions = []) {
-  if (!sessions.length) return 0;
-  const dates = Array.from(
-    new Set(
-      sessions
-        .map((s) => new Date(s.completedAt || s.endTime || s.startTime))
-        .filter((d) => !Number.isNaN(d.getTime()))
-        .map((d) => d.toDateString()),
-    ),
-  )
-    .map((d) => new Date(d))
-    .sort((a, b) => b - a);
-
-  let streak = 0;
-  let cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-
-  for (const d of dates) {
-    d.setHours(0, 0, 0, 0);
-    if (d.getTime() === cursor.getTime()) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-      continue;
-    }
-    if (d.getTime() === cursor.getTime() - 86400000) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-      continue;
-    }
-    break;
-  }
-  return streak;
-}
-
-// Sum stand EXP gains across a list of sessions
-function aggregateStandGains(sessions = []) {
-  const totals = {};
-  STAT_KEYS.forEach((k) => {
-    totals[k] = 0;
-  });
-  sessions.forEach((s) => {
-    const gains = s.expResult?.standExp || {};
-    STAT_KEYS.forEach((k) => {
-      const inc = gains[k] ?? 0;
-      totals[k] += typeof inc === "number" ? inc : 0;
-    });
-  });
-  return totals;
-}
-
-function computeTodayStandExp(sessions = []) {
-  const totals = {};
-  STAT_KEYS.forEach((k) => {
-    totals[k] = 0;
-  });
-  if (!sessions.length) return totals;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayMs = today.getTime();
-  sessions.forEach((s) => {
-    const d = new Date(s.completedAt || s.endTime || s.startTime);
-    if (Number.isNaN(d.getTime())) return;
-    d.setHours(0, 0, 0, 0);
-    if (d.getTime() !== todayMs) return;
-    const gains = s.expResult?.standExp || {};
-    STAT_KEYS.forEach((k) => {
-      totals[k] += typeof gains[k] === "number" ? gains[k] : 0;
-    });
-  });
-  return totals;
-}
-
-function addStandExp(current = {}, delta = {}) {
-  const next = {};
-  STAT_KEYS.forEach((k) => {
-    const base = typeof current[k] === "number" ? current[k] : 0;
-    const add = typeof delta[k] === "number" ? delta[k] : 0;
-    next[k] = base + add;
-  });
-  return next;
-}
-
-function updateQuestStreaks(prev = {}, questKey, completedAt) {
-  if (!questKey) return prev;
-  const d = new Date(completedAt || Date.now());
-  if (Number.isNaN(d.getTime())) return prev;
-  d.setHours(0, 0, 0, 0);
-  const day = d.toISOString();
-  const existing = prev[questKey];
-  const lastDay = existing?.lastDay ? new Date(existing.lastDay) : null;
-  let streak = 1;
-  if (lastDay && !Number.isNaN(lastDay.getTime())) {
-    lastDay.setHours(0, 0, 0, 0);
-    const diff = d.getTime() - lastDay.getTime();
-    if (diff === 0) {
-      // Same day, keep streak
-      streak = existing.streak || 1;
-    } else if (diff === 86400000) {
-      streak = (existing.streak || 1) + 1;
-    }
-  }
-  return {
-    ...prev,
-    [questKey]: {
-      lastDay: day,
-      streak,
-    },
-  };
-}
-
-function getMaxMandalaStreak(streaks = {}) {
-  const values = Object.values(streaks).map((s) => s?.streak || 0);
-  if (!values.length) return 0;
-  return Math.max(...values);
-}
-
-function computeAggregateConsistency(sessions = []) {
-  if (!sessions.length) return 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const msPerDay = 86400000;
-  const activeDays = { week: new Set(), month: new Set() };
-  sessions.forEach((s) => {
-    const d = new Date(s.completedAt || s.endTime || s.startTime);
-    if (Number.isNaN(d.getTime())) return;
-    d.setHours(0, 0, 0, 0);
-    const diffDays = (today.getTime() - d.getTime()) / msPerDay;
-    if (diffDays >= 0 && diffDays < 7) {
-      activeDays.week.add(d.toDateString());
-    }
-    if (diffDays >= 0 && diffDays < 30) {
-      activeDays.month.add(d.toDateString());
-    }
-  });
-  const weekRatio = activeDays.week.size / 7;
-  const monthRatio = activeDays.month.size / 30;
-  return Math.max(0, Math.min(1, weekRatio * 0.6 + monthRatio * 0.4));
-}
-
-function applyFatigueDamping({ baseExp, avatar, sessions, questStreaks }) {
-  if (!baseExp || !baseExp.standExp) return baseExp;
-  const todaySpent = computeTodayStandExp(sessions);
-  const mandalaStreak = getMaxMandalaStreak(questStreaks);
-  const aggregateConsistency = computeAggregateConsistency(sessions);
-  const chartStats = playerStatsToChartValues(avatar?.standExp || {});
-  const budgets = computeDailyBudgets({
-    chartStats,
-    level: avatar?.level ?? 1,
-    mandalaStreak,
-    aggregateConsistency,
-  });
-
-  const adjustedStand = {};
-  STAT_KEYS.forEach((k) => {
-    const gain = baseExp.standExp?.[k] ?? 0;
-    const spent = todaySpent[k] ?? 0;
-    const budget = budgets[k] ?? 0;
-    const mult = dampingMultiplier({
-      spent: spent + gain,
-      budget,
-      floor: 0.4,
-    });
-    adjustedStand[k] = Math.round(gain * mult);
-  });
-  const adjustedTotal = Math.max(
-    0,
-    Math.round(Object.values(adjustedStand).reduce((sum, v) => sum + v, 0)),
-  );
-  return {
-    totalExp: adjustedTotal,
-    standExp: adjustedStand,
-  };
-}
 
