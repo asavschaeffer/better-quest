@@ -82,6 +82,11 @@ export default function App() {
     showUpcoming: true,
   });
   const [quickStartMode, setQuickStartMode] = useState("picker"); // picker | instant
+  const [pickerDefaultMode, setPickerDefaultMode] = useState("top"); // top | blank
+  const [postSaveBehavior, setPostSaveBehavior] = useState("library"); // library | picker
+  const [pendingQuestSelection, setPendingQuestSelection] = useState(null);
+  const [toastMessage, setToastMessage] = useState("");
+  const toastTimerRef = useRef(null);
   const announcements = useMemo(() => ([
     { id: "version-0-1", title: "Version 0.1 live now", body: "New quickstart options and refreshed insights." },
     { id: "history-graph", title: "Graph history added 12/6!", body: "View multi-period stat gains in Insights." },
@@ -122,6 +127,12 @@ export default function App() {
           if (parsed.quickStartMode === "instant" || parsed.quickStartMode === "picker") {
             setQuickStartMode(parsed.quickStartMode);
           }
+          if (parsed.pickerDefaultMode === "top" || parsed.pickerDefaultMode === "blank") {
+            setPickerDefaultMode(parsed.pickerDefaultMode);
+          }
+          if (parsed.postSaveBehavior === "library" || parsed.postSaveBehavior === "picker") {
+            setPostSaveBehavior(parsed.postSaveBehavior);
+          }
         }
         
         // Load user quests
@@ -146,6 +157,8 @@ export default function App() {
           wellRestedUntil,
           homeFooterConfig,
           quickStartMode,
+          pickerDefaultMode,
+          postSaveBehavior,
         };
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       } catch {
@@ -153,7 +166,7 @@ export default function App() {
       }
     };
     save();
-  }, [user, sessions, motivation, questStreaks, comboFromSessionId, wellRestedUntil, homeFooterConfig, quickStartMode]);
+  }, [user, sessions, motivation, questStreaks, comboFromSessionId, wellRestedUntil, homeFooterConfig, quickStartMode, pickerDefaultMode, postSaveBehavior]);
 
   // Timer effect
   useEffect(() => {
@@ -247,6 +260,7 @@ export default function App() {
     questKey = null,
   }) {
     const id = `session-${Date.now()}`;
+    const endTimeMs = Date.now() + durationMinutes * 60 * 1000;
     // Determine bonuses based on previous actions.
     const now = Date.now();
     let hasCombo = false;
@@ -276,9 +290,11 @@ export default function App() {
       comboBonus: hasCombo,
       restBonus: hasRest,
       bonusMultiplier,
+      endTimeMs,
     });
     session.icon = inferEmojiForDescription(description);
     setCurrentSession(session);
+    setRemainingMs(endTimeMs - Date.now());
     // Clear one-shot bonus flags once consumed.
     if (hasCombo) setComboFromSessionId(null);
     if (hasRest) setWellRestedUntil(null);
@@ -439,6 +455,14 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [screen, currentSession, handleCancelSession]);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   // Navigation helpers
   function handleNavigation(tab) {
     setActiveTab(tab);
@@ -455,6 +479,15 @@ export default function App() {
 
   function handleQuickstartSelect(template) {
     startQuestFromTemplate(template);
+  }
+
+  function showToast(message) {
+    if (!message) return;
+    setToastMessage(message);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => setToastMessage(""), 2000);
   }
 
   function handleOpenSettings() {
@@ -523,16 +556,43 @@ export default function App() {
                 ...prev,
                 avatar: { ...prev.avatar, ...updates },
               }));
+              showToast("Saved");
             }}
             footerConfig={homeFooterConfig}
-            onUpdateFooterConfig={(next) => setHomeFooterConfig(next)}
+            onUpdateFooterConfig={(next) => {
+              setHomeFooterConfig(next);
+              showToast("Saved");
+            }}
             quickStartMode={quickStartMode}
-            onUpdateQuickStartMode={(mode) => setQuickStartMode(mode)}
+            pickerDefaultMode={pickerDefaultMode}
+            postSaveBehavior={postSaveBehavior}
+            onUpdateQuickStartMode={(mode) => {
+              if (mode === "picker" || mode === "instant") {
+                setQuickStartMode(mode);
+              }
+              showToast("Saved");
+            }}
+            onUpdatePickerDefaultMode={(mode) => {
+              if (mode === "top" || mode === "blank") {
+                setPickerDefaultMode(mode);
+              }
+              showToast("Saved");
+            }}
+            onUpdatePostSaveBehavior={(mode) => {
+              if (mode === "library" || mode === "picker") {
+                setPostSaveBehavior(mode);
+              }
+              showToast("Saved");
+            }}
+            showToast={showToast}
           />
         )}
         {screen === "quest" && (
           <QuestSetupScreen
             userQuests={userQuests}
+            pickerDefaultMode={pickerDefaultMode}
+            autoSelectQuest={pendingQuestSelection}
+            onAutoSelectConsumed={() => setPendingQuestSelection(null)}
             onBack={() => setScreen("home")}
             onStartSession={(params) => {
               // Check if quest has an action to open
@@ -574,7 +634,13 @@ export default function App() {
               const updated = await addUserQuest(quest);
               setUserQuests(updated);
               setEditingQuest(null);
-              setScreen("quest");
+              if (postSaveBehavior === "picker") {
+                setPendingQuestSelection(quest);
+                setScreen("quest");
+              } else {
+                setScreen("library");
+              }
+              showToast("Quest saved");
             }}
             onSaveAndStart={async (quest, sessionParams) => {
               const updated = await addUserQuest(quest);
@@ -594,6 +660,7 @@ export default function App() {
               setUserQuests(updated);
               setEditingQuest(null);
               setScreen("quest");
+              showToast("Quest deleted");
             }}
           />
         )}
@@ -618,6 +685,11 @@ export default function App() {
             onEnd={handleEndForNow}
           />
         )}
+        {toastMessage ? (
+          <View style={styles.toastContainer} pointerEvents="none">
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        ) : null}
         {/* Bottom Navbar */}
         {showNavbar && (
           <Navbar
@@ -1424,6 +1496,11 @@ function SettingsScreen({
   onUpdateFooterConfig,
   quickStartMode,
   onUpdateQuickStartMode,
+  pickerDefaultMode = "top",
+  postSaveBehavior = "library",
+  onUpdatePickerDefaultMode,
+  onUpdatePostSaveBehavior,
+  showToast,
 }) {
   const [name, setName] = useState(avatar.name);
   const [localFooterConfig, setLocalFooterConfig] = useState(
@@ -1433,10 +1510,14 @@ function SettingsScreen({
   useEffect(() => {
     setLocalFooterConfig(footerConfig);
   }, [footerConfig]);
+  useEffect(() => {
+    setName(avatar.name);
+  }, [avatar.name]);
 
   function handleSaveName() {
     if (name.trim()) {
       onUpdateAvatar({ name: name.trim() });
+      showToast?.("Saved");
     }
   }
 
@@ -1499,6 +1580,50 @@ function SettingsScreen({
           </TouchableOpacity>
         </View>
 
+        {/* Quest picker defaults */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.settingsSectionTitle}>Quest Picker Defaults</Text>
+          <Text style={styles.settingsDescription}>
+            Choose what the quest picker shows first.
+          </Text>
+          <TouchableOpacity
+            style={styles.settingsOption}
+            onPress={() => onUpdatePickerDefaultMode?.("top")}
+          >
+            <Text style={styles.settingsOptionText}>Preselect top suggestion</Text>
+            {pickerDefaultMode === "top" && <Text style={styles.settingsOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsOption}
+            onPress={() => onUpdatePickerDefaultMode?.("blank")}
+          >
+            <Text style={styles.settingsOptionText}>Start blank</Text>
+            {pickerDefaultMode === "blank" && <Text style={styles.settingsOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+        </View>
+
+        {/* Library save flow */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.settingsSectionTitle}>After Saving a Quest</Text>
+          <Text style={styles.settingsDescription}>
+            Choose where you land after saving in the Library.
+          </Text>
+          <TouchableOpacity
+            style={styles.settingsOption}
+            onPress={() => onUpdatePostSaveBehavior?.("library")}
+          >
+            <Text style={styles.settingsOptionText}>Stay in Library</Text>
+            {postSaveBehavior === "library" && <Text style={styles.settingsOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsOption}
+            onPress={() => onUpdatePostSaveBehavior?.("picker")}
+          >
+            <Text style={styles.settingsOptionText}>Jump to picker with quest selected</Text>
+            {postSaveBehavior === "picker" && <Text style={styles.settingsOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+        </View>
+
         {/* Quotes section */}
         <View style={styles.settingsSection}>
           <Text style={styles.settingsSectionTitle}>Motivational Quotes</Text>
@@ -1544,7 +1669,7 @@ function SettingsScreen({
   );
 }
 
-function QuestSetupScreen({ userQuests = [], onBack, onStartSession, onCreateQuestDraft, onDeleteQuest, onEditQuest, onOpenQuestAction }) {
+function QuestSetupScreen({ userQuests = [], pickerDefaultMode = "top", autoSelectQuest = null, onAutoSelectConsumed, onBack, onStartSession, onCreateQuestDraft, onDeleteQuest, onEditQuest, onOpenQuestAction }) {
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
   const [error, setError] = useState("");
@@ -1617,6 +1742,7 @@ function QuestSetupScreen({ userQuests = [], onBack, onStartSession, onCreateQue
   }
 
   function applyQuestTemplate(template) {
+    if (!template) return;
     setDescription(template.label);
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
@@ -1675,6 +1801,26 @@ function QuestSetupScreen({ userQuests = [], onBack, onStartSession, onCreateQue
     focusStats,
     selectedQuestAction,
   ]);
+
+  // Auto-select quest when provided (e.g., saved from library)
+  useEffect(() => {
+    if (!autoSelectQuest) return;
+    applyQuestTemplate(autoSelectQuest);
+    setSelectedQuestId(autoSelectQuest.id || null);
+    if (onAutoSelectConsumed) {
+      onAutoSelectConsumed();
+    }
+  }, [autoSelectQuest, onAutoSelectConsumed]);
+
+  // Picker default mode: preselect top suggestion unless user started typing
+  useEffect(() => {
+    if (pickerDefaultMode !== "top") return;
+    if (description.trim() || selectedQuestId || !sortedQuests.length) return;
+    const top = sortedQuests[0];
+    if (top) {
+      applyQuestTemplate(top);
+    }
+  }, [pickerDefaultMode, description, selectedQuestId, sortedQuests]);
 
   return (
     <View style={styles.container}>
@@ -2722,22 +2868,20 @@ const styles = StyleSheet.create({
   },
   notificationDropdownContainer: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 44,
+    right: 12,
     zIndex: 30,
-    paddingHorizontal: 16,
+    alignItems: "flex-end",
   },
   notificationBackdrop: {
     position: "absolute",
-    top: 0,
+    top: 48,
     left: 0,
     right: 0,
     bottom: 0,
   },
   notificationDropdown: {
-    marginTop: 8,
-    marginLeft: "auto",
+    marginTop: 4,
     width: 320,
     maxWidth: "100%",
     backgroundColor: "#0b1220",
@@ -2775,6 +2919,22 @@ const styles = StyleSheet.create({
   },
   notificationList: {
     maxHeight: 260,
+  },
+  toastContainer: {
+    position: "absolute",
+    bottom: 90,
+    alignSelf: "center",
+    backgroundColor: "rgba(15,23,42,0.9)",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  toastText: {
+    color: "#f9fafb",
+    fontSize: 13,
+    fontWeight: "600",
   },
   // Stage layout: chart background, roaming avatar foreground
   stage: {

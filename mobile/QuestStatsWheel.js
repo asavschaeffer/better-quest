@@ -581,6 +581,8 @@ const styles = StyleSheet.create({
   },
   wheelContainer: {
     position: "relative",
+    paddingTop: 16,
+    marginBottom: 12,
   },
   chartWrapper: {
     alignItems: "center",
