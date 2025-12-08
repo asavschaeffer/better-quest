@@ -55,6 +55,7 @@ import HomeScreen from "./screens/HomeScreen";
 import LibraryScreen from "./screens/LibraryScreen";
 import HistoryScreen from "./screens/HistoryScreen";
 import LeaderboardScreen from "./screens/LeaderboardScreen";
+import ProfileScreen from "./screens/ProfileScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import QuestSetupScreen from "./screens/QuestSetupScreen";
 import NewQuestScreen from "./screens/NewQuestScreen";
@@ -119,6 +120,7 @@ function AppShell() {
   const [lastExpResult, setLastExpResult] = useState(null);
   const [draftQuestName, setDraftQuestName] = useState("");
   const [editingQuest, setEditingQuest] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null);
   const [pendingQuestAction, setPendingQuestAction] = useState(null);
   const [pendingQuestSelection, setPendingQuestSelection] = useState(null);
   const [toastMessage, setToastMessage] = useState("");
@@ -661,7 +663,23 @@ function AppShell() {
         )}
         {screen === Screens.HISTORY && <HistoryScreen sessions={sessions} />}
         {screen === Screens.LEADERBOARD && (
-          <LeaderboardScreen avatar={avatar} sessions={sessions} />
+          <LeaderboardScreen
+            avatar={avatar}
+            sessions={sessions}
+            onViewProfile={(player) => {
+              setViewingProfile(player);
+              navigate(Screens.PROFILE);
+            }}
+          />
+        )}
+        {screen === Screens.PROFILE && viewingProfile && (
+          <ProfileScreen
+            player={viewingProfile}
+            onBack={() => {
+              setViewingProfile(null);
+              navigate(Screens.LEADERBOARD);
+            }}
+          />
         )}
         {screen === Screens.SETTINGS && (
           <SettingsScreen

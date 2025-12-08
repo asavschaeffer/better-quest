@@ -38,16 +38,15 @@ export function playerStatsToChartValues(standExp) {
   STAT_KEYS.forEach((key) => {
     const exp = standExp?.[key] ?? 0;
     if (exp === 0) {
-      chartValues[key] = 1;
+      chartValues[key] = 1; // E tier for zero
     } else {
-      const logValue = Math.log10(exp + 1);
-      const logMax = Math.log10(maxStat + 1);
-      const normalized = logMax > 0 ? logValue / logMax : 0;
-      // Base value from relative normalization (1 to MAX_CHART_VALUE)
-      const baseValue = 1 + normalized * (MAX_CHART_VALUE - 1);
-      // Add floor so stats with meaningful EXP don't sit at E
-      // 100+ EXP = at least D (2), 50+ EXP = at least D- (1.5)
-      const floor = exp >= 100 ? 2 : exp >= 50 ? 1.5 : 1;
+      // Linear normalization: ratio to max stat
+      const ratio = exp / maxStat;
+      // Map ratio to chart scale: 0→E(1), 1→S(6)
+      const baseValue = 1 + ratio * (MAX_CHART_VALUE - 1);
+      // Small floor: stats with some EXP don't show as completely empty
+      // 50+ EXP = at least E+ (1.3)
+      const floor = exp >= 50 ? 1.3 : 1;
       chartValues[key] = Math.max(floor, baseValue);
     }
   });

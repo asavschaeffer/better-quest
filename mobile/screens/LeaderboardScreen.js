@@ -11,25 +11,69 @@ function Chip({ label, onPress, active }) {
   );
 }
 
-export default function LeaderboardScreen({ avatar, sessions = [] }) {
+// Mock leaderboard players with different stat distributions
+export const MOCK_PLAYERS = [
+  {
+    id: "darkslayer",
+    name: "XxDarkSlayer99xX",
+    level: 42,
+    exp: 52000,
+    minutes: 3200,
+    // Lots of weightlifting, dexterity work, and meditation
+    standExp: { STR: 2800, DEX: 1500, STA: 800, INT: 200, SPI: 1200, CRE: 100, VIT: 400 },
+    recentQuests: ["Weightlifting", "Boxing", "Meditation", "Stretching"],
+    avatarSeed: "darkslayer",
+  },
+  {
+    id: "studymaster",
+    name: "StudyMaster",
+    level: 38,
+    exp: 41000,
+    minutes: 2600,
+    // Pure intellectual focus
+    standExp: { STR: 50, DEX: 100, STA: 200, INT: 4500, SPI: 300, CRE: 800, VIT: 50 },
+    recentQuests: ["Deep Study", "Reading", "Problem Solving", "Language Learning"],
+    avatarSeed: "studymaster",
+  },
+  {
+    id: "focusking",
+    name: "FocusKing",
+    level: 35,
+    exp: 36000,
+    minutes: 2100,
+    // Balanced mental + physical wellness
+    standExp: { STR: 400, DEX: 300, STA: 500, INT: 1800, SPI: 1500, CRE: 200, VIT: 1300 },
+    recentQuests: ["Meditation", "Deep Work", "Yoga", "Walking"],
+    avatarSeed: "focusking",
+  },
+  {
+    id: "grindmode",
+    name: "GrindMode",
+    level: 28,
+    exp: 22000,
+    minutes: 1500,
+    // Even distribution - does everything
+    standExp: { STR: 600, DEX: 550, STA: 580, INT: 620, SPI: 540, CRE: 590, VIT: 520 },
+    recentQuests: ["Morning Workout", "Study Session", "Creative Writing", "Run"],
+    avatarSeed: "grindmode",
+  },
+];
+
+export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile }) {
   const [metric, setMetric] = useState("exp"); // exp | time
 
   const totalMinutes = sessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
   const mockLeaders = useMemo(() => {
-    const base = [
-      { name: "XxDarkSlayer99xX", level: 42, exp: 52000, minutes: 3200 },
-      { name: "StudyMaster", level: 38, exp: 41000, minutes: 2600 },
-      { name: "FocusKing", level: 35, exp: 36000, minutes: 2100 },
-      { name: "GrindMode", level: 28, exp: 22000, minutes: 1500 },
-    ];
     const player = {
+      id: "player",
       name: avatar.name,
       level: avatar.level,
       exp: avatar.totalExp || 0,
       minutes: totalMinutes,
+      standExp: avatar.standExp || {},
       isPlayer: true,
     };
-    return [...base, player];
+    return [...MOCK_PLAYERS, player];
   }, [avatar, totalMinutes]);
 
   const sorted = useMemo(() => {
@@ -69,12 +113,14 @@ export default function LeaderboardScreen({ avatar, sessions = [] }) {
       {/* Leaderboard list */}
       <View style={styles.leaderboardList}>
         {sorted.map((player, index) => (
-          <View
+          <TouchableOpacity
             key={player.name}
             style={[
               styles.leaderboardItem,
               player.isPlayer && styles.leaderboardItemPlayer,
             ]}
+            onPress={() => onViewProfile?.(player)}
+            activeOpacity={0.7}
           >
             <Text style={styles.leaderboardRank}>#{index + 1}</Text>
             <View style={styles.leaderboardInfo}>
@@ -84,7 +130,7 @@ export default function LeaderboardScreen({ avatar, sessions = [] }) {
             <Text style={styles.leaderboardExp}>
               {metric === "exp" ? `${player.exp}` : `${Math.round((player.minutes || 0) / 60)}h`}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 

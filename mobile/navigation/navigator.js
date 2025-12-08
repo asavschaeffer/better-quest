@@ -5,6 +5,7 @@ export const Screens = {
   LIBRARY: "library",
   HISTORY: "history",
   LEADERBOARD: "leaderboard",
+  PROFILE: "profile",
   SETTINGS: "settings",
   QUEST: "quest",
   NEW_QUEST: "newQuest",

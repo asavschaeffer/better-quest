@@ -1059,6 +1059,150 @@ export const styles = StyleSheet.create({
     color: "#ef4444",
     fontSize: 14,
   },
+  // Profile screen styles
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  profileTitle: {
+    color: "#e5e7eb",
+    fontSize: 20,
+    fontWeight: "700",
+    flex: 1,
+    textAlign: "center",
+    marginRight: 60,
+  },
+  backBtn: {
+    padding: 8,
+  },
+  backBtnText: {
+    color: "#6366f1",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  profileAvatarSection: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  profileAvatarContainer: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "#0f172a",
+    borderWidth: 3,
+    borderColor: "#4f46e5",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileLevelBadge: {
+    backgroundColor: "#4f46e5",
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: -12,
+  },
+  profileLevelText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  profileExp: {
+    color: "#fbbf24",
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  profileDominant: {
+    color: "#9ca3af",
+    fontSize: 14,
+    marginTop: 4,
+  },
+  profileStatsSection: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  profileStatBreakdown: {
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  profileStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  profileStatLabel: {
+    color: "#9ca3af",
+    fontSize: 12,
+    width: 80,
+  },
+  profileStatBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "#1f2937",
+    borderRadius: 4,
+    marginHorizontal: 8,
+    overflow: "hidden",
+  },
+  profileStatBar: {
+    height: "100%",
+    backgroundColor: "#6366f1",
+    borderRadius: 4,
+  },
+  profileStatValue: {
+    color: "#e5e7eb",
+    fontSize: 12,
+    fontWeight: "600",
+    width: 50,
+    textAlign: "right",
+  },
+  profileActivitySection: {
+    marginBottom: 24,
+  },
+  profileQuestList: {
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 12,
+  },
+  profileQuestItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f2937",
+  },
+  profileQuestEmoji: {
+    fontSize: 16,
+    marginRight: 12,
+  },
+  profileQuestName: {
+    color: "#e5e7eb",
+    fontSize: 14,
+  },
+  profileSummary: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  profileSummaryStat: {
+    alignItems: "center",
+  },
+  profileSummaryValue: {
+    color: "#fbbf24",
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  profileSummaryLabel: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 4,
+  },
 });
 
 export default styles;
