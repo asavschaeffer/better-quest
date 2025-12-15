@@ -20,6 +20,7 @@ import {
   startBreakSession as startBreakSessionImpl,
   applySessionBonuses as applySessionBonusesImpl,
 } from "./sessionFlow.js";
+import { computeBonusesForNewSession as computeBonusesForNewSessionImpl } from "./bonuses.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -467,33 +468,20 @@ function vibeTextForTaskType() {
 }
 
 function computeBonusesForNewSession() {
-  let hasCombo = false;
-  let hasRest = false;
+  const res = computeBonusesForNewSessionImpl({
+    comboFromSessionId,
+    lastCompletedSession,
+    wellRestedUntil,
+    comboMultiplier: COMBO_BONUS_MULTIPLIER,
+    restMultiplier: REST_BONUS_MULTIPLIER,
+    persistState,
+  });
 
-  if (comboFromSessionId && lastCompletedSession) {
-    if (comboFromSessionId === lastCompletedSession.id) {
-      hasCombo = true;
-      comboFromSessionId = null;
-    }
-  }
+  // Apply cleared flags back to module-level state.
+  comboFromSessionId = res.nextComboFromSessionId;
+  wellRestedUntil = res.nextWellRestedUntil;
 
-  if (wellRestedUntil) {
-    const now = Date.now();
-    const until = Date.parse(wellRestedUntil);
-    if (!Number.isNaN(until) && now < until) {
-      hasRest = true;
-      wellRestedUntil = null;
-    }
-  }
-
-  let multiplier = 1;
-  if (hasCombo) multiplier *= COMBO_BONUS_MULTIPLIER;
-  if (hasRest) multiplier *= REST_BONUS_MULTIPLIER;
-
-  // Persist in case we cleared flags.
-  persistState();
-
-  return { hasCombo, hasRest, multiplier };
+  return { hasCombo: res.hasCombo, hasRest: res.hasRest, multiplier: res.multiplier };
 }
 
 function applySessionBonuses(session, baseExp) {
