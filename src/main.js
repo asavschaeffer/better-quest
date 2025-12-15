@@ -6,15 +6,15 @@ import {
   getLevelProgress,
 } from "./exp.js";
 import { inferEmojiForDescription } from "./emoji.js";
-import {
-  generateRawLog,
-  generateTwitterLog,
-  generateLinkedInLog,
-} from "./logFormats.js";
 import { dom } from "./dom.js";
 import { applyPreset, setActiveChip } from "./presets.js";
 import { hydrateStateFromStorage, persistStateToStorage } from "./state.js";
 import { setView } from "./views.js";
+import {
+  renderHistory as renderHistoryListImpl,
+  generateLogText as generateLogTextImpl,
+  showLogCopiedToast as showLogCopiedToastImpl,
+} from "./history.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -455,42 +455,12 @@ function persistState() {
 }
 
 function renderHistory() {
-  if (!historyListEl || !historyEmptyEl) return;
-
-  historyListEl.innerHTML = "";
-
-  if (!sessions.length) {
-    historyEmptyEl.style.display = "block";
-    return;
-  }
-
-  historyEmptyEl.style.display = "none";
-
-  for (const session of sessions) {
-    const li = document.createElement("li");
-
-    const primary = document.createElement("div");
-    primary.className = "bq-history-item-primary";
-    const expText = session.expResult
-      ? ` (+${session.expResult.totalExp} EXP)`
-      : "";
-    primary.textContent = `${session.description}${expText}`;
-
-    const meta = document.createElement("div");
-    meta.className = "bq-history-item-meta";
-    const when = formatShortDate(session.completedAt);
-    meta.textContent = `${when} • ${session.durationMinutes} min`;
-
-    li.appendChild(primary);
-    li.appendChild(meta);
-    if (session.notes) {
-      const notes = document.createElement("div");
-      notes.className = "bq-history-item-notes";
-      notes.textContent = session.notes;
-      li.appendChild(notes);
-    }
-    historyListEl.appendChild(li);
-  }
+  renderHistoryListImpl({
+    sessions,
+    historyListEl,
+    historyEmptyEl,
+    formatShortDate,
+  });
 }
 
 function formatShortDate(isoString) {
@@ -567,23 +537,11 @@ function saveCompletionNotes() {
 }
 
 function generateLogText(style, sessionsInput) {
-  switch (style) {
-    case "twitter":
-      return generateTwitterLog(sessionsInput);
-    case "linkedin":
-      return generateLinkedInLog(sessionsInput);
-    case "raw":
-    default:
-      return generateRawLog(sessionsInput);
-  }
+  return generateLogTextImpl(style, sessionsInput);
 }
 
 function showLogCopiedToast() {
-  if (!logCopiedEl) return;
-  logCopiedEl.hidden = false;
-  setTimeout(() => {
-    logCopiedEl.hidden = true;
-  }, 1800);
+  showLogCopiedToastImpl({ logCopiedEl, durationMs: 1800 });
 }
 
 init();
