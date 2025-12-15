@@ -1,6 +1,6 @@
-import { STAT_KEYS } from "./models";
-import { BUILT_IN_QUEST_TEMPLATES } from "./questStorage";
-import { playerStatsToChartValues } from "./stats";
+import { STAT_KEYS } from "./models.js";
+import { BUILT_IN_QUEST_TEMPLATES } from "./questStorage.js";
+import { playerStatsToChartValues } from "./stats.js";
 
 export function normalizePrefs(focusStats) {
   const prefs = {};

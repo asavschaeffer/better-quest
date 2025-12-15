@@ -1,7 +1,7 @@
-import { STAT_KEYS } from "./models";
-import { computeDailyBudgets, dampingMultiplier } from "./fatigue";
-import { playerStatsToChartValues, computeTodayStandExp } from "./stats";
-import { getMaxMandalaStreak, computeAggregateConsistency } from "./quests";
+import { STAT_KEYS } from "./models.js";
+import { computeDailyBudgets, dampingMultiplier } from "./fatigue.js";
+import { playerStatsToChartValues, computeTodayStandExp } from "./stats.js";
+import { getMaxMandalaStreak, computeAggregateConsistency } from "./quests.js";
 
 export function applySessionBonuses(session, baseExp) {
   const mult = session.bonusMultiplier ?? 1;

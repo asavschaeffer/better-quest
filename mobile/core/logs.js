@@ -1,4 +1,4 @@
-import { generateRawLog, generateTwitterLog, generateLinkedInLog } from "./logFormats";
+import { generateRawLog, generateTwitterLog, generateLinkedInLog } from "./logFormats.js";
 
 export function buildLogText(style, sessions) {
   switch (style) {

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { STAT_KEYS } from "./models";
+import { STAT_KEYS } from "./models.js";
 
 const USER_QUESTS_KEY = "better-quest-user-quests-v1";
 

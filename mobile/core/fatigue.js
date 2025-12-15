@@ -1,4 +1,4 @@
-import { STAT_KEYS } from "./models";
+import { STAT_KEYS } from "./models.js";
 
 // Map chart stat value (1–5) to quest-like points (1–3) for budgeting.
 export function chartValueToPoints(value) {
@@ -10,7 +10,8 @@ export function chartValueToPoints(value) {
 // Level factor: gentle scale up to ~1 around level 30+.
 export function computeLevelFactor(level = 1) {
   const lv = Math.max(1, Number.isFinite(level) ? level : 1);
-  return Math.min(1, lv / 30); // level 30 => 1.0, caps after
+  // Level 1 should contribute 0 bonus; level 30 contributes ~full bonus.
+  return Math.min(1, (lv - 1) / 29); // level 1 => 0.0, level 30 => 1.0
 }
 
 // Streak factor: mandala (per-quest) dominates; aggregate consistency boosts lightly.

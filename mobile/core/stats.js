@@ -1,4 +1,4 @@
-import { STAT_KEYS } from "./models";
+import { STAT_KEYS } from "./models.js";
 
 export function getPlayerTitle(level) {
   if (level >= 50) return "Legendary Hero";
