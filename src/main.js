@@ -21,6 +21,7 @@ import {
   applySessionBonuses as applySessionBonusesImpl,
 } from "./sessionFlow.js";
 import { computeBonusesForNewSession as computeBonusesForNewSessionImpl } from "./bonuses.js";
+import { saveCompletionNotes as saveCompletionNotesImpl } from "./notes.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -489,13 +490,13 @@ function applySessionBonuses(session, baseExp) {
 }
 
 function saveCompletionNotes() {
-  if (!sessionNotesInput) return;
-  const notes = sessionNotesInput.value.trim();
-  if (lastCompletedSessionIndex < 0) return;
-  if (!sessions[lastCompletedSessionIndex]) return;
-  sessions[lastCompletedSessionIndex].notes = notes;
-  renderHistory();
-  persistState();
+  saveCompletionNotesImpl({
+    sessionNotesInput,
+    sessions,
+    lastCompletedSessionIndex,
+    renderHistory,
+    persistState,
+  });
 }
 
 function generateLogText(style, sessionsInput) {
