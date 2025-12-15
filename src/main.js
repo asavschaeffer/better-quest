@@ -6,7 +6,6 @@ import {
   getLevelProgress,
 } from "./exp.js";
 import { inferEmojiForDescription } from "./emoji.js";
-import { loadState, saveState } from "./storage.js";
 import {
   generateRawLog,
   generateTwitterLog,
@@ -14,6 +13,7 @@ import {
 } from "./logFormats.js";
 import { dom } from "./dom.js";
 import { applyPreset, setActiveChip } from "./presets.js";
+import { hydrateStateFromStorage, persistStateToStorage } from "./state.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -441,32 +441,32 @@ function startBreakSession(durationMinutes) {
 }
 
 function hydrateFromStorage() {
-  const state = loadState();
-  if (!state) return;
-
-  if (state.avatar) {
-    avatar = state.avatar;
-    user = { ...user, avatar };
-  }
-  if (Array.isArray(state.sessions)) {
-    sessions = state.sessions;
-  }
-  if (typeof state.motivation === "string") {
-    motivation = state.motivation;
-    if (motivationInput) {
-      motivationInput.value = motivation;
-    }
-  }
-  if (state.wellRestedUntil) {
-    wellRestedUntil = state.wellRestedUntil;
-  }
-  if (state.comboFromSessionId) {
-    comboFromSessionId = state.comboFromSessionId;
-  }
+  hydrateStateFromStorage({
+    user,
+    setUser: (nextUser) => {
+      user = nextUser;
+    },
+    setAvatar: (nextAvatar) => {
+      avatar = nextAvatar;
+    },
+    setSessions: (nextSessions) => {
+      sessions = nextSessions;
+    },
+    setMotivation: (nextMotivation) => {
+      motivation = nextMotivation;
+    },
+    setWellRestedUntil: (next) => {
+      wellRestedUntil = next;
+    },
+    setComboFromSessionId: (next) => {
+      comboFromSessionId = next;
+    },
+    motivationInput,
+  });
 }
 
 function persistState() {
-  saveState({ avatar, sessions, motivation, wellRestedUntil, comboFromSessionId });
+  persistStateToStorage({ avatar, sessions, motivation, wellRestedUntil, comboFromSessionId });
 }
 
 function renderHistory() {
