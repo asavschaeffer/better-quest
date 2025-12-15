@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { Platform, Linking } from "react-native";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { Platform } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
-import { createDefaultAvatar, createTaskSession, createUser, STAT_KEYS } from "../core/models.js";
+import { createDefaultAvatar, createTaskSession, STAT_KEYS } from "../core/models.js";
 import { calculateExpForSession, applyExpToAvatar, getLevelProgress } from "../core/exp.js";
 import { computeDailyBudgets } from "../core/fatigue.js";
 import { inferEmojiForDescription } from "../core/emoji.js";
-import { loadUserQuests, addUserQuest, deleteUserQuest, questStatsToChartStats } from "../core/questStorage.js";
+import { addUserQuest, deleteUserQuest, questStatsToChartStats } from "../core/questStorage.js";
 import { playerStatsToChartValues, computeTodayStandExp, addStandExp } from "../core/stats.js";
 import {
   computeQuickstartSuggestions,
@@ -19,8 +19,13 @@ import { applySessionBonuses, applyFatigueDamping } from "../core/sessions.js";
 import { getAllQuotes, getQuoteOfTheDay, addUserQuote, deleteUserQuote as deleteQuote } from "../core/quotes.js";
 
 import { useAppState, useAppActions } from "../state/store.js";
-import { loadAppState, saveAppState } from "../services/storage.js";
 import { useNavigation, Screens } from "../navigation/navigator.js";
+
+import { useHydrateAppState } from "./hooks/useHydrateAppState.js";
+import { usePersistAppState } from "./hooks/usePersistAppState.js";
+import { useSessionTimer } from "./hooks/useSessionTimer.js";
+import { useToast } from "./hooks/useToast.js";
+import { useOpenQuestAction } from "./hooks/useOpenQuestAction.js";
 
 // Screen imports
 import HomeScreen from "../screens/HomeScreen.js";
@@ -72,14 +77,12 @@ export default function AppShell() {
     setUserQuotes,
     setIncludeBuiltInQuotes,
   } = useAppActions();
-  const [userQuests, setUserQuests] = useState([]);
 
   const { state: navState, navigate, setActiveTab } = useNavigation(Screens.HOME);
   const screen = navState.screen;
   const activeTab = navState.activeTab;
 
   const [currentSession, setCurrentSession] = useState(null);
-  const [remainingMs, setRemainingMs] = useState(0);
   const [notes, setNotes] = useState("");
   const [lastExpResult, setLastExpResult] = useState(null);
   const [draftQuestName, setDraftQuestName] = useState("");
@@ -87,8 +90,55 @@ export default function AppShell() {
   const [viewingProfile, setViewingProfile] = useState(null);
   const [pendingQuestAction, setPendingQuestAction] = useState(null);
   const [pendingQuestSelection, setPendingQuestSelection] = useState(null);
-  const [toastMessage, setToastMessage] = useState("");
-  const toastTimerRef = useRef(null);
+  const { toastMessage, showToast } = useToast({ durationMs: 2000 });
+
+  const hydrateActions = useMemo(
+    () => ({
+      setUser,
+      setSessions,
+      setMotivation,
+      setQuestStreaks,
+      setComboFromSessionId,
+      setWellRestedUntil,
+      setHomeFooterConfig,
+      setQuickStartMode,
+      setPickerDefaultMode,
+      setPostSaveBehavior,
+      setUserQuotes,
+      setIncludeBuiltInQuotes,
+    }),
+    [
+      setUser,
+      setSessions,
+      setMotivation,
+      setQuestStreaks,
+      setComboFromSessionId,
+      setWellRestedUntil,
+      setHomeFooterConfig,
+      setQuickStartMode,
+      setPickerDefaultMode,
+      setPostSaveBehavior,
+      setUserQuotes,
+      setIncludeBuiltInQuotes,
+    ],
+  );
+
+  const { userQuests, setUserQuests } = useHydrateAppState(hydrateActions);
+
+  usePersistAppState({
+    user,
+    sessions,
+    motivation,
+    questStreaks,
+    comboFromSessionId,
+    wellRestedUntil,
+    homeFooterConfig,
+    quickStartMode,
+    pickerDefaultMode,
+    postSaveBehavior,
+    userQuotes,
+    includeBuiltInQuotes,
+  });
 
   const announcements = useMemo(
     () => [
@@ -106,135 +156,11 @@ export default function AppShell() {
     [],
   );
 
-  // Hydrate on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const { state: persisted } = await loadAppState();
-        const hydratedUser =
-          persisted.user ??
-          (persisted.avatar
-            ? { ...createUser(), avatar: persisted.avatar }
-            : createUser());
-        setUser(hydratedUser);
-        if (Array.isArray(persisted.sessions)) {
-          setSessions(persisted.sessions);
-        }
-        if (typeof persisted.motivation === "string") {
-          setMotivation(persisted.motivation);
-        }
-        if (persisted.questStreaks && typeof persisted.questStreaks === "object") {
-          setQuestStreaks(persisted.questStreaks);
-        }
-        if (persisted.comboFromSessionId) {
-          setComboFromSessionId(persisted.comboFromSessionId);
-        }
-        if (persisted.wellRestedUntil) {
-          setWellRestedUntil(persisted.wellRestedUntil);
-        }
-        if (persisted.homeFooterConfig) {
-          setHomeFooterConfig({
-            showCompletedToday: persisted.homeFooterConfig.showCompletedToday ?? true,
-            showUpcoming: persisted.homeFooterConfig.showUpcoming ?? true,
-          });
-        }
-        if (persisted.quickStartMode === "instant" || persisted.quickStartMode === "picker") {
-          setQuickStartMode(persisted.quickStartMode);
-        }
-        if (persisted.pickerDefaultMode === "top" || persisted.pickerDefaultMode === "blank") {
-          setPickerDefaultMode(persisted.pickerDefaultMode);
-        }
-        if (persisted.postSaveBehavior === "library" || persisted.postSaveBehavior === "picker") {
-          setPostSaveBehavior(persisted.postSaveBehavior);
-        }
-
-        // Load quotes preferences
-        if (Array.isArray(persisted.userQuotes)) {
-          setUserQuotes(persisted.userQuotes);
-        }
-        if (typeof persisted.includeBuiltInQuotes === "boolean") {
-          setIncludeBuiltInQuotes(persisted.includeBuiltInQuotes);
-        }
-
-        // Load user quests
-        const quests = await loadUserQuests();
-        setUserQuests(quests);
-      } catch (err) {
-        console.warn("Failed to hydrate state", err);
-        setUser(createUser());
-      }
-    })();
-  }, [
-    setUser,
-    setSessions,
-    setMotivation,
-    setQuestStreaks,
-    setComboFromSessionId,
-    setWellRestedUntil,
-    setHomeFooterConfig,
-    setQuickStartMode,
-    setPickerDefaultMode,
-    setPostSaveBehavior,
-    setUserQuotes,
-    setIncludeBuiltInQuotes,
-  ]);
-
-  // Persist on change
-  useEffect(() => {
-    const save = async () => {
-      await saveAppState({
-        user,
-        avatar: user?.avatar,
-        sessions,
-        motivation,
-        questStreaks,
-        comboFromSessionId,
-        wellRestedUntil,
-        homeFooterConfig,
-        quickStartMode,
-        pickerDefaultMode,
-        postSaveBehavior,
-        userQuotes,
-        includeBuiltInQuotes,
-      });
-    };
-    save();
-  }, [
-    user,
-    sessions,
-    motivation,
-    questStreaks,
-    comboFromSessionId,
-    wellRestedUntil,
-    homeFooterConfig,
-    quickStartMode,
-    pickerDefaultMode,
-    postSaveBehavior,
-    userQuotes,
-    includeBuiltInQuotes,
-  ]);
-
-  // Timer effect
-  useEffect(() => {
-    if (!currentSession || screen !== "session") return;
-    const endTime =
-      currentSession.endTimeMs ??
-      Date.now() + currentSession.durationMinutes * 60 * 1000;
-    setRemainingMs(endTime - Date.now());
-
-    const id = setInterval(() => {
-      const now = Date.now();
-      const remaining = Math.max(0, endTime - now);
-      setRemainingMs(remaining);
-      if (remaining <= 0) {
-        clearInterval(id);
-        handleTimerComplete(endTime);
-      }
-    }, 500);
-
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSession?.id, screen]);
+  const { remainingMs, setRemainingMs } = useSessionTimer({
+    currentSession,
+    screen,
+    onComplete: handleTimerComplete,
+  });
 
   const avatar = user?.avatar ?? createDefaultAvatar();
   const levelInfo = useMemo(() => getLevelProgress(avatar.totalExp ?? 0), [avatar.totalExp]);
@@ -461,49 +387,11 @@ export default function AppShell() {
     navigate(Screens.HOME);
   }
 
-  // Helper to open quest action (URL or app)
-  async function openQuestAction(action) {
-    if (!action || !action.value) return;
-
-    try {
-      let url = action.value.trim();
-
-      if (action.type === "url") {
-        if (!/^https?:\/\//i.test(url)) {
-          url = "https://" + url;
-        }
-      } else if (action.type === "file") {
-        if (!url.startsWith("file://")) {
-          if (/^[a-zA-Z]:/.test(url)) {
-            url = "file:///" + url.replace(/\\/g, "/");
-          } else if (!url.startsWith("/")) {
-            url = "file:///" + url;
-          } else {
-            url = "file://" + url;
-          }
-        }
-      }
-
-      if (Platform.OS === "web") {
-        window.open(url, "_blank");
-      } else {
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-          await Linking.openURL(url);
-        }
-      }
-    } catch (e) {
-      console.log("Failed to open quest action:", e);
-    }
-  }
-
-  // Open pending action when session starts
-  useEffect(() => {
-    if (pendingQuestAction && screen === Screens.SESSION) {
-      openQuestAction(pendingQuestAction);
-      setPendingQuestAction(null);
-    }
-  }, [pendingQuestAction, screen]);
+  const { openQuestAction } = useOpenQuestAction({
+    pendingQuestAction,
+    setPendingQuestAction,
+    screen,
+  });
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -516,14 +404,6 @@ export default function AppShell() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [screen, currentSession, handleCancelSession]);
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
 
   // Navigation helpers
   function handleNavigation(tab) {
@@ -541,15 +421,6 @@ export default function AppShell() {
 
   function handleQuickstartSelect(template) {
     startQuestFromTemplate(template);
-  }
-
-  function showToast(message) {
-    if (!message) return;
-    setToastMessage(message);
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = setTimeout(() => setToastMessage(""), 2000);
   }
 
   function handleOpenSettings() {
