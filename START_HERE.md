@@ -33,12 +33,12 @@ Go to: **`http://localhost:3000`**
 
 | File | Purpose | Read Time |
 |------|---------|-----------|
-| **TESTING_SUMMARY.md** | Complete testing overview | 5 min |
-| **MANUAL_TEST_GUIDE.md** | Step-by-step testing scenarios | 10 min |
-| **TEST_RESULTS.md** | Detailed test results | 10 min |
-| **requirements.txt** | Feature checklist | 5 min |
+| **docs/TESTING_SUMMARY.md** | Complete testing overview | 5 min |
+| **docs/MANUAL_TEST_GUIDE.md** | Step-by-step testing scenarios | 10 min |
+| **docs/TEST_RESULTS.md** | Detailed test results | 10 min |
+| **project-requirements.txt** | Feature checklist | 5 min |
 
-**Start with:** TESTING_SUMMARY.md (best overview)
+**Start with:** `docs/TESTING_SUMMARY.md` (best overview)
 
 ---
 

@@ -9,11 +9,12 @@
     "mobile"
   ],
   "scripts": {
-    "start:web": "npx serve .",
-    "test": "node tests/test.js && node tests/fatigue.test.js",
+    "start": "npm run start:web",
+    "start:web": "npx serve . -l 3000",
+    "test": "node test.js && node fatigue.test.js",
     "test:browser": "node browser-test.js",
-    "test:all": "npm run test && npm run test:browser",
-    "dev:mobile": "cd mobile && npm run start"
+    "test:all": "node scripts/test-all.mjs",
+    "dev:mobile": "npm --workspace mobile run start"
   },
   "dependencies": {
     "puppeteer": "^24.31.0",
