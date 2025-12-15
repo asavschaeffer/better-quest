@@ -14,6 +14,7 @@ import {
 import { dom } from "./dom.js";
 import { applyPreset, setActiveChip } from "./presets.js";
 import { hydrateStateFromStorage, persistStateToStorage } from "./state.js";
+import { setView } from "./views.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -376,35 +377,19 @@ function hideSetupError() {
 }
 
 function showHomeView() {
-  currentView = "home";
-  if (homeView) homeView.classList.remove("bq-hidden");
-  setupView.classList.add("bq-hidden");
-  sessionView.classList.add("bq-hidden");
-  completeView.classList.add("bq-hidden");
+  currentView = setView({ view: "home", views: { homeView, setupView, sessionView, completeView } });
 }
 
 function showQuestSetupView() {
-  currentView = "questSetup";
-  if (homeView) homeView.classList.add("bq-hidden");
-  setupView.classList.remove("bq-hidden");
-  sessionView.classList.add("bq-hidden");
-  completeView.classList.add("bq-hidden");
+  currentView = setView({ view: "questSetup", views: { homeView, setupView, sessionView, completeView } });
 }
 
 function showSessionView() {
-  currentView = "session";
-  if (homeView) homeView.classList.add("bq-hidden");
-  setupView.classList.add("bq-hidden");
-  sessionView.classList.remove("bq-hidden");
-  completeView.classList.add("bq-hidden");
+  currentView = setView({ view: "session", views: { homeView, setupView, sessionView, completeView } });
 }
 
 function showCompleteView() {
-  currentView = "complete";
-  if (homeView) homeView.classList.add("bq-hidden");
-  setupView.classList.add("bq-hidden");
-  sessionView.classList.add("bq-hidden");
-  completeView.classList.remove("bq-hidden");
+  currentView = setView({ view: "complete", views: { homeView, setupView, sessionView, completeView } });
 }
 
 function formatTime(ms) {
