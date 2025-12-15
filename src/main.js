@@ -211,21 +211,25 @@ const QUEST_PRESETS = [
     id: "reading",
     description: "Reading",
     duration: 25,
+    taskType: "INTELLIGENCE",
   },
   {
     id: "coding",
     description: "Coding",
     duration: 50,
+    taskType: "INTELLIGENCE",
   },
   {
     id: "weightlifting",
     description: "Weightlifting",
     duration: 45,
+    taskType: "STRENGTH",
   },
   {
     id: "yoga",
     description: "Yoga",
     duration: 30,
+    taskType: "MIXED",
   },
 ];
 
@@ -239,6 +243,9 @@ function applyPreset(id) {
   descriptionInput.value = preset.description;
   if (preset.duration) {
     durationInput.value = String(preset.duration);
+  }
+  if (taskTypeSelect && preset.taskType) {
+    taskTypeSelect.value = preset.taskType;
   }
 }
 
@@ -255,6 +262,7 @@ function setActiveChip(nodeList, activeBtn) {
 function startFocusSessionFromForm() {
   const description = descriptionInput.value.trim();
   const durationMinutes = Number.parseInt(durationInput.value, 10);
+  const taskType = (taskTypeSelect?.value || "MIXED").trim();
 
   if (!description) {
     showSetupError("Please enter what you want to work on.");
@@ -275,6 +283,7 @@ function startFocusSessionFromForm() {
     durationMinutes,
     startTime: new Date().toISOString(),
   });
+  session.taskType = taskType;
 
   const bonuses = computeBonusesForNewSession();
   session.comboBonus = bonuses.hasCombo;
@@ -287,7 +296,7 @@ function startFocusSessionFromForm() {
   sessionManager.startSession(session);
 
   sessionTaskText.textContent = session.description;
-  if (sessionTaskType) sessionTaskType.textContent = "";
+  if (sessionTaskType) sessionTaskType.textContent = taskType;
   sessionEmoji.textContent = session.icon;
 
   showSessionView();
