@@ -249,7 +249,21 @@ function startFocusSessionFromForm() {
   });
   session.taskType = taskType;
 
-  const bonuses = computeBonusesForNewSession();
+  const bonusesRes = computeBonusesForNewSessionImpl({
+    comboFromSessionId,
+    lastCompletedSession,
+    wellRestedUntil,
+    comboMultiplier: COMBO_BONUS_MULTIPLIER,
+    restMultiplier: REST_BONUS_MULTIPLIER,
+    persistState,
+  });
+  comboFromSessionId = bonusesRes.nextComboFromSessionId;
+  wellRestedUntil = bonusesRes.nextWellRestedUntil;
+  const bonuses = {
+    hasCombo: bonusesRes.hasCombo,
+    hasRest: bonusesRes.hasRest,
+    multiplier: bonusesRes.multiplier,
+  };
   session.comboBonus = bonuses.hasCombo;
   session.restBonus = bonuses.hasRest;
   session.bonusMultiplier = bonuses.multiplier;
@@ -466,23 +480,6 @@ function formatShortDate(isoString) {
 
 function vibeTextForTaskType() {
   return "Quest complete – deliberate practice logged.";
-}
-
-function computeBonusesForNewSession() {
-  const res = computeBonusesForNewSessionImpl({
-    comboFromSessionId,
-    lastCompletedSession,
-    wellRestedUntil,
-    comboMultiplier: COMBO_BONUS_MULTIPLIER,
-    restMultiplier: REST_BONUS_MULTIPLIER,
-    persistState,
-  });
-
-  // Apply cleared flags back to module-level state.
-  comboFromSessionId = res.nextComboFromSessionId;
-  wellRestedUntil = res.nextWellRestedUntil;
-
-  return { hasCombo: res.hasCombo, hasRest: res.hasRest, multiplier: res.multiplier };
 }
 
 function applySessionBonuses(session, baseExp) {
