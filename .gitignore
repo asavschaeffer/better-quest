@@ -9,6 +9,20 @@ node_modules/
 .vscode/
 .idea/
 
+# Expo / React Native / Metro
+.expo/
+.expo-shared/
+**/.expo/
+**/.expo-shared/
+**/.metro-health-check*
+**/.react-native/
+**/.react-native-cache/
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+**/ios/Pods/
+**/ios/build/
+
 # Build outputs
 dist/
 build/

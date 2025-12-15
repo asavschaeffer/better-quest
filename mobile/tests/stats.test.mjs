@@ -13,11 +13,11 @@ test("playerStatsToChartValues returns 1s for empty stats", () => {
   });
 });
 
-test("playerStatsToChartValues scales highest stat near 5", () => {
+test("playerStatsToChartValues scales highest stat near 6", () => {
   const chart = playerStatsToChartValues({ STR: 1000, DEX: 10, INT: 1 });
   assert.ok(chart.STR > chart.DEX);
   assert.ok(chart.DEX > chart.INT);
-  assert.ok(chart.STR <= 5 && chart.STR > 4);
+  assert.ok(chart.STR <= 6 && chart.STR > 5);
 });
 
 test("addStandExp sums deltas safely", () => {
