@@ -12,6 +12,7 @@ import {
   generateTwitterLog,
   generateLinkedInLog,
 } from "./logFormats.js";
+import { dom } from "./dom.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -36,58 +37,61 @@ const COMBO_BONUS_MULTIPLIER = 1.2;
 const REST_BONUS_MULTIPLIER = 1.1;
 const REST_BONUS_WINDOW_MINUTES = 45;
 
-// DOM references
-const homeView = document.getElementById("home-view");
-const setupView = document.getElementById("setup-view");
-const sessionView = document.getElementById("session-view");
-const completeView = document.getElementById("complete-view");
+const {
+  // Views
+  homeView,
+  setupView,
+  sessionView,
+  completeView,
 
-const form = document.getElementById("session-form");
-const descriptionInput = document.getElementById("task-description");
-const durationInput = document.getElementById("task-duration");
-const taskTypeSelect = document.getElementById("task-type");
-const setupError = document.getElementById("setup-error");
+  // Setup form
+  form,
+  descriptionInput,
+  durationInput,
+  taskTypeSelect,
+  setupError,
 
-const sessionTaskText = document.getElementById("session-task-text");
-const sessionTaskType = document.getElementById("session-task-type");
-const sessionTimerText = document.getElementById("session-timer");
-const sessionEmoji = document.getElementById("session-emoji");
-const cancelSessionBtn = document.getElementById("cancel-session-btn");
+  // Session view
+  sessionTaskText,
+  sessionTaskType,
+  sessionTimerText,
+  sessionEmoji,
+  cancelSessionBtn,
 
-const avatarNameEls = [document.getElementById("avatar-name")];
-const avatarLevelEls = [
-  document.getElementById("avatar-level"),
-  document.getElementById("avatar-level-complete"),
-];
+  // Avatar display (session + completion)
+  avatarNameEls,
+  avatarLevelEls,
 
-const expTotalEl = document.getElementById("exp-total");
-const expStrengthEl = document.getElementById("exp-strength");
-const expStaminaEl = document.getElementById("exp-stamina");
-const expIntelligenceEl = document.getElementById("exp-intelligence");
-const completeSummaryEl = document.getElementById("complete-summary");
-const avatarExpProgressEl = document.getElementById("avatar-exp-progress");
-const avatarExpBarEl = document.getElementById("avatar-exp-bar");
+  // Completion view
+  expTotalEl,
+  expStrengthEl,
+  expStaminaEl,
+  expIntelligenceEl,
+  completeSummaryEl,
+  avatarExpProgressEl,
+  avatarExpBarEl,
 
-const historyListEl = document.getElementById("history-list");
-const historyEmptyEl = document.getElementById("history-empty");
-const logStyleSelect = document.getElementById("log-style-select");
-const copyLogBtn = document.getElementById("copy-log-btn");
-const logCopiedEl = document.getElementById("log-copied");
+  // History + logs
+  historyListEl,
+  historyEmptyEl,
+  logStyleSelect,
+  copyLogBtn,
+  logCopiedEl,
 
-const startQuestBtn = document.getElementById("start-quest-btn");
-const motivationInput = document.getElementById("motivation-input");
+  // Home view controls
+  startQuestBtn,
+  motivationInput,
+  avatarNameHomeEl,
+  avatarLevelHomeEl,
+  avatarExpProgressHomeEl,
+  avatarExpBarHomeEl,
 
-const avatarNameHomeEl = document.getElementById("avatar-name-home");
-const avatarLevelHomeEl = document.getElementById("avatar-level-home");
-const avatarExpProgressHomeEl = document.getElementById(
-  "avatar-exp-progress-home",
-);
-const avatarExpBarHomeEl = document.getElementById("avatar-exp-bar-home");
-
-const continueSessionBtn = document.getElementById("continue-session-btn");
-const takeBreakBtn = document.getElementById("take-break-btn");
-const endSessionBtn = document.getElementById("end-session-btn");
-const sessionNotesInput = document.getElementById("session-notes");
+  // Completion actions
+  continueSessionBtn,
+  takeBreakBtn,
+  endSessionBtn,
+  sessionNotesInput,
+} = dom;
 
 function init() {
   hydrateFromStorage();
