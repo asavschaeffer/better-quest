@@ -15,6 +15,11 @@ import {
   generateLogText as generateLogTextImpl,
   showLogCopiedToast as showLogCopiedToastImpl,
 } from "./history.js";
+import {
+  formatTime as formatTimeImpl,
+  startBreakSession as startBreakSessionImpl,
+  applySessionBonuses as applySessionBonusesImpl,
+} from "./sessionFlow.js";
 
 let user = createUser();
 let avatar = user.avatar;
@@ -393,36 +398,18 @@ function showCompleteView() {
 }
 
 function formatTime(ms) {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
-    2,
-    "0",
-  )}`;
+  return formatTimeImpl(ms);
 }
 
 function startBreakSession(durationMinutes) {
-  const id = `break-${Date.now()}`;
-  const description = "Break";
-
-  const breakSession = createTaskSession({
-    id,
-    description,
+  startBreakSessionImpl({
     durationMinutes,
-    startTime: new Date().toISOString(),
-    isBreak: true,
+    sessionManager,
+    sessionTaskText,
+    sessionTaskType,
+    sessionEmoji,
+    showSessionView,
   });
-
-  breakSession.icon = "☕";
-
-  sessionManager.startSession(breakSession);
-
-  sessionTaskText.textContent = "Break";
-  sessionTaskType.textContent = "Break";
-  sessionEmoji.textContent = breakSession.icon;
-
-  showSessionView();
 }
 
 function hydrateFromStorage() {
@@ -510,20 +497,7 @@ function computeBonusesForNewSession() {
 }
 
 function applySessionBonuses(session, baseExp) {
-  const mult = session.bonusMultiplier ?? 1;
-  if (mult === 1) return baseExp;
-  const totalExp = Math.round(baseExp.totalExp * mult);
-  const standExp = {};
-  if (baseExp.standExp) {
-    Object.entries(baseExp.standExp).forEach(([key, value]) => {
-      const v = typeof value === "number" ? value : 0;
-      standExp[key] = Math.round(v * mult);
-    });
-  }
-  return {
-    totalExp,
-    standExp,
-  };
+  return applySessionBonusesImpl(session, baseExp);
 }
 
 function saveCompletionNotes() {
