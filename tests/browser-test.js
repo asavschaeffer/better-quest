@@ -22,6 +22,13 @@ class BrowserTest {
     });
     this.page = await this.browser.newPage();
     this.page.setDefaultTimeout(TIMEOUT);
+
+    // Puppeteer v24 removed page.waitForTimeout(). Provide a tiny compatible shim
+    // so older test code keeps working.
+    if (typeof this.page.waitForTimeout !== "function") {
+      this.page.waitForTimeout = (ms) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+    }
   }
 
   async cleanup() {
@@ -540,6 +547,8 @@ async function runTests() {
     await tester.test(
       "Preset changes clear previous active state",
       async () => {
+        // Reset to a known-good state (previous test may have left us mid-session).
+        await tester.navigate();
         await tester.click("#start-quest-btn");
 
         // Click reading
@@ -572,6 +581,9 @@ async function runTests() {
     await tester.test(
       "Duration chip and text input stay synchronized",
       async () => {
+        // Reset to a known-good state (previous test may have left us mid-session).
+        await tester.navigate();
+        await tester.click("#start-quest-btn");
         // Manually set a value
         await tester.clear("#task-duration");
         await tester.type("#task-duration", "37");
@@ -584,7 +596,7 @@ async function runTests() {
       },
     );
 
-    await tester.printResults();
+    return await tester.printResults();
   } catch (error) {
     console.error("Fatal error:", error);
     process.exit(1);

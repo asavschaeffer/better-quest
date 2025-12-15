@@ -509,7 +509,7 @@ async function runTests() {
     }
   });
 
-  runner.printResults();
+  return runner.printResults();
 }
 
 runTests().then((success) => {
