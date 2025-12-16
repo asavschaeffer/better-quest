@@ -8,7 +8,6 @@ import {
   suggestStatsForLabel,
   validateQuestStats,
   getQuestStatTotal,
-  QUEST_STAT_MAX_TOTAL,
   STAT_KEYS,
 } from "../core/models";
 
@@ -114,7 +113,6 @@ export default function NewQuestScreen({
   }
 
   const statTotal = getQuestStatTotal(stats);
-  const pointsLeft = QUEST_STAT_MAX_TOTAL - statTotal;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>

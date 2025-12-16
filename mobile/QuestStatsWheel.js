@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText, G, Path } from "react-native-svg";
-import { QUEST_STAT_MAX_PER_STAT, QUEST_STAT_MAX_TOTAL, getQuestStatTotal } from "./core/models";
+import { QUEST_STAT_MAX_PER_STAT, getQuestStatTotal } from "./core/models";
 
 // Quest stat allocation wheel with +/- buttons + optional duration ring
-// Stats: 0-3 per stat, max 4 total points
+// Stats: 0-3 per stat (no total cap)
 
 const ATTRS = [
   { key: "STR", label: "STR", color: "#ef4444" },
@@ -66,7 +66,6 @@ export function QuestStatsWheel({
   }, [value]);
 
   const total = useMemo(() => getQuestStatTotal(stats), [stats]);
-  const pointsLeft = QUEST_STAT_MAX_TOTAL - total;
 
   // Duration helpers
   const durationToProgress = (dur) =>
@@ -141,16 +140,6 @@ export function QuestStatsWheel({
     
     const currentVal = stats[key] ?? 0;
     const clampedNew = Math.max(0, Math.min(QUEST_STAT_MAX_PER_STAT, newVal));
-    const delta = clampedNew - currentVal;
-    
-    if (delta > 0 && total + delta > QUEST_STAT_MAX_TOTAL) {
-      const maxCanAdd = Math.max(0, QUEST_STAT_MAX_TOTAL - total);
-      const finalVal = currentVal + maxCanAdd;
-      if (finalVal !== currentVal) {
-        onChange?.({ ...stats, [key]: finalVal });
-      }
-      return;
-    }
     
     if (clampedNew !== currentVal) {
       onChange?.({ ...stats, [key]: clampedNew });
@@ -468,59 +457,35 @@ export function QuestStatsWheel({
               cy={cy} 
               r={minRadius + 4} 
               fill="#0f172a" 
-              stroke={pointsLeft === 0 ? "#22c55e" : "#1f2937"}
-              strokeWidth={pointsLeft === 0 ? 2 : 1}
+              stroke="#1f2937"
+              strokeWidth={1}
             />
-            {pointsLeft > 0 ? (
-              <>
-                <SvgText
-                  x={cx}
-                  y={cy - 4}
-                  textAnchor="middle"
-                  fontSize={18}
-                  fill="#22c55e"
-                  fontWeight="bold"
-                >
-                  {pointsLeft}
-                </SvgText>
-                <SvgText
-                  x={cx}
-                  y={cy + 10}
-                  textAnchor="middle"
-                  fontSize={8}
-                  fill="#6b7280"
-                >
-                  left
-                </SvgText>
-              </>
-            ) : (
-              <>
-                <SvgText
-                  x={cx}
-                  y={cy - 2}
-                  textAnchor="middle"
-                  fontSize={14}
-                >
-                  ✓
-                </SvgText>
-                <SvgText
-                  x={cx}
-                  y={cy + 12}
-                  textAnchor="middle"
-                  fontSize={7}
-                  fill="#22c55e"
-                >
-                  FULL
-                </SvgText>
-              </>
-            )}
+            <SvgText
+              x={cx}
+              y={cy - 3}
+              textAnchor="middle"
+              fontSize={16}
+              fill="#e5e7eb"
+              fontWeight="bold"
+            >
+              {total}
+            </SvgText>
+            <SvgText
+              x={cx}
+              y={cy + 11}
+              textAnchor="middle"
+              fontSize={8}
+              fill="#6b7280"
+            >
+              total
+            </SvgText>
           </Svg>
 
           {/* +/- Controls for each stat */}
           {ATTRS.map((attr, i) => {
             const pos = getControlPosition(i);
             const statVal = stats[attr.key] ?? 0;
-            const canIncrement = statVal < QUEST_STAT_MAX_PER_STAT && pointsLeft > 0;
+            const canIncrement = statVal < QUEST_STAT_MAX_PER_STAT;
             const canDecrement = statVal > 0;
             
             return (
@@ -562,7 +527,7 @@ export function QuestStatsWheel({
         </View>
       </View>
       <Text style={styles.helper}>
-        Use +/− buttons or drag inside wheel • Max {QUEST_STAT_MAX_TOTAL} total
+        Use +/− buttons or drag inside wheel • Max {QUEST_STAT_MAX_PER_STAT} per stat
       </Text>
     </View>
   );

@@ -2,18 +2,14 @@ import { STAT_KEYS } from "./models.js";
 import { computeDailyBudgets, dampingMultiplier } from "./fatigue.js";
 import { playerStatsToChartValues, computeTodayStandExp } from "./stats.js";
 import { getMaxMandalaStreak, computeAggregateConsistency } from "./quests.js";
+import { splitTotalExp } from "./exp.js";
 
 export function applySessionBonuses(session, baseExp) {
   const mult = session.bonusMultiplier ?? 1;
   if (mult === 1) return baseExp;
-  const totalExp = Math.round(baseExp.totalExp * mult);
-  const standExp = {};
-  if (baseExp.standExp) {
-    Object.entries(baseExp.standExp).forEach(([key, value]) => {
-      const v = typeof value === "number" ? value : 0;
-      standExp[key] = Math.round(v * mult);
-    });
-  }
+  const totalExp = Math.round((baseExp.totalExp ?? 0) * mult);
+  // Keep XP conserved: re-split the new total using the same intent snapshot.
+  const standExp = splitTotalExp(totalExp, session.allocation ?? null, session.standStats ?? null);
   return {
     totalExp,
     standExp,

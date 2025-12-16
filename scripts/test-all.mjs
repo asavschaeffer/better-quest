@@ -80,6 +80,16 @@ function runNodeScript(relPath) {
   });
 }
 
+function runNodeArgs(args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, {
+      stdio: "inherit",
+      cwd: repoRoot,
+    });
+    child.on("close", (code) => resolve(code ?? 1));
+  });
+}
+
 let exitCode = 0;
 
 console.log("\n=== Better Quest: test:all ===");
@@ -87,6 +97,12 @@ console.log("\n=== Better Quest: test:all ===");
 // 1) Backend/unit tests (no server)
 exitCode ||= await runNodeScript("tests/test.js");
 exitCode ||= await runNodeScript("tests/fatigue.test.js");
+
+// 1b) Mobile mechanics/unit tests (node:test)
+exitCode ||= await runNodeArgs([
+  "--test",
+  path.join(repoRoot, "mobile/tests/mechanics.test.mjs"),
+]);
 
 // 2) Browser tests (needs web server on :3000)
 const server = await startStaticServer({ port: 3000 });

@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { STAT_KEYS, QUEST_STAT_MAX_PER_STAT, QUEST_STAT_MAX_TOTAL, getQuestStatTotal } from "./core/models";
+import { STAT_KEYS, QUEST_STAT_MAX_PER_STAT, getQuestStatTotal } from "./core/models";
 
 const STAT_LABELS = {
   STR: { label: "STR", name: "Strength", color: "#ef4444" },
@@ -14,7 +14,7 @@ const STAT_LABELS = {
 
 /**
  * QuestStatsEditor - Edit quest stats with caps
- * Stats: 0-3 per stat, max 4 total points
+ * Stats: 0-3 per stat (no total cap)
  */
 export function QuestStatsEditor({ value, onChange, disabled = false }) {
   const stats = useMemo(() => {
@@ -26,14 +26,12 @@ export function QuestStatsEditor({ value, onChange, disabled = false }) {
   }, [value]);
 
   const total = useMemo(() => getQuestStatTotal(stats), [stats]);
-  const pointsLeft = QUEST_STAT_MAX_TOTAL - total;
 
   function handleIncrement(key) {
     if (disabled) return;
     const current = stats[key] ?? 0;
-    // Check both per-stat cap and total cap
+    // Check per-stat cap
     if (current >= QUEST_STAT_MAX_PER_STAT) return;
-    if (total >= QUEST_STAT_MAX_TOTAL) return;
     
     const next = { ...stats, [key]: current + 1 };
     onChange?.(next);
@@ -52,18 +50,18 @@ export function QuestStatsEditor({ value, onChange, disabled = false }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Stat Allocation</Text>
-        <Text style={[styles.pointsLeft, pointsLeft === 0 && styles.pointsFull]}>
-          {pointsLeft} {pointsLeft === 1 ? "point" : "points"} left
+        <Text style={styles.pointsLeft}>
+          {total} {total === 1 ? "point" : "points"} total
         </Text>
       </View>
       <Text style={styles.helper}>
-        Max {QUEST_STAT_MAX_PER_STAT} per stat • Max {QUEST_STAT_MAX_TOTAL} total
+        Max {QUEST_STAT_MAX_PER_STAT} per stat
       </Text>
       <View style={styles.statsGrid}>
         {STAT_KEYS.map(key => {
           const info = STAT_LABELS[key];
           const statValue = stats[key] ?? 0;
-          const canIncrement = statValue < QUEST_STAT_MAX_PER_STAT && total < QUEST_STAT_MAX_TOTAL;
+          const canIncrement = statValue < QUEST_STAT_MAX_PER_STAT;
           const canDecrement = statValue > 0;
           
           return (
@@ -129,9 +127,6 @@ const styles = StyleSheet.create({
     color: "#22c55e",
     fontSize: 13,
     fontWeight: "500",
-  },
-  pointsFull: {
-    color: "#9ca3af",
   },
   helper: {
     color: "#6b7280",

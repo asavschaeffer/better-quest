@@ -3,7 +3,6 @@ export const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
 
 // Quest stat constraints
 export const QUEST_STAT_MAX_PER_STAT = 3;
-export const QUEST_STAT_MAX_TOTAL = 4;
 
 export function createDefaultAvatar() {
   return {
@@ -37,11 +36,14 @@ export function createTaskSession({
   durationMinutes,
   startTime,
   standStats,
+  targetStats,
+  allocation,
   questKey = null,
   isBreak = false,
   comboBonus = false,
   restBonus = false,
   bonusMultiplier = 1,
+  endTimeMs,
 }) {
   return {
     id,
@@ -49,7 +51,12 @@ export function createTaskSession({
     durationMinutes,
     startTime: startTime ?? new Date().toISOString(),
     endTime: null,
+    endTimeMs: typeof endTimeMs === "number" ? endTimeMs : null,
+    // Mechanical intent snapshot (0–3 points per stat). This is authoritative for EXP splitting.
+    allocation: allocation ?? null,
+    // Display-only chart values (derived from allocation/duration elsewhere).
     standStats: standStats ?? null,
+    targetStats: targetStats ?? null,
     questKey,
     isBreak,
     comboBonus,
@@ -66,7 +73,7 @@ export function createTaskSession({
  * @param {string} params.label - Display name (required)
  * @param {string} [params.description] - Optional longer description / why
  * @param {number} [params.defaultDurationMinutes] - Default duration (1-240)
- * @param {object} [params.stats] - Stat allocation: { STR: 0-3, ... }, sum ≤ 4
+ * @param {object} [params.stats] - Stat weights as points: { STR: 0-3, ... } (no total cap)
  * @param {string[]} [params.keywords] - Tags for search/ranking
  * @param {object} [params.action] - Quick launch action { type: "url"|"app", value: string }
  * @returns {object} Quest object
@@ -112,13 +119,12 @@ export function createQuest({
 }
 
 /**
- * Validate and enforce stat caps: 0-3 per stat, max 4 total
+ * Validate and enforce stat caps: 0-3 per stat (no total cap)
  * @param {object} stats - Raw stat object
  * @returns {object} Validated stats
  */
 export function validateQuestStats(stats) {
   const result = {};
-  let total = 0;
   
   // Initialize all stats to 0
   STAT_KEYS.forEach(key => {
@@ -131,12 +137,7 @@ export function validateQuestStats(stats) {
     if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
       // Cap per stat at 3
       const clamped = Math.min(QUEST_STAT_MAX_PER_STAT, Math.max(0, Math.floor(raw)));
-      // Check total cap
-      const canAdd = Math.min(clamped, QUEST_STAT_MAX_TOTAL - total);
-      if (canAdd > 0) {
-        result[key] = canAdd;
-        total += canAdd;
-      }
+      result[key] = clamped;
     }
   });
   

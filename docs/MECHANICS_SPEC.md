@@ -28,8 +28,7 @@ Quest creation/validation is in `mobile/core/models.js:createQuest`.
 - **Duration clamp**: `defaultDurationMinutes` is clamped to `1..240` (integer).
 - **Stats allocation constraints**:
   - Per-stat cap: `0..3`
-  - Total cap: `≤ 4`
-  - Excess points are dropped in STAT_KEYS iteration order.
+  - **No total cap** (total points may exceed 4)
 - **Action**: `{ type: "url"|"app"|"file", value: string }` (validated; `url` auto-adds `https://`).
 
 ### Session
@@ -50,18 +49,17 @@ File: `mobile/core/exp.js`
 - **Base total EXP**:
   - `totalExp = durationMinutes * 10`
 
-### 2) Distribute EXP across axes (using `session.standStats`)
+### 2) Distribute EXP across axes (using `session.allocation`)
 
-File: `mobile/core/exp.js:getStandSplits`
+File: `mobile/core/exp.js:splitTotalExp` (called by `calculateExpForSession`)
 
-- The exp split uses `standStats` (chart values). For each axis:
-  - `weight = max(0, standStats[axis] - 1)`
-- If all weights sum to 0 → **uniform** split across all 7 axes.
-- Otherwise → normalize weights to fractions.
-- Per-axis gain:
-  - `standExp[axis] = round(totalExp * share)`
-
-**Important rounding note**: because each axis is rounded independently, `sum(standExp)` may not exactly equal `totalExp`.
+- **Current authoritative intent** for EXP distribution is `session.allocation` (quest stat points, `0..3` per axis).
+- If `session.allocation` is missing (older sessions), the code falls back to `session.standStats` by treating it as a chart-ish value and using `weight = max(0, standStats[axis] - 1)`.
+- Split is **conserved** (deterministic):
+  - Compute raw fractional per-axis shares
+  - Take `floor()` per axis
+  - Distribute the remaining XP points to the largest fractional parts (ties broken by fixed axis order)
+- Invariant: `sum(standExp) === totalExp`.
 
 ### 3) Apply session “bonusMultiplier”
 
@@ -70,9 +68,8 @@ File: `mobile/core/sessions.js:applySessionBonuses`
 - If `bonusMultiplier === 1` → no change.
 - Else:
   - `totalExp = round(base.totalExp * bonusMultiplier)`
-  - each `standExp[axis] = round(base.standExp[axis] * bonusMultiplier)`
-
-Rounding can again cause `sum(standExp)` to differ from `totalExp`.
+  - `standExp` is re-split from the new total using the same intent snapshot (`session.allocation`, with fallback).
+- Invariant: `sum(standExp) === totalExp`.
 
 ### 4) Apply fatigue damping (daily budgets)
 
@@ -154,5 +151,3 @@ File: `mobile/core/questStorage.js:questStatsToChartStats`
 - Are budgets and damping per-axis, or should they consider total effort across axes?
 - Bonus stacking: do we want multiplicative, additive, capped, or “best-of”?
 - Quest model: should we continue using `{stats: 0..3, sum<=4}` or move to a different distribution model?
-
-

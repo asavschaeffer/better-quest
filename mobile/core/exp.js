@@ -52,15 +52,9 @@ export function calculateExpForSession(session) {
 
   const totalExp = durationMinutes * EXP_PER_MINUTE;
 
-  // Use the stand stats snapshot on the session (1–5 values) to decide
-  // how EXP is distributed across the seven axes.
-  const splits = getStandSplits(session.standStats);
-
-  const standExp = {};
-  STAND_KEYS.forEach((key) => {
-    const share = splits[key] ?? 0;
-    standExp[key] = Math.round(totalExp * share);
-  });
+  // Mechanical intent: use allocation points (0–3 per stat) as weights.
+  // If allocation is missing (older sessions), fall back to standStats snapshot.
+  const standExp = splitTotalExp(totalExp, session.allocation ?? null, session.standStats ?? null);
   return {
     totalExp,
     standExp,
@@ -88,30 +82,74 @@ export function applyExpToAvatar(avatar, expResult) {
   };
 }
 
-function getStandSplits(standStats) {
-  // standStats holds values 1–5 for each axis. Convert to 0–1 weights.
-  const weights = {};
-  let sum = 0;
+export function splitTotalExp(totalExp, allocation, standStatsFallback) {
+  const total = typeof totalExp === "number" && Number.isFinite(totalExp) ? Math.max(0, Math.round(totalExp)) : 0;
+  if (total <= 0) return zeroExpResult().standExp;
+
+  // Prefer allocation points (0–3). These are the authoritative weights.
+  const points = {};
+  let sumPoints = 0;
   STAND_KEYS.forEach((key) => {
-    const raw = standStats?.[key];
+    const raw = allocation?.[key];
     const val =
-      typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, raw - 1) : 0;
-    weights[key] = val;
-    sum += val;
+      typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(3, Math.floor(raw))) : 0;
+    points[key] = val;
+    sumPoints += val;
   });
 
-  if (sum <= 0) {
-    const uniform = 1 / STAND_KEYS.length;
+  // Back-compat fallback: older sessions stored chart-ish standStats values.
+  // Convert 1–6-ish values into non-negative weights using (raw - 1).
+  if (sumPoints <= 0 && standStatsFallback) {
     STAND_KEYS.forEach((key) => {
-      weights[key] = uniform;
+      const raw = standStatsFallback?.[key];
+      const val =
+        typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, raw - 1) : 0;
+      points[key] = val;
+      sumPoints += val;
     });
-    return weights;
   }
 
-  STAND_KEYS.forEach((key) => {
-    weights[key] = weights[key] / sum;
+  // If still zero, split uniformly (prevents "no weights => no XP").
+  if (sumPoints <= 0) {
+    const base = Math.floor(total / STAND_KEYS.length);
+    const remainder = total - base * STAND_KEYS.length;
+    const standExp = {};
+    STAND_KEYS.forEach((k, idx) => {
+      standExp[k] = base + (idx < remainder ? 1 : 0);
+    });
+    return standExp;
+  }
+
+  // Conserved split:
+  // - allocate floors
+  // - distribute remainder by fractional part (ties broken by fixed key order)
+  const rawParts = STAND_KEYS.map((key) => {
+    const raw = (total * points[key]) / sumPoints;
+    const flo = Math.floor(raw);
+    return { key, raw, flo, frac: raw - flo };
   });
-  return weights;
+
+  const standExp = {};
+  let used = 0;
+  rawParts.forEach((p) => {
+    standExp[p.key] = p.flo;
+    used += p.flo;
+  });
+  let remainder = total - used;
+
+  rawParts
+    .slice()
+    .sort((a, b) => {
+      if (b.frac !== a.frac) return b.frac - a.frac;
+      return STAND_KEYS.indexOf(a.key) - STAND_KEYS.indexOf(b.key);
+    })
+    .forEach((p) => {
+      if (remainder <= 0) return;
+      standExp[p.key] += 1;
+      remainder -= 1;
+    });
+
+  return standExp;
 }
 
 function clamp(value, min, max) {
