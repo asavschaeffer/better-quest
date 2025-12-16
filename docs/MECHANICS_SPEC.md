@@ -16,6 +16,14 @@ This document captures **how mechanics work today** in the Expo app (`mobile/`).
 ### Stand stats / axes
 
 - Axes (7): `STR, DEX, STA, INT, SPI, CHA, VIT` (`mobile/core/models.js`).
+- Axis keys in code: `STAT_KEYS` in `mobile/core/models.js`.
+  str = this is a hard thing to do
+  dex = this is a thing to do that inspires expertise
+  sta = this is a thing that is about quantity
+  int = this involves problem solving
+  spi = this cultivates gratitude and peace
+  cha = this involves other people
+  vit = this increases life energy
 
 ### Avatar
 
@@ -30,7 +38,7 @@ Quest creation/validation is in `mobile/core/models.js:createQuest`.
 - **Duration clamp**: `defaultDurationMinutes` is clamped to `1..240` (integer).
 - **Stats allocation constraints**:
   - Per-stat cap: `0..3`
-  - **No total cap** (total points may exceed 4)
+  - **Total cap**: `sum(stats) <= 9` (enforced; throws on create/edit — no silent clamping)
 - **Action**: `{ type: "url"|"app"|"file", value: string }` (validated; `url` auto-adds `https://`).
 
 ### Session
@@ -54,10 +62,24 @@ Created via `mobile/core/models.js:createTaskSession`.
 
 File: `mobile/core/exp.js`
 
-- **EXP rate**: `EXP_PER_MINUTE = 10`
+- **EXP rate**: `EXP_PER_MINUTE = 1`
 - **Duration clamp**: `durationMinutes` clamped to `1..240` (integer)
 - **Base total EXP**:
-  - `totalExp = durationMinutes * 10`
+  - `totalExp = durationMinutes * 1`
+
+### Leveling (current behavior)
+
+File: `mobile/core/exp.js:getTotalExpForLevel`
+
+- **Goal**: level up quickly early, then slow down, with level asymptotically approaching 999.
+- **Max level**: `999`
+- **Curve (continuous, before flooring)**:
+  - `levelFloat = 1 + (999 - 1) * (1 - exp(-totalExp / S))`
+  - `level = floor(levelFloat)` (clamped `1..999`)
+  - `S` is a tuning knob (`LEVEL_EXP_SCALE` in code; currently `22000`)
+- **Inverse (exp required to reach a given level)**:
+  - `requiredTotalExp(level) = ceil(-S * ln(1 - (level - 1) / (999 - 1)))`
+  - `requiredTotalExp(999) = Infinity` (asymptote)
 
 ### 2) Distribute EXP across axes (using `session.allocation`)
 
@@ -197,10 +219,9 @@ This section captures the **intended rules** we’re moving toward. It may tempo
 
 ### EXP rate + leveling (v1)
 
-- **Base EXP rate**: `EXP_PER_MINUTE = 1` (not 10).
-  - Rationale: smaller numbers, less inflation, easier to reason about.
-- **Level curve**: should be **lower than current** (currently `50*(level-1)*level`).
-  - **[TBD]**: pick a new coefficient (e.g. `10*(level-1)*level`) once we see how fast leveling feels with `EXP_PER_MINUTE = 1`.
+- **Base EXP rate**: `EXP_PER_MINUTE = 1`.
+- **Level curve**: asymptotic-to-999 curve (see “Leveling (current behavior)” above).
+  - **[TBD]**: tune `LEVEL_EXP_SCALE` based on feel (how many sessions to reach level 10/50/100).
 
 ### Quest stat allocations (v1)
 
@@ -215,6 +236,62 @@ This section captures the **intended rules** we’re moving toward. It may tempo
 ### Chart scaling (v1)
 
 - **Keep relative scaling** for avatar chart values (normalize to max axis, as today).
+
+### V1 decisions to make next (please mark your preference)
+
+#### Stat distribution model (session → standExp weights)
+
+Current behavior:
+
+- Distribution weights come from `session.allocation` points, clamped `0..3` per stat.
+- If all points are zero, EXP splits uniformly across 7 stats (prevents “no weights => no XP”).
+
+V1 options:
+
+- **Option A (keep)**: use raw points as weights (simple, transparent).
+- **Option B (sharper focus)**: use squared weights \(w = p^2\) so 3-points “dominates” more.
+- **Option C (tunable focus)**: \(w = \exp(k \cdot p)\) with small \(k\).
+
+#### Multiplier stacking rules (bonus breakdown → bonusMultiplier)
+
+Current behavior (`mobile/core/bonuses.js:resolveBonusMultiplier`):
+
+- Multiply all `"mult"` bonuses together.
+- Add all `"add"` bonuses, then multiply base by `(1 + addSum)`.
+- `"stat_mult"` bonuses (Brahma doubling SPI) are applied as a stat-specific post-process that increases total EXP (no stealing).
+
+V1 questions:
+
+- Should we **cap** the final multiplier? (e.g. `<= 2.5x`)
+- Keep the current order, or apply add bonuses before mult bonuses?
+
+#### Fatigue: budget basis + damping
+
+Current behavior:
+
+- Budgets are derived from **avatar chart values** (relative scale) → `chartValueToPoints(1..5) → 1..3 points`.
+- Per-axis damping uses `dampingMultiplier(spent + gain, budget, floor=0.4)` and rounds each stat independently.
+
+V1 options:
+
+- **Option A (keep)**: relative chart-derived budgets (easy, “always scales”).
+- **Option B**: budgets based on **raw standExp** (absolute progression).
+- **Option C**: hybrid (relative early, gradually shifts to raw at higher levels).
+
+#### Chart scaling & rounding
+
+Current behavior:
+
+- Avatar chart uses relative normalization to max stat: `1 + ratio*5`, with a small floor for any stat with >=50 exp.
+- Quest target chart uses `1 + (allocation/3) * (1 + duration/30)` capped at 6.
+- Rounding:
+  - XP split uses `floor()` + remainder distribution by fractional parts.
+  - Bonus totals use `round(totalExp * mult)`.
+  - Fatigue rounds each axis `round(gain*mult)` and then sets `totalExp = round(sum(axis))`.
+
+V1 question:
+
+- Do you want **“total-first rounding”** (compute floats, round total, then re-split) to reduce edge cases, or keep the current per-step rounding?
 
 ## Open questions / knobs (for “vision” spec)
 

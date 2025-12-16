@@ -4,33 +4,58 @@ const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;
 const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
+// Level curve:
+// - Fast early leveling
+// - Slows down over time
+// - Asymptotically approaches MAX_LEVEL
+const MAX_LEVEL = 999;
+// "How many EXP to reach ~63% of the max delta" (since 1 - e^-1 ≈ 0.632).
+// Tune this to make early leveling faster/slower.
+const LEVEL_EXP_SCALE = 22_000;
+
 export function getTotalExpForLevel(level) {
-  if (level <= 1) return 0;
-  return 50 * (level - 1) * level;
+  const lv =
+    typeof level === "number" && Number.isFinite(level) ? Math.floor(level) : 1;
+  if (lv <= 1) return 0;
+  if (lv >= MAX_LEVEL) return Number.POSITIVE_INFINITY;
+
+  // Invert the asymptotic curve used by getLevelForTotalExp.
+  // Continuous curve (before flooring):
+  //   L = 1 + (MAX_LEVEL - 1) * (1 - exp(-E / S))
+  // Solve for E:
+  //   E = -S * ln(1 - (L - 1) / (MAX_LEVEL - 1))
+  const x = (lv - 1) / (MAX_LEVEL - 1); // in (0, 1)
+  const required = -LEVEL_EXP_SCALE * Math.log(1 - x);
+  return Math.ceil(required);
 }
 
 export function getLevelForTotalExp(totalExp) {
-  if (totalExp <= 0) return 1;
+  const e =
+    typeof totalExp === "number" && Number.isFinite(totalExp) ? totalExp : 0;
+  if (e <= 0) return 1;
 
-  let level = 1;
-  while (true) {
-    const nextLevel = level + 1;
-    const requiredForNext = getTotalExpForLevel(nextLevel);
-    if (totalExp < requiredForNext) {
-      return level;
-    }
-    level = nextLevel;
-    if (level > 1000) return 1000;
-  }
+  const raw =
+    1 + (MAX_LEVEL - 1) * (1 - Math.exp(-e / LEVEL_EXP_SCALE));
+  return Math.min(MAX_LEVEL, Math.max(1, Math.floor(raw)));
 }
 
 export function getLevelProgress(totalExp) {
   const level = getLevelForTotalExp(totalExp);
+  if (level >= MAX_LEVEL) {
+    return {
+      level: MAX_LEVEL,
+      current: 0,
+      required: 0,
+      ratio: 1,
+    };
+  }
   const currentLevelFloor = getTotalExpForLevel(level);
   const nextLevel = level + 1;
   const nextLevelFloor = getTotalExpForLevel(nextLevel);
   const span = nextLevelFloor - currentLevelFloor || 1;
-  const intoLevel = totalExp - currentLevelFloor;
+  const e =
+    typeof totalExp === "number" && Number.isFinite(totalExp) ? totalExp : 0;
+  const intoLevel = e - currentLevelFloor;
 
   return {
     level,

@@ -7,13 +7,17 @@ import {
   validateQuestStats,
   QUEST_STAT_MAX_PER_STAT,
 } from "../core/models.js";
-import { calculateExpForSession } from "../core/exp.js";
+import {
+  calculateExpForSession,
+  getLevelForTotalExp,
+  getTotalExpForLevel,
+} from "../core/exp.js";
 import { applySessionBonuses, applyFatigueDamping } from "../core/sessions.js";
 import { dampingMultiplier } from "../core/fatigue.js";
 import { playerStatsToChartValues } from "../core/stats.js";
 import { questStatsToChartStats } from "../core/questStorage.js";
 
-test("Quest stats validation enforces per-stat cap (no total cap)", () => {
+test("Quest stats validation enforces per-stat cap", () => {
   assert.equal(QUEST_STAT_MAX_PER_STAT, 3);
 
   const validated = validateQuestStats({ STR: 999, INT: 2, DEX: 2 });
@@ -33,9 +37,8 @@ test("createQuest clamps duration and validates required fields", () => {
   assert.equal(q.stats.INT, 3);
 });
 
-test("Base EXP is durationMinutes * 10 (clamped 1..240)", () => {
+test("Base EXP is durationMinutes * 1 (clamped 1..240)", () => {
   const exp = calculateExpForSession({ durationMinutes: 25, allocation: { STA: 3 } });
-  // Intended v1: EXP_PER_MINUTE = 1 (smaller numbers; less inflation).
   assert.equal(exp.totalExp, 25);
 });
 
@@ -65,6 +68,38 @@ test("Stand EXP distribution uses allocation points (0-3) and conserves total EX
   assert.equal(exp.standExp.INT, 0);
   const sum = Object.values(exp.standExp).reduce((s, v) => s + v, 0);
   assert.equal(sum, exp.totalExp);
+});
+
+test("Level curve: fast early, slows later, caps at 999 (asymptotic)", () => {
+  // Fast early progression (with EXP_PER_MINUTE=1, these are minutes of work).
+  assert.equal(getLevelForTotalExp(0), 1);
+  assert.equal(getLevelForTotalExp(25), 2);
+  assert.equal(getLevelForTotalExp(100), 5);
+  assert.equal(getLevelForTotalExp(200), 10);
+  assert.equal(getLevelForTotalExp(1000), 45);
+
+  // Monotonic: more EXP never reduces level.
+  const a = getLevelForTotalExp(1234);
+  const b = getLevelForTotalExp(1235);
+  assert.ok(b >= a);
+
+  // Hard cap.
+  assert.equal(getLevelForTotalExp(1e12), 999);
+});
+
+test("getTotalExpForLevel is monotonic and inverts getLevelForTotalExp (within flooring)", () => {
+  // For any level L, exp below the floor stays below L; exp at/above reaches >= L.
+  for (const L of [1, 2, 5, 10, 50, 200, 998]) {
+    const req = getTotalExpForLevel(L);
+    assert.ok(typeof req === "number");
+    assert.ok(Number.isFinite(req));
+    const below = req - 1;
+    assert.ok(getLevelForTotalExp(Math.max(0, below)) <= L);
+    assert.ok(getLevelForTotalExp(req) >= L);
+  }
+
+  // Top level is asymptotic (unreachable threshold).
+  assert.equal(getTotalExpForLevel(999), Number.POSITIVE_INFINITY);
 });
 
 test("Intended v1: Quest total allocation is capped at 9 points (rejects > 9)", () => {
