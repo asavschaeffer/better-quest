@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*",
+    "mobile/**/*",
+    "scripts/**/*",
+    "tests/**/*",
+    "*.js",
+    "*.mjs",
+    "*.cjs"
+  ],
+  "exclude": ["**/node_modules/**"]
+}
+

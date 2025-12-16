@@ -23,6 +23,10 @@ Metro loads `mobile/metro.config.js` via CommonJS. **Do not add `"type": "module
 - **Web full suite (includes Puppeteer browser tests)**: `npm run test:all`
 - **Mobile tests**: `npm --workspace mobile test`
 
+### TypeScript (optional)
+
+This repo is currently **JavaScript-first** (no `.ts/.tsx` yet). We still keep a root `tsconfig.json` to define the project boundary/settings for editor tooling, and to make a future TypeScript migration easy. It’s configured as **no-build** (`noEmit`) and does **not** type-check JS by default (`checkJs: false`).
+
 ### Docs
 
 - `START_HERE.md`
