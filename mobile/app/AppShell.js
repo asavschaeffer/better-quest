@@ -659,47 +659,6 @@ export default function AppShell() {
               setSunriseTimeLocal(value);
               showToast("Saved");
             }}
-            onDebugSeedOverlayDemo={() => {
-              // Create a scenario that used to make the yellow overlay look "shaky":
-              // - STR is current max
-              // - DEX is close behind
-              // - DEX has effectively no remaining budget today (spent >> budget)
-              // Result: overlay should expand STR without visually shrinking DEX.
-              setUser((prev) => ({
-                ...prev,
-                avatar: {
-                  ...prev.avatar,
-                  standExp: {
-                    STR: 1000,
-                    DEX: 900,
-                    STA: 150,
-                    INT: 220,
-                    SPI: 120,
-                    CRE: 180,
-                    VIT: 260,
-                  },
-                },
-              }));
-              const nowIso = new Date().toISOString();
-              const debugId = `debug-fatigue-spend-dex-${Date.now()}`;
-              setSessions((prev) => [
-                {
-                  id: debugId,
-                  description: "DEBUG: drain DEX budget",
-                  durationMinutes: 1,
-                  completedAt: nowIso,
-                  allocation: { DEX: 3 },
-                  questKey: "debug",
-                  expResult: { totalExp: 0, standExp: { DEX: 999999 } },
-                  notes: "debug",
-                  bonusMultiplier: 1,
-                  comboBonus: false,
-                  restBonus: false,
-                  bonusBreakdown: null,
-                },
-                ...(prev || []),
-              ]);
-            }}
             showToast={showToast}
             userQuotes={userQuotes ?? []}
             includeBuiltInQuotes={includeBuiltInQuotes ?? true}

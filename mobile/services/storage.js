@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 const migrations = {
   // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
@@ -41,6 +41,16 @@ const migrations = {
     next.fatigueAdapt = state.fatigueAdapt ?? null;
     next.fatigueAdaptNext = state.fatigueAdaptNext ?? null;
     next.fatigueAdaptDay = state.fatigueAdaptDay ?? null;
+    return next;
+  },
+  // v5 -> v6: remove any debug-injected sessions (dev-only overlay seeding)
+  5: (state) => {
+    const next = { ...state };
+    if (Array.isArray(state.sessions)) {
+      next.sessions = state.sessions.filter(
+        (s) => !(typeof s?.id === "string" && s.id.startsWith("debug-fatigue-spend-dex")),
+      );
+    }
     return next;
   },
 };
