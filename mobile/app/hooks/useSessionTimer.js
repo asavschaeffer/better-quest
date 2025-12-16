@@ -1,7 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useSessionTimer({ currentSession, screen, onComplete }) {
   const [remainingMs, setRemainingMs] = useState(0);
+
+  // Avoid re-running the interval effect when parent passes a new inline callback each render.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     if (!currentSession || screen !== "session") return;
@@ -16,12 +22,12 @@ export function useSessionTimer({ currentSession, screen, onComplete }) {
       setRemainingMs(remaining);
       if (remaining <= 0) {
         clearInterval(id);
-        onComplete?.(endTime);
+        onCompleteRef.current?.(endTime);
       }
     }, 500);
 
     return () => clearInterval(id);
-  }, [currentSession?.id, screen, onComplete]);
+  }, [currentSession?.id, screen]);
 
   return { remainingMs, setRemainingMs };
 }
