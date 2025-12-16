@@ -9,7 +9,7 @@ const ATTRS = [
   { key: "STA", label: "STA" },
   { key: "INT", label: "INT" },
   { key: "SPI", label: "SPI" },
-  { key: "CRE", label: "CRE" },
+  { key: "CHA", label: "CHA" },
   { key: "VIT", label: "VIT" },
 ];
 

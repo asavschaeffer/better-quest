@@ -1,7 +1,7 @@
 const EXP_PER_MINUTE = 10;
 const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;
-const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
+const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
 export function getTotalExpForLevel(level) {
   if (level <= 1) return 0;

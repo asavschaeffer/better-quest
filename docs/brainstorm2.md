@@ -3,7 +3,7 @@
 ### What’s already strong
 
 - **Core loop**: Set motivation → pick a “quest” → run a focused timer → get EXP + avatar progression → log for social. That’s a clean, replayable loop.
-- **Identity layer**: `STR/DEX/STA/INT/SPI/CRE/VIT` radar + avatar + EXP gives you a “character sheet” view of your life. That’s a great differentiator vs generic Pomodoro apps.
+- **Identity layer**: `STR/DEX/STA/INT/SPI/CHA/VIT` radar + avatar + EXP gives you a "character sheet" view of your life. That's a great differentiator vs generic Pomodoro apps.
 - **Quest UX**: The radar chart → stat-focused quest templates → duration chips → custom text input is already a satisfying “I’m choosing how I want to grow” moment.
 - **Systems hooks**: Combo bonus, rest bonus, different `TaskType`s, and multiple log formats (raw/Twitter/LinkedIn) are all seeds for deeper game design and social play.
 
@@ -103,7 +103,7 @@ This respects your simplicity rule while still acknowledging the LLM‑crunch‑
 
 ### 4. Avatar / stand evolutions & cosmetics
 
-- **Idea**: At certain level or stat thresholds, the avatar “evolves” or unlocks passive perks: e.g. “INT 10 → Study sessions over 45m gain +10% EXP”, “CRE 8 → writing quests get unique log flavor”.
+- **Idea**: At certain level or stat thresholds, the avatar "evolves" or unlocks passive perks: e.g. "INT 10 → Study sessions over 45m gain +10% EXP", "CHA 8 → social quests get unique log flavor".
 - **Why it fits**: You already have an `avatar` and EXP math. Perks are just small multipliers and cosmetic states layered on top.
 - **Payoff**: Gives long‑term players a reason to min‑max builds and chase specific stat distributions, not just more generic EXP.
 

@@ -1,5 +1,6 @@
 // Stat keys used across the app
-export const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
+// STR=Strength, STA=Stamina, DEX=Dexterity, VIT=Vitality, INT=Intelligence, SPI=Spirit, CHA=Charisma
+export const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
 // Quest stat constraints
 export const QUEST_STAT_MAX_PER_STAT = 3;
@@ -16,7 +17,7 @@ export function createDefaultAvatar() {
       STA: 0,
       INT: 0,
       SPI: 0,
-      CRE: 0,
+      CHA: 0,
       VIT: 0,
     },
   };
@@ -213,26 +214,40 @@ export function suggestStatsForLabel(label) {
   const empty = {};
   STAT_KEYS.forEach(key => { empty[key] = 0; });
   
-  // Keyword-based suggestions
+  // Keyword-based suggestions (mapped to: STR, STA, DEX, VIT, INT, SPI, CHA)
   const suggestions = [
-    { keywords: ["math", "calculus", "algebra", "geometry", "statistics"], stats: { INT: 2, CRE: 1, VIT: 1 } },
-    { keywords: ["science", "physics", "chemistry", "biology", "research"], stats: { INT: 2, CRE: 1, VIT: 1 } },
-    { keywords: ["writing", "essay", "journal", "blog", "article"], stats: { CRE: 2, SPI: 1, VIT: 1 } },
-    { keywords: ["reading", "book", "novel", "study"], stats: { INT: 2, SPI: 1, VIT: 1 } },
-    { keywords: ["weightlifting", "weights", "gym", "strength", "lift"], stats: { STR: 2, STA: 1, VIT: 1 } },
-    { keywords: ["running", "run", "jog", "cardio", "sprint"], stats: { STA: 2, STR: 1, VIT: 1 } },
-    { keywords: ["prayer", "meditation", "spiritual", "faith", "mindfulness"], stats: { SPI: 3, VIT: 1 } },
-    { keywords: ["yoga", "stretch", "flexibility"], stats: { SPI: 1, STA: 1, DEX: 1, VIT: 1 } },
-    { keywords: ["work", "job", "office", "meeting", "project"], stats: { INT: 1, STA: 1, CRE: 1, VIT: 1 } },
-    { keywords: ["cooking", "cook", "meal", "food", "baking"], stats: { CRE: 2, DEX: 1, VIT: 1 } },
-    { keywords: ["cleaning", "clean", "organize", "tidy"], stats: { STA: 1, VIT: 2, SPI: 1 } },
-    { keywords: ["walking", "walk", "hike", "stroll"], stats: { STA: 1, VIT: 2, SPI: 1 } },
-    { keywords: ["guitar", "music", "piano", "instrument", "practice", "song"], stats: { DEX: 2, CRE: 1, SPI: 1 } },
-    { keywords: ["art", "draw", "paint", "sketch", "design"], stats: { CRE: 2, DEX: 1, SPI: 1 } },
-    { keywords: ["code", "coding", "programming", "develop", "software"], stats: { INT: 2, CRE: 1, VIT: 1 } },
-    { keywords: ["language", "spanish", "french", "japanese", "duolingo"], stats: { INT: 2, SPI: 1, VIT: 1 } },
+    // Physical - STR (peak force)
+    { keywords: ["weightlifting", "weights", "gym", "strength", "lift", "calisthenics", "pushup", "pullup"], stats: { STR: 2, STA: 1, VIT: 1 } },
+    // Physical - STA (cardiovascular)
+    { keywords: ["running", "run", "jog", "cardio", "sprint", "cycling", "bike"], stats: { STA: 2, STR: 1, VIT: 1 } },
     { keywords: ["swim", "swimming", "pool"], stats: { STA: 2, STR: 1, VIT: 1 } },
-    { keywords: ["basketball", "soccer", "football", "tennis", "sport"], stats: { STR: 1, STA: 1, DEX: 1, VIT: 1 } },
+    // Physical - DEX (coordination & skill)
+    { keywords: ["yoga", "stretch", "flexibility"], stats: { DEX: 1, SPI: 1, STA: 1, VIT: 1 } },
+    { keywords: ["basketball", "soccer", "football", "tennis", "sport"], stats: { DEX: 1, STR: 1, STA: 1, VIT: 1 } },
+    { keywords: ["guitar", "music", "piano", "instrument", "practice", "song", "drums"], stats: { DEX: 2, SPI: 1, VIT: 1 } },
+    { keywords: ["art", "draw", "paint", "sketch", "craft"], stats: { DEX: 2, SPI: 1, VIT: 1 } },
+    { keywords: ["cooking", "cook", "meal", "food", "baking"], stats: { DEX: 2, VIT: 2 } },
+    // Health & Routine - VIT
+    { keywords: ["cleaning", "clean", "organize", "tidy", "chore"], stats: { VIT: 2, STA: 1, SPI: 1 } },
+    { keywords: ["walking", "walk", "hike", "stroll"], stats: { VIT: 2, STA: 1, SPI: 1 } },
+    { keywords: ["sleep", "nap", "rest"], stats: { VIT: 3, SPI: 1 } },
+    // Mental - INT (logic & learning)
+    { keywords: ["math", "calculus", "algebra", "geometry", "statistics"], stats: { INT: 3, VIT: 1 } },
+    { keywords: ["science", "physics", "chemistry", "biology", "research"], stats: { INT: 2, DEX: 1, VIT: 1 } },
+    { keywords: ["reading", "book", "novel", "study"], stats: { INT: 2, SPI: 1, VIT: 1 } },
+    { keywords: ["code", "coding", "programming", "develop", "software"], stats: { INT: 2, DEX: 1, VIT: 1 } },
+    { keywords: ["language", "spanish", "french", "japanese", "duolingo"], stats: { INT: 2, CHA: 1, VIT: 1 } },
+    // Spiritual - SPI (inner world)
+    { keywords: ["prayer", "meditation", "spiritual", "faith", "mindfulness"], stats: { SPI: 3, VIT: 1 } },
+    { keywords: ["writing", "essay", "journal", "blog", "article"], stats: { SPI: 2, INT: 1, VIT: 1 } },
+    { keywords: ["philosophy", "reflect", "contemplate"], stats: { SPI: 2, INT: 1, VIT: 1 } },
+    // Social - CHA (outer world)
+    { keywords: ["work", "job", "office", "meeting", "project"], stats: { CHA: 1, INT: 1, STA: 1, VIT: 1 } },
+    { keywords: ["social", "friends", "party", "hangout"], stats: { CHA: 2, SPI: 1, VIT: 1 } },
+    { keywords: ["presentation", "speech", "talk", "present"], stats: { CHA: 2, INT: 1, VIT: 1 } },
+    { keywords: ["networking", "connect", "collaborate"], stats: { CHA: 2, INT: 1, VIT: 1 } },
+    { keywords: ["call", "phone", "video", "chat"], stats: { CHA: 2, SPI: 1, VIT: 1 } },
+    { keywords: ["teach", "tutor", "mentor", "coach"], stats: { CHA: 2, INT: 1, VIT: 1 } },
   ];
   
   for (const { keywords, stats } of suggestions) {

@@ -12,7 +12,7 @@ const ATTRS = [
   { key: "STA", label: "STA", color: "#eab308" },
   { key: "INT", label: "INT", color: "#3b82f6" },
   { key: "SPI", label: "SPI", color: "#a855f7" },
-  { key: "CRE", label: "CRE", color: "#ec4899" },
+  { key: "CHA", label: "CHA", color: "#ec4899" },
   { key: "VIT", label: "VIT", color: "#22c55e" },
 ];
 

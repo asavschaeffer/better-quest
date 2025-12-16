@@ -25,7 +25,7 @@ export function createDefaultAvatar() {
       STA: 0,
       INT: 0,
       SPI: 0,
-      CRE: 0,
+      CHA: 0,
       VIT: 0,
     },
   };

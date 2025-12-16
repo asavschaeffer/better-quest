@@ -4,7 +4,8 @@ import { applySessionBonuses, applyFatigueDamping } from "../core/sessions.js";
 
 test("applySessionBonuses multiplies totals and stand exp", () => {
   const base = { totalExp: 100, standExp: { STR: 50, INT: 50 } };
-  const session = { bonusMultiplier: 1.2 };
+  // Provide allocation so splitTotalExp knows how to distribute boosted EXP
+  const session = { bonusMultiplier: 1.2, allocation: { STR: 1, INT: 1 } };
   const result = applySessionBonuses(session, base);
   assert.equal(result.totalExp, 120);
   assert.equal(result.standExp.STR, 60);

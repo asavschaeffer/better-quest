@@ -33,11 +33,11 @@ export default function ProfileScreen({ player, onBack }) {
 
   const statLabels = {
     STR: "Strength",
-    DEX: "Dexterity", 
+    DEX: "Dexterity",
     STA: "Stamina",
     INT: "Intelligence",
     SPI: "Spirit",
-    CRE: "Creativity",
+    CHA: "Charisma",
     VIT: "Vitality",
   };
 

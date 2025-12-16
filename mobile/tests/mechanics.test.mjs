@@ -71,7 +71,7 @@ test("Allocation is authoritative even if standStats disagree (back-compat only)
     durationMinutes: 10,
     allocation: { STR: 3 },
     // If used, this would move exp away from STR due to raw-1 weights.
-    standStats: { STR: 1, DEX: 6, STA: 6, INT: 6, SPI: 6, CRE: 6, VIT: 6 },
+    standStats: { STR: 1, DEX: 6, STA: 6, INT: 6, SPI: 6, CHA: 6, VIT: 6 },
   });
   assert.equal(exp.totalExp, 100);
   assert.equal(exp.standExp.STR, 100);
@@ -98,7 +98,7 @@ test("applyFatigueDamping returns unchanged exp when there is no overspend today
   const base = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 3 } });
   const damped = applyFatigueDamping({
     baseExp: base,
-    avatar: { level: 1, standExp: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CRE: 0, VIT: 0 } },
+    avatar: { level: 1, standExp: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0 } },
     sessions: [],
     questStreaks: {},
   });

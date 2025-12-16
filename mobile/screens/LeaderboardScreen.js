@@ -20,7 +20,7 @@ export const MOCK_PLAYERS = [
     exp: 52000,
     minutes: 3200,
     // Lots of weightlifting, dexterity work, and meditation
-    standExp: { STR: 2800, DEX: 1500, STA: 800, INT: 200, SPI: 1200, CRE: 100, VIT: 400 },
+    standExp: { STR: 2800, DEX: 1500, STA: 800, INT: 200, SPI: 1200, CHA: 100, VIT: 400 },
     recentQuests: ["Weightlifting", "Boxing", "Meditation", "Stretching"],
     avatarSeed: "darkslayer",
   },
@@ -31,7 +31,7 @@ export const MOCK_PLAYERS = [
     exp: 41000,
     minutes: 2600,
     // Pure intellectual focus
-    standExp: { STR: 50, DEX: 100, STA: 200, INT: 4500, SPI: 300, CRE: 800, VIT: 50 },
+    standExp: { STR: 50, DEX: 100, STA: 200, INT: 4500, SPI: 300, CHA: 800, VIT: 50 },
     recentQuests: ["Deep Study", "Reading", "Problem Solving", "Language Learning"],
     avatarSeed: "studymaster",
   },
@@ -42,7 +42,7 @@ export const MOCK_PLAYERS = [
     exp: 36000,
     minutes: 2100,
     // Balanced mental + physical wellness
-    standExp: { STR: 400, DEX: 300, STA: 500, INT: 1800, SPI: 1500, CRE: 200, VIT: 1300 },
+    standExp: { STR: 400, DEX: 300, STA: 500, INT: 1800, SPI: 1500, CHA: 200, VIT: 1300 },
     recentQuests: ["Meditation", "Deep Work", "Yoga", "Walking"],
     avatarSeed: "focusking",
   },
@@ -53,7 +53,7 @@ export const MOCK_PLAYERS = [
     exp: 22000,
     minutes: 1500,
     // Even distribution - does everything
-    standExp: { STR: 600, DEX: 550, STA: 580, INT: 620, SPI: 540, CRE: 590, VIT: 520 },
+    standExp: { STR: 600, DEX: 550, STA: 580, INT: 620, SPI: 540, CHA: 590, VIT: 520 },
     recentQuests: ["Morning Workout", "Study Session", "Creative Writing", "Run"],
     avatarSeed: "grindmode",
   },

@@ -105,7 +105,7 @@ test("getLevelProgress returns valid progress", async () => {
 
 test("STAT_KEYS contains expected stats", async () => {
   const { STAT_KEYS } = await import("../core/models.js");
-  const expected = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
+  const expected = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
   expected.forEach(stat => {
     assert.ok(STAT_KEYS.includes(stat), `STAT_KEYS should include ${stat}`);
   });

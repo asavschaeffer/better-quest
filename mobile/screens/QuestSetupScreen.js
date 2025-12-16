@@ -23,7 +23,7 @@ export default function QuestSetupScreen({
   const [error, setError] = useState("");
   // Store raw allocation (0-3 scale)
   const [allocation, setAllocation] = useState({
-    STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CRE: 0, VIT: 0,
+    STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0,
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);

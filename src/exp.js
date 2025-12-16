@@ -2,7 +2,7 @@
 const EXP_PER_MINUTE = 10;
 const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;
-const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CRE", "VIT"];
+const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
 // Simple quadratic-ish level curve: totalExp required grows with level^2.
 // Level 1 starts at 0 EXP.

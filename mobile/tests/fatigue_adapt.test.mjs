@@ -5,7 +5,7 @@ import { computeDailyBudgets, updateFatigueAdaptNext } from "../core/fatigue.js"
 
 test("computeDailyBudgets applies adaptMultipliers per stat", () => {
   const budgets = computeDailyBudgets({
-    chartStats: { STR: 5, DEX: 1, STA: 1, INT: 1, SPI: 1, CRE: 1, VIT: 1 },
+    chartStats: { STR: 5, DEX: 1, STA: 1, INT: 1, SPI: 1, CHA: 1, VIT: 1 },
     level: 1,
     mandalaStreak: 0,
     aggregateConsistency: 0,
@@ -15,7 +15,7 @@ test("computeDailyBudgets applies adaptMultipliers per stat", () => {
   // STR has higher chart value => higher base budget; multiplier should scale it further.
   assert.ok(budgets.STR > 0);
   const budgetsNoAdapt = computeDailyBudgets({
-    chartStats: { STR: 5, DEX: 1, STA: 1, INT: 1, SPI: 1, CRE: 1, VIT: 1 },
+    chartStats: { STR: 5, DEX: 1, STA: 1, INT: 1, SPI: 1, CHA: 1, VIT: 1 },
     level: 1,
     mandalaStreak: 0,
     aggregateConsistency: 0,

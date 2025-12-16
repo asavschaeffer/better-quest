@@ -1,6 +1,6 @@
 ## Better Quest
 
-Better Quest is a focus-timer RPG: you run a timed session for a quest, then earn EXP that grows your avatar’s Stand stats (STR/DEX/STA/INT/SPI/CRE/VIT). This repo contains a **web** version and an **Expo mobile** version.
+Better Quest is a focus-timer RPG: you run a timed session for a quest, then earn EXP that grows your avatar's Stand stats (STR/DEX/STA/INT/SPI/CHA/VIT). This repo contains a **web** version and an **Expo mobile** version.
 
 ### Quick start
 

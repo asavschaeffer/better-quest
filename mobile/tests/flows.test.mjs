@@ -29,7 +29,7 @@ test("session completion applies bonuses, damping, and levels avatar", () => {
 });
 
 test("quickstart suggestions favor matching stats", () => {
-  const avatar = { standExp: { STR: 200, DEX: 10, STA: 10, INT: 5, SPI: 5, CRE: 5, VIT: 5 } };
+  const avatar = { standExp: { STR: 200, DEX: 10, STA: 10, INT: 5, SPI: 5, CHA: 5, VIT: 5 } };
   const userQuests = [
     { id: "a", label: "Lift", stats: { STR: 3 }, defaultDurationMinutes: 25 },
     { id: "b", label: "Read", stats: { INT: 3 }, defaultDurationMinutes: 25 },

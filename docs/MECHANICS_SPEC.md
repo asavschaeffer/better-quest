@@ -182,7 +182,6 @@ File: `mobile/core/questStorage.js:questStatsToChartStats`
 ## Open questions / knobs (for “vision” spec)
 
 - Should fatigue budgets remain chart-derived, or move to a pure “raw EXP” model (charts remain visual-only)?
-- Should Brahma Muhurta sunrise be auto-detected (location/timezone) instead of manual `sunriseTimeLocal`?
 - Are budgets and damping per-axis, or should they consider total effort across axes?
 - Bonus stacking: do we want more bonuses to be additive vs multiplicative? Do we want caps?
 - Quest categorization/sorting: keep it stat-driven only (Option A) vs add explicit tags/categories?

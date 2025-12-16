@@ -8,7 +8,7 @@ const STAT_LABELS = {
   STA: { label: "STA", name: "Stamina", color: "#eab308" },
   INT: { label: "INT", name: "Intelligence", color: "#3b82f6" },
   SPI: { label: "SPI", name: "Spirit", color: "#a855f7" },
-  CRE: { label: "CRE", name: "Creativity", color: "#ec4899" },
+  CHA: { label: "CHA", name: "Charisma", color: "#ec4899" },
   VIT: { label: "VIT", name: "Vitality", color: "#22c55e" },
 };
 

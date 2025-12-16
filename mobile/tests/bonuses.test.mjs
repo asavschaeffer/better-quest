@@ -178,7 +178,7 @@ test("integration: completion pipeline preserves invariants and includes expecte
   });
   const final = applyFatigueDamping({
     baseExp: brahma.exp,
-    avatar: { level: 1, standExp: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CRE: 0, VIT: 0 } },
+    avatar: { level: 1, standExp: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0 } },
     sessions: [],
     questStreaks: {},
   });
