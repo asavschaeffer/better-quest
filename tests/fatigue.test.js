@@ -1,5 +1,5 @@
 import {
-  chartValueToPoints,
+  standExpToPoints,
   computeBudgetForStat,
   computeDailyBudgets,
   dampingMultiplier,
@@ -71,15 +71,17 @@ async function runTests() {
   console.log("FATIGUE MECHANICS TESTS");
   console.log("=".repeat(60) + "\n");
 
-  // chartValueToPoints
-  await runner.test("chartValueToPoints clamps low and returns at least 1", () => {
-    runner.assertEqual(chartValueToPoints(0), 1);
-    runner.assertEqual(chartValueToPoints(-5), 1);
+  // standExpToPoints
+  await runner.test("standExpToPoints clamps low and returns at least 1", () => {
+    runner.assertEqual(standExpToPoints(0), 1);
+    runner.assertEqual(standExpToPoints(-5), 1);
   });
 
-  await runner.test("chartValueToPoints maps mid/high values to quest-like points", () => {
-    runner.assertEqual(chartValueToPoints(3), 2);
-    runner.assertEqual(chartValueToPoints(5), 3);
+  await runner.test("standExpToPoints maps EXP thresholds to budget points", () => {
+    runner.assertEqual(standExpToPoints(599), 1);
+    runner.assertEqual(standExpToPoints(600), 2);
+    runner.assertEqual(standExpToPoints(2399), 2);
+    runner.assertEqual(standExpToPoints(2400), 3);
   });
 
   // computeBudgetForStat
@@ -103,7 +105,7 @@ async function runTests() {
   // computeDailyBudgets
   await runner.test("computeDailyBudgets returns all STAT_KEYS", () => {
     const budgets = computeDailyBudgets({
-      chartStats: { STR: 5, INT: 3 },
+      standExp: { STR: 2400, INT: 600 },
       level: 10,
       mandalaStreak: 5,
     });

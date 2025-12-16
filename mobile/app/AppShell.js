@@ -228,9 +228,8 @@ export default function AppShell() {
     [sessions],
   );
   const dailyBudgets = useMemo(() => {
-    const chartStats = playerStatsToChartValues(avatar.standExp);
     return computeDailyBudgets({
-      chartStats,
+      standExp: avatar.standExp,
       level: avatar.level ?? 1,
       mandalaStreak,
       aggregateConsistency,

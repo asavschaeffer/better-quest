@@ -1,6 +1,6 @@
 import { STAT_KEYS } from "./models.js";
 import { computeDailyBudgets, dampingMultiplier } from "./fatigue.js";
-import { playerStatsToChartValues, computeTodayStandExp } from "./stats.js";
+import { computeTodayStandExp } from "./stats.js";
 import { getMaxMandalaStreak, computeAggregateConsistency } from "./quests.js";
 import { splitTotalExp } from "./exp.js";
 
@@ -27,9 +27,8 @@ export function applyFatigueDamping({
   const todaySpent = computeTodayStandExp(sessions);
   const mandalaStreak = getMaxMandalaStreak(questStreaks);
   const aggregateConsistency = computeAggregateConsistency(sessions);
-  const chartStats = playerStatsToChartValues(avatar?.standExp || {});
   const budgets = computeDailyBudgets({
-    chartStats,
+    standExp: avatar?.standExp || {},
     level: avatar?.level ?? 1,
     mandalaStreak,
     aggregateConsistency,

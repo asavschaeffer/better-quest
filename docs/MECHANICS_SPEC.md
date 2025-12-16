@@ -130,7 +130,7 @@ File: `mobile/core/sessions.js:applyFatigueDamping` + `mobile/core/fatigue.js`
 
 - Compute “spent today” per axis from completed sessions.
 - Compute per-axis budget using:
-  - **Chart stat points** derived from avatar stand EXP (`playerStatsToChartValues` → `chartValueToPoints`)
+  - **Stand EXP tiers** derived from avatar **raw** stand EXP (`standExpToPoints`)
   - **Mandala streak** (max quest streak)
   - **Aggregate consistency** (blend of last 7 / last 30 active days)
   - **Level factor** (0 at level 1 → 1 at level 30+)
@@ -150,14 +150,15 @@ This is the step where `totalExp` is explicitly “made consistent” with the s
 
 ## Fatigue budgeting + damping
 
-### Chart stat points for budgets
+### Stand EXP tiers for budgets
 
-File: `mobile/core/fatigue.js:chartValueToPoints`
+File: `mobile/core/fatigue.js:standExpToPoints`
 
-- Input chart value expected ~`1..5` (the function clamps to `1..5` even though some chart sources use `1..6`)
-- Maps to quest-like “points” `1..3`, minimum 1:
-  - `scaled = ((clamped - 1) / 4) * 3`
-  - `points = max(1, round(scaled))`
+- Input: raw `avatar.standExp[stat]` (lifetime EXP in that stat; non-negative number)
+- Maps to “budget points” `1..3` using fixed thresholds (no chart-derived inputs):
+  - if `exp >= 2400` → 3 points
+  - else if `exp >= 600` → 2 points
+  - else → 1 point
 
 ### Budget multiplier
 
@@ -252,6 +253,8 @@ V1 options:
 - **Option B (sharper focus)**: use squared weights \(w = p^2\) so 3-points “dominates” more.
 - **Option C (tunable focus)**: \(w = \exp(k \cdot p)\) with small \(k\).
 
+**V1 decision**: **Option A (keep)**.
+
 #### Multiplier stacking rules (bonus breakdown → bonusMultiplier)
 
 Current behavior (`mobile/core/bonuses.js:resolveBonusMultiplier`):
@@ -265,11 +268,16 @@ V1 questions:
 - Should we **cap** the final multiplier? (e.g. `<= 2.5x`)
 - Keep the current order, or apply add bonuses before mult bonuses?
 
+**V1 decision**:
+
+- Keep current stacking order.
+- Apply a **hard cap**: `bonusMultiplier <= 3.0x` (`mobile/core/bonuses.js`).
+
 #### Fatigue: budget basis + damping
 
 Current behavior:
 
-- Budgets are derived from **avatar chart values** (relative scale) → `chartValueToPoints(1..5) → 1..3 points`.
+- Budgets are derived from **raw avatar stand EXP** (absolute) → `standExpToPoints(exp) → 1..3 points`.
 - Per-axis damping uses `dampingMultiplier(spent + gain, budget, floor=0.4)` and rounds each stat independently.
 
 V1 options:
@@ -277,6 +285,8 @@ V1 options:
 - **Option A (keep)**: relative chart-derived budgets (easy, “always scales”).
 - **Option B**: budgets based on **raw standExp** (absolute progression).
 - **Option C**: hybrid (relative early, gradually shifts to raw at higher levels).
+
+**V1 decision**: **Option B (raw standExp)** (already implemented).
 
 #### Chart scaling & rounding
 
@@ -292,6 +302,14 @@ Current behavior:
 V1 question:
 
 - Do you want **“total-first rounding”** (compute floats, round total, then re-split) to reduce edge cases, or keep the current per-step rounding?
+
+**V1 decision**: keep current per-step rounding (deterministic + simpler).
+
+### VNext (planned): quest stat assigner + UX overhaul
+
+- Move quest stat allocation from “points per stat” to a **100% reserve** model (percentages sum to 100%).
+- Expect associated UX overhaul in quest maker + quest selector.
+- This will likely change how `session.allocation` is represented and therefore how EXP splitting weights are computed; treat as a separate vNext contract once we’re ready.
 
 ## Open questions / knobs (for “vision” spec)
 

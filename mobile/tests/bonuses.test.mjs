@@ -136,6 +136,19 @@ test("resolveBonusMultiplier combines mult and add bonuses deterministically", (
   assert.ok(Math.abs(m - 1.716) < 1e-9);
 });
 
+test("resolveBonusMultiplier applies a hard cap to prevent runaway stacking", () => {
+  const m = resolveBonusMultiplier({
+    bonusBreakdown: [
+      { key: "combo", mode: "mult", value: 2.0 },
+      { key: "rest", mode: "mult", value: 2.0 },
+      { key: "global_streak", mode: "add", value: 2.0 }, // +200%
+    ],
+    fallbackMultiplier: 1,
+  });
+  // Raw would be (2*2) * (1+2) = 12, but we cap it.
+  assert.equal(m, 3.0);
+});
+
 test("integration: completion pipeline preserves invariants and includes expected bonus keys", () => {
   const now = Date.now();
   const yesterday = new Date(now - 86400000).toISOString();

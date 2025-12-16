@@ -1,10 +1,21 @@
 import { STAT_KEYS } from "./models.js";
 
-// Map chart stat value (1–5) to quest-like points (1–3) for budgeting.
-export function chartValueToPoints(value) {
-  const clamped = Math.max(1, Math.min(5, typeof value === "number" ? value : 1));
-  const scaled = ((clamped - 1) / 4) * 3; // map 1-5 to 0-3
-  return Math.max(1, Math.round(scaled)); // keep at least 1 point for momentum
+// Budget tiers are intentionally simple (no chart-relative inputs):
+// map raw lifetime standExp -> "budget points" (1–3) per stat.
+//
+// With EXP_PER_MINUTE = 1, these thresholds roughly mean:
+// - 600 EXP  ~= 10 hours lifetime in that stat
+// - 2400 EXP ~= 40 hours lifetime in that stat
+//
+// Tune these by feel later.
+const POINTS_TIER_2_AT_EXP = 600;
+const POINTS_TIER_3_AT_EXP = 2400;
+
+export function standExpToPoints(exp) {
+  const e = typeof exp === "number" && Number.isFinite(exp) ? Math.max(0, exp) : 0;
+  if (e >= POINTS_TIER_3_AT_EXP) return 3;
+  if (e >= POINTS_TIER_2_AT_EXP) return 2;
+  return 1;
 }
 
 // Level factor: gentle scale up to ~1 around level 30+.
@@ -36,9 +47,9 @@ export function computeBudgetForStat({
   return base * multiplier;
 }
 
-// Budgets for all stats based on current chart values.
+// Budgets for all stats based on raw standExp (no chart-derived inputs).
 export function computeDailyBudgets({
-  chartStats = {},
+  standExp = {},
   level = 1,
   mandalaStreak = 0,
   aggregateConsistency = 0,
@@ -47,7 +58,7 @@ export function computeDailyBudgets({
 } = {}) {
   const budgets = {};
   STAT_KEYS.forEach((key) => {
-    const statPoints = chartValueToPoints(chartStats[key]);
+    const statPoints = standExpToPoints(standExp?.[key]);
     const baseBudget = computeBudgetForStat({
       statPoints,
       level,

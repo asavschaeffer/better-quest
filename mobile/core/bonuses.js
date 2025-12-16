@@ -3,6 +3,9 @@ import { computeStreakDays, updateQuestStreaks } from "./quests.js";
 
 export const DEFAULT_SUNRISE_TIME_LOCAL = "06:30";
 
+// Safety cap to prevent runaway stacking (tunable).
+const BONUS_MULTIPLIER_CAP = 3.0;
+
 // Brahma Muhurta window relative to sunrise (in minutes before sunrise).
 // Classic traditions vary; we pick a simple UX-friendly window for v1.
 export const BRAHMA_WINDOW_START_MIN_BEFORE_SUNRISE = 96;
@@ -170,7 +173,9 @@ export function resolveBonusMultiplier({ bonusBreakdown, fallbackMultiplier = 1 
     }, 0);
 
   const base = multProduct !== 1 ? multProduct : (fallbackMultiplier ?? 1);
-  return base * (1 + addSum);
+  const raw = base * (1 + addSum);
+  // Apply a simple hard cap (keeps tuning stable as we add more bonus sources).
+  return Math.min(BONUS_MULTIPLIER_CAP, raw);
 }
 
 
