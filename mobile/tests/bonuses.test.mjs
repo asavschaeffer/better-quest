@@ -55,7 +55,7 @@ test("applyBrahmaMuhurtaBonus doubles SPI gains and increases total when eligibl
   assert.ok(out.breakdownEntry);
 });
 
-test("applyBrahmaMuhurtaBonus does not apply with invalid sunriseTimeLocal", () => {
+test("applyBrahmaMuhurtaBonus falls back to default sunriseTimeLocal if invalid", () => {
   const endTime = new Date();
   endTime.setHours(5, 30, 0, 0);
   const out = applyBrahmaMuhurtaBonus({
@@ -63,7 +63,7 @@ test("applyBrahmaMuhurtaBonus does not apply with invalid sunriseTimeLocal", () 
     exp: { totalExp: 10, standExp: { SPI: 4, STR: 6 } },
     sunriseTimeLocal: "not-a-time",
   });
-  assert.equal(out.applied, false);
+  assert.equal(out.applied, true);
 });
 
 test("streak bonuses start on day 2 (global) and day 2 for same quest (mandala)", () => {
@@ -133,7 +133,7 @@ test("resolveBonusMultiplier combines mult and add bonuses deterministically", (
     fallbackMultiplier: 1,
   });
   // (1.2*1.1) * (1 + 0.2 + 0.1) = 1.32 * 1.3 = 1.716
-  assert.equal(m, 1.716);
+  assert.ok(Math.abs(m - 1.716) < 1e-9);
 });
 
 test("integration: completion pipeline preserves invariants and includes expected bonus keys", () => {

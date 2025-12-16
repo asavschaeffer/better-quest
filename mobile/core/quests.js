@@ -80,7 +80,9 @@ export function computeStreakDays(sessions = []) {
       cursor.setDate(cursor.getDate() - 1);
       continue;
     }
-    if (d.getTime() === cursor.getTime() - 86400000) {
+    // Allow the streak to start at "yesterday" if there is no session today,
+    // but once the streak has started we require strict day-by-day continuity.
+    if (streak === 0 && d.getTime() === cursor.getTime() - 86400000) {
       streak += 1;
       cursor.setDate(cursor.getDate() - 1);
       continue;
