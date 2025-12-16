@@ -1,3 +1,9 @@
+/**
+ * NOTE: Keep this file CommonJS.
+ * Metro/Expo loads `metro.config.js` with `require()`. If `mobile/package.json` has
+ * `"type": "module"`, Node will treat this `.js` file as ESM and Expo can fail to start.
+ * If you ever need ESM-by-default in `mobile/`, rename this to `metro.config.cjs`.
+ */
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 

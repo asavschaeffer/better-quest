@@ -13,6 +13,10 @@ Better Quest is a focus-timer RPG: you run a timed session for a quest, then ear
   - `npm install`
   - `npm run dev:mobile` (or `npm --workspace mobile run start`)
 
+#### Expo / Metro config gotcha (monorepo)
+
+Metro loads `mobile/metro.config.js` via CommonJS. **Do not add `"type": "module"` to `mobile/package.json`** unless you also rename config files to `.cjs` (e.g. `metro.config.cjs`, `babel.config.cjs`), or Expo may fail with “metro.config.js could not be loaded”.
+
 ### Tests
 
 - **Web unit tests**: `npm test`
