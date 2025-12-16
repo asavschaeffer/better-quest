@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { createDefaultAvatar, createTaskSession, STAT_KEYS } from "../core/models.js";
 import { calculateExpForSession, applyExpToAvatar, getLevelProgress } from "../core/exp.js";
-import { computeDailyBudgets } from "../core/fatigue.js";
+import { computeDailyBudgets, updateFatigueAdaptNext } from "../core/fatigue.js";
 import { inferEmojiForDescription } from "../core/emoji.js";
 import { addUserQuest, deleteUserQuest, questStatsToChartStats } from "../core/questStorage.js";
 import { playerStatsToChartValues, computeTodayStandExp, addStandExp } from "../core/stats.js";
@@ -62,6 +62,9 @@ export default function AppShell() {
     comboFromSessionId,
     wellRestedUntil,
     sunriseTimeLocal,
+    fatigueAdapt,
+    fatigueAdaptNext,
+    fatigueAdaptDay,
     homeFooterConfig,
     quickStartMode,
     pickerDefaultMode,
@@ -77,6 +80,9 @@ export default function AppShell() {
     setComboFromSessionId,
     setWellRestedUntil,
     setSunriseTimeLocal,
+    setFatigueAdapt,
+    setFatigueAdaptNext,
+    setFatigueAdaptDay,
     setHomeFooterConfig,
     setQuickStartMode,
     setPickerDefaultMode,
@@ -108,6 +114,9 @@ export default function AppShell() {
       setComboFromSessionId,
       setWellRestedUntil,
       setSunriseTimeLocal,
+      setFatigueAdapt,
+      setFatigueAdaptNext,
+      setFatigueAdaptDay,
       setHomeFooterConfig,
       setQuickStartMode,
       setPickerDefaultMode,
@@ -123,6 +132,9 @@ export default function AppShell() {
       setComboFromSessionId,
       setWellRestedUntil,
       setSunriseTimeLocal,
+      setFatigueAdapt,
+      setFatigueAdaptNext,
+      setFatigueAdaptDay,
       setHomeFooterConfig,
       setQuickStartMode,
       setPickerDefaultMode,
@@ -142,6 +154,9 @@ export default function AppShell() {
     comboFromSessionId,
     wellRestedUntil,
     sunriseTimeLocal,
+    fatigueAdapt,
+    fatigueAdaptNext,
+    fatigueAdaptDay,
     homeFooterConfig,
     quickStartMode,
     pickerDefaultMode,
@@ -149,6 +164,32 @@ export default function AppShell() {
     userQuotes,
     includeBuiltInQuotes,
   });
+
+  function getLocalDayKey(ts = Date.now()) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate(),
+    ).padStart(2, "0")}`;
+  }
+
+  function ensureStatMap(obj, fallback = 1) {
+    const out = {};
+    STAT_KEYS.forEach((k) => {
+      const v = obj?.[k];
+      out[k] = typeof v === "number" && Number.isFinite(v) ? v : fallback;
+    });
+    return out;
+  }
+
+  // Day rollover: apply "tomorrow" fatigue multipliers at the start of a new day.
+  useEffect(() => {
+    const todayKey = getLocalDayKey();
+    if (fatigueAdaptDay && fatigueAdaptDay === todayKey) return;
+    const nextApplied = ensureStatMap(fatigueAdaptNext || fatigueAdapt, 1);
+    setFatigueAdapt(nextApplied);
+    setFatigueAdaptNext(nextApplied);
+    setFatigueAdaptDay(todayKey);
+  }, [fatigueAdaptDay, fatigueAdapt, fatigueAdaptNext, setFatigueAdapt, setFatigueAdaptNext, setFatigueAdaptDay]);
 
   const announcements = useMemo(
     () => [
@@ -193,9 +234,14 @@ export default function AppShell() {
       level: avatar.level ?? 1,
       mandalaStreak,
       aggregateConsistency,
+      adaptMultipliers: ensureStatMap(fatigueAdapt, 1),
     });
-  }, [avatar, mandalaStreak, aggregateConsistency]);
+  }, [avatar, mandalaStreak, aggregateConsistency, fatigueAdapt]);
   const fatigueOverlayStats = useMemo(() => {
+    const baselineMax = Math.max(
+      1,
+      ...STAT_KEYS.map((k) => (typeof avatar.standExp?.[k] === "number" ? avatar.standExp[k] : 0)),
+    );
     const remaining = {};
     STAT_KEYS.forEach((k) => {
       const budget = dailyBudgets[k] ?? 0;
@@ -203,7 +249,9 @@ export default function AppShell() {
       remaining[k] = Math.max(0, budget - spent);
     });
     const previewStand = addStandExp(avatar.standExp, remaining);
-    return playerStatsToChartValues(previewStand);
+    // IMPORTANT: keep the overlay on the same "power level" scale as the current chart,
+    // otherwise adding to the max stat can rescale everything and make the overlay look smaller.
+    return playerStatsToChartValues(previewStand, { maxStatOverride: baselineMax });
   }, [dailyBudgets, todayStandExp, avatar]);
 
   // Quotes
@@ -366,10 +414,24 @@ export default function AppShell() {
       avatar,
       sessions,
       questStreaks,
+      adaptMultipliers: ensureStatMap(fatigueAdapt, 1),
     });
     setLastExpResult(exp);
     const nextAvatar = applyExpToAvatar(avatar, exp);
     setUser((prev) => ({ ...prev, avatar: nextAvatar }));
+
+    // Progressive overload (Option A): update tomorrow multipliers from today's earned load.
+    // Uses *earned* amounts (post-fatigue) to stay simple and avoid extra stored fields.
+    const spentAfter = ensureStatMap(todayStandExp, 0);
+    STAT_KEYS.forEach((k) => {
+      spentAfter[k] += exp?.standExp?.[k] ?? 0;
+    });
+    const nextTomorrow = updateFatigueAdaptNext({
+      adaptNext: ensureStatMap(fatigueAdaptNext || fatigueAdapt, 1),
+      spentTodayAfter: spentAfter,
+      budgetsToday: dailyBudgets,
+    });
+    setFatigueAdaptNext(nextTomorrow);
 
     const updatedQuestStreaks = updateQuestStreaks(
       questStreaks,
@@ -596,6 +658,47 @@ export default function AppShell() {
             onUpdateSunriseTimeLocal={(value) => {
               setSunriseTimeLocal(value);
               showToast("Saved");
+            }}
+            onDebugSeedOverlayDemo={() => {
+              // Create a scenario that used to make the yellow overlay look "shaky":
+              // - STR is current max
+              // - DEX is close behind
+              // - DEX has effectively no remaining budget today (spent >> budget)
+              // Result: overlay should expand STR without visually shrinking DEX.
+              setUser((prev) => ({
+                ...prev,
+                avatar: {
+                  ...prev.avatar,
+                  standExp: {
+                    STR: 1000,
+                    DEX: 900,
+                    STA: 150,
+                    INT: 220,
+                    SPI: 120,
+                    CRE: 180,
+                    VIT: 260,
+                  },
+                },
+              }));
+              const nowIso = new Date().toISOString();
+              const debugId = `debug-fatigue-spend-dex-${Date.now()}`;
+              setSessions((prev) => [
+                {
+                  id: debugId,
+                  description: "DEBUG: drain DEX budget",
+                  durationMinutes: 1,
+                  completedAt: nowIso,
+                  allocation: { DEX: 3 },
+                  questKey: "debug",
+                  expResult: { totalExp: 0, standExp: { DEX: 999999 } },
+                  notes: "debug",
+                  bonusMultiplier: 1,
+                  comboBonus: false,
+                  restBonus: false,
+                  bonusBreakdown: null,
+                },
+                ...(prev || []),
+              ]);
             }}
             showToast={showToast}
             userQuotes={userQuotes ?? []}

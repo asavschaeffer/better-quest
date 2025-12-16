@@ -20,6 +20,20 @@ test("playerStatsToChartValues scales highest stat near 6", () => {
   assert.ok(chart.STR <= 6 && chart.STR > 5);
 });
 
+test("playerStatsToChartValues overlay can use maxStatOverride to avoid rescaling", () => {
+  const base = { STR: 1000, DEX: 500 };
+  const baseChart = playerStatsToChartValues(base);
+  // Add a big gain to the current max stat; without override, DEX would shrink.
+  const preview = { STR: 2000, DEX: 500 };
+  const overlay = playerStatsToChartValues(preview, { maxStatOverride: 1000 });
+  assert.equal(overlay.STR, 6, "max stat should cap at S (6) under override");
+  assert.equal(
+    overlay.DEX,
+    baseChart.DEX,
+    "non-max axes should not shrink when overlay uses baseline max scale",
+  );
+});
+
 test("addStandExp sums deltas safely", () => {
   const next = addStandExp({ STR: 1, DEX: 2 }, { STR: 3, STA: 4 });
   assert.equal(next.STR, 4);

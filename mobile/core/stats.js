@@ -30,10 +30,14 @@ export function getUnlockedAccessories(level) {
 // Chart scale: E=1, D=2, C=3, B=4, A=5, S=6
 const MAX_CHART_VALUE = 6;
 
-export function playerStatsToChartValues(standExp) {
+export function playerStatsToChartValues(standExp, options = {}) {
   const chartValues = {};
   const values = STAT_KEYS.map((key) => standExp?.[key] ?? 0);
-  const maxStat = Math.max(...values, 1);
+  const override = options?.maxStatOverride;
+  const maxStat =
+    typeof override === "number" && Number.isFinite(override) && override > 0
+      ? override
+      : Math.max(...values, 1);
 
   STAT_KEYS.forEach((key) => {
     const exp = standExp?.[key] ?? 0;
@@ -47,7 +51,7 @@ export function playerStatsToChartValues(standExp) {
       // Small floor: stats with some EXP don't show as completely empty
       // 50+ EXP = at least E+ (1.3)
       const floor = exp >= 50 ? 1.3 : 1;
-      chartValues[key] = Math.max(floor, baseValue);
+      chartValues[key] = Math.min(MAX_CHART_VALUE, Math.max(floor, baseValue));
     }
   });
 

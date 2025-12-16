@@ -16,7 +16,13 @@ export function applySessionBonuses(session, baseExp) {
   };
 }
 
-export function applyFatigueDamping({ baseExp, avatar, sessions, questStreaks }) {
+export function applyFatigueDamping({
+  baseExp,
+  avatar,
+  sessions,
+  questStreaks,
+  adaptMultipliers = null,
+}) {
   if (!baseExp || !baseExp.standExp) return baseExp;
   const todaySpent = computeTodayStandExp(sessions);
   const mandalaStreak = getMaxMandalaStreak(questStreaks);
@@ -27,6 +33,7 @@ export function applyFatigueDamping({ baseExp, avatar, sessions, questStreaks })
     level: avatar?.level ?? 1,
     mandalaStreak,
     aggregateConsistency,
+    adaptMultipliers,
   });
 
   const adjustedStand = {};

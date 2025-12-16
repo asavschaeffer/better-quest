@@ -38,6 +38,15 @@ export function useHydrateAppState(actions) {
         if (typeof persisted.sunriseTimeLocal === "string" && persisted.sunriseTimeLocal.trim()) {
           actions.setSunriseTimeLocal(persisted.sunriseTimeLocal);
         }
+        if (persisted.fatigueAdapt) {
+          actions.setFatigueAdapt(persisted.fatigueAdapt);
+        }
+        if (persisted.fatigueAdaptNext) {
+          actions.setFatigueAdaptNext(persisted.fatigueAdaptNext);
+        }
+        if (persisted.fatigueAdaptDay) {
+          actions.setFatigueAdaptDay(persisted.fatigueAdaptDay);
+        }
         if (persisted.homeFooterConfig) {
           actions.setHomeFooterConfig({
             showCompletedToday: persisted.homeFooterConfig.showCompletedToday ?? true,

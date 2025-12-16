@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 
 const migrations = {
   // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
@@ -35,9 +35,21 @@ const migrations = {
     next.sunriseTimeLocal = state.sunriseTimeLocal ?? "06:30";
     return next;
   },
+  // v4 -> v5: add fatigue adaptation multipliers (progressive overload)
+  4: (state) => {
+    const next = { ...state };
+    next.fatigueAdapt = state.fatigueAdapt ?? null;
+    next.fatigueAdaptNext = state.fatigueAdaptNext ?? null;
+    next.fatigueAdaptDay = state.fatigueAdaptDay ?? null;
+    return next;
+  },
 };
 
 function defaultState() {
+  const now = new Date();
+  const dayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate(),
+  ).padStart(2, "0")}`;
   return {
     user: null,
     avatar: null,
@@ -55,6 +67,10 @@ function defaultState() {
     // Manual sunrise time in local clock (HH:MM). Used for Brahma Muhurta bonus.
     // TODO: Replace with auto sunrise via location/timezone + sunrise calculation or API.
     sunriseTimeLocal: "06:30",
+    // Progressive overload: per-stat budget multipliers
+    fatigueAdapt: null,
+    fatigueAdaptNext: null,
+    fatigueAdaptDay: dayKey,
   };
 }
 

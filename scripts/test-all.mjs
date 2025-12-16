@@ -102,6 +102,9 @@ exitCode ||= await runNodeScript("tests/fatigue.test.js");
 exitCode ||= await runNodeArgs([
   "--test",
   path.join(repoRoot, "mobile/tests/mechanics.test.mjs"),
+  path.join(repoRoot, "mobile/tests/bonuses.test.mjs"),
+  path.join(repoRoot, "mobile/tests/fatigue_adapt.test.mjs"),
+  path.join(repoRoot, "mobile/tests/stats.test.mjs"),
 ]);
 
 // 2) Browser tests (needs web server on :3000)

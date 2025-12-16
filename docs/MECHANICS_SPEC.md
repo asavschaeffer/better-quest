@@ -110,6 +110,12 @@ File: `mobile/core/sessions.js:applyFatigueDamping` + `mobile/core/fatigue.js`
   - **Mandala streak** (max quest streak)
   - **Aggregate consistency** (blend of last 7 / last 30 active days)
   - **Level factor** (0 at level 1 → 1 at level 30+)
+- **Progressive overload (dead simple)**:
+  - Budgets are multiplied by a per-stat factor `fatigueAdapt[stat]` (defaults to `1`).
+  - That factor is updated based on how much you **actually earned today** (post-fatigue) relative to today’s budget:
+    - if `spentTodayAfter / budgetToday >= 1`: tomorrow’s factor nudges up
+    - if `spentTodayAfter / budgetToday < 0.25`: tomorrow’s factor nudges down slightly
+  - Important: the app applies updates to **tomorrow**, not the rest of today (day rollover swaps `fatigueAdaptNext` → `fatigueAdapt`).
 - Apply damping per axis:
   - `mult = dampingMultiplier({ spent: spentToday + gain, budget, floor: 0.4 })`
   - `adjustedStand[axis] = round(gain * mult)`

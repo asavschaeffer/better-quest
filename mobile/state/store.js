@@ -36,6 +36,10 @@ export function AppStateProvider({ children, initialState }) {
         dispatch({ type: "SET_FIELD", key: "wellRestedUntil", value }),
       setSunriseTimeLocal: (value) =>
         dispatch({ type: "SET_FIELD", key: "sunriseTimeLocal", value }),
+      setFatigueAdapt: (value) => dispatch({ type: "SET_FIELD", key: "fatigueAdapt", value }),
+      setFatigueAdaptNext: (value) =>
+        dispatch({ type: "SET_FIELD", key: "fatigueAdaptNext", value }),
+      setFatigueAdaptDay: (value) => dispatch({ type: "SET_FIELD", key: "fatigueAdaptDay", value }),
       setHomeFooterConfig: (value) =>
         dispatch({ type: "SET_FIELD", key: "homeFooterConfig", value }),
       setQuickStartMode: (value) =>

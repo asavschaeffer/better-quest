@@ -16,6 +16,8 @@ export default function SettingsScreen({
   onUpdatePostSaveBehavior,
   sunriseTimeLocal = "06:30",
   onUpdateSunriseTimeLocal,
+  // Dev-only debug helpers
+  onDebugSeedOverlayDemo,
   showToast,
   // Quote props
   userQuotes = [],
@@ -95,6 +97,25 @@ export default function SettingsScreen({
       </View>
 
       <ScrollView>
+        {typeof __DEV__ !== "undefined" && __DEV__ && typeof onDebugSeedOverlayDemo === "function" && (
+          <View style={styles.settingsSection}>
+            <Text style={styles.settingsSectionTitle}>Debug</Text>
+            <Text style={styles.settingsDescription}>
+              Dev-only helpers for testing the home chart overlay calibration.
+            </Text>
+            <TouchableOpacity
+              style={styles.settingsOption}
+              onPress={() => {
+                onDebugSeedOverlayDemo?.();
+                showToast?.("Seeded overlay demo");
+              }}
+            >
+              <Text style={styles.settingsOptionText}>Seed overlay demo data</Text>
+              <Text style={styles.settingsOptionCheck}>⚠</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Time section */}
         <View style={styles.settingsSection}>
           <Text style={styles.settingsSectionTitle}>Time</Text>

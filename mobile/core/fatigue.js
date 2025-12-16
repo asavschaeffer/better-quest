@@ -43,19 +43,65 @@ export function computeDailyBudgets({
   mandalaStreak = 0,
   aggregateConsistency = 0,
   basePerPoint = 120,
+  adaptMultipliers = null,
 } = {}) {
   const budgets = {};
   STAT_KEYS.forEach((key) => {
     const statPoints = chartValueToPoints(chartStats[key]);
-    budgets[key] = computeBudgetForStat({
+    const baseBudget = computeBudgetForStat({
       statPoints,
       level,
       mandalaStreak,
       aggregateConsistency,
       basePerPoint,
     });
+    const adapt = adaptMultipliers?.[key];
+    const m =
+      typeof adapt === "number" && Number.isFinite(adapt) && adapt > 0 ? adapt : 1;
+    budgets[key] = baseBudget * m;
   });
   return budgets;
+}
+
+/**
+ * Dead-simple progressive overload (Option A):
+ * Update "tomorrow multipliers" from today's earned load (post-fatigue).
+ *
+ * - If you hit/exceed your cap today (ratio >= 1): nudge tomorrow up.
+ * - If you under-train heavily (ratio < 0.25): decay tomorrow down a bit.
+ * - Otherwise: keep tomorrow the same.
+ */
+export function updateFatigueAdaptNext({
+  adaptNext = {},
+  spentTodayAfter = {},
+  budgetsToday = {},
+  upRatio = 1,
+  downRatio = 0.25,
+  upPct = 0.03,
+  downPct = 0.01,
+  min = 0.8,
+  max = 2.0,
+} = {}) {
+  const next = { ...(adaptNext || {}) };
+  STAT_KEYS.forEach((k) => {
+    const budget = budgetsToday?.[k] ?? 0;
+    if (!(typeof budget === "number" && Number.isFinite(budget) && budget > 0)) return;
+    const spent = spentTodayAfter?.[k] ?? 0;
+    const s = typeof spent === "number" && Number.isFinite(spent) ? spent : 0;
+    const ratio = s / budget;
+    const curRaw = next?.[k];
+    const cur =
+      typeof curRaw === "number" && Number.isFinite(curRaw) && curRaw > 0 ? curRaw : 1;
+
+    if (ratio >= upRatio) {
+      next[k] = Math.min(max, cur * (1 + upPct));
+      return;
+    }
+    if (ratio < downRatio) {
+      next[k] = Math.max(min, cur * (1 - downPct));
+    }
+  });
+  return next;
 }
 
 // Soft damping curve; decays toward floor as spent exceeds budget.
