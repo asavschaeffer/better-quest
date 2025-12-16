@@ -1,4 +1,5 @@
-const EXP_PER_MINUTE = 10;
+// Intended v1: keep numbers small and legible.
+const EXP_PER_MINUTE = 1;
 const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;
 const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];

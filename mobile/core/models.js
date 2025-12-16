@@ -4,6 +4,8 @@ export const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
 // Quest stat constraints
 export const QUEST_STAT_MAX_PER_STAT = 3;
+// Intended v1: allow "hard" quests but prevent runaway allocations.
+export const QUEST_STAT_MAX_TOTAL = 9;
 
 export function createDefaultAvatar() {
   return {
@@ -103,6 +105,14 @@ export function createQuest({
   
   // Validate and clamp stats
   const validatedStats = validateQuestStats(stats);
+
+  // Intended v1: enforce total allocation cap (no silent clamping).
+  const totalPoints = getQuestStatTotal(validatedStats);
+  if (totalPoints > QUEST_STAT_MAX_TOTAL) {
+    throw new Error(
+      `Quest stats total cannot exceed ${QUEST_STAT_MAX_TOTAL} (got ${totalPoints})`,
+    );
+  }
   
   // Validate action
   const validatedAction = validateQuestAction(action);

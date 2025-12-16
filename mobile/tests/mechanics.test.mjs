@@ -35,7 +35,8 @@ test("createQuest clamps duration and validates required fields", () => {
 
 test("Base EXP is durationMinutes * 10 (clamped 1..240)", () => {
   const exp = calculateExpForSession({ durationMinutes: 25, allocation: { STA: 3 } });
-  assert.equal(exp.totalExp, 250);
+  // Intended v1: EXP_PER_MINUTE = 1 (smaller numbers; less inflation).
+  assert.equal(exp.totalExp, 25);
 });
 
 test("createTaskSession persists allocation/targetStats/endTimeMs (intent snapshot)", () => {
@@ -58,12 +59,24 @@ test("createTaskSession persists allocation/targetStats/endTimeMs (intent snapsh
 test("Stand EXP distribution uses allocation points (0-3) and conserves total EXP", () => {
   // STR=3, others 0 -> all exp to STR.
   const exp = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 3 } });
-  assert.equal(exp.totalExp, 100);
-  assert.equal(exp.standExp.STR, 100);
+  assert.equal(exp.totalExp, 10);
+  assert.equal(exp.standExp.STR, 10);
   // Some axis should be 0 if it had no points.
   assert.equal(exp.standExp.INT, 0);
   const sum = Object.values(exp.standExp).reduce((s, v) => s + v, 0);
   assert.equal(sum, exp.totalExp);
+});
+
+test("Intended v1: Quest total allocation is capped at 9 points (rejects > 9)", () => {
+  assert.throws(() => {
+    createQuest({
+      id: "q-too-many",
+      label: "Too many points",
+      defaultDurationMinutes: 25,
+      // Total = 10 (should be rejected in Intended v1)
+      stats: { STR: 3, DEX: 3, STA: 3, INT: 1 },
+    });
+  });
 });
 
 test("Allocation is authoritative even if standStats disagree (back-compat only)", () => {
@@ -73,8 +86,8 @@ test("Allocation is authoritative even if standStats disagree (back-compat only)
     // If used, this would move exp away from STR due to raw-1 weights.
     standStats: { STR: 1, DEX: 6, STA: 6, INT: 6, SPI: 6, CHA: 6, VIT: 6 },
   });
-  assert.equal(exp.totalExp, 100);
-  assert.equal(exp.standExp.STR, 100);
+  assert.equal(exp.totalExp, 10);
+  assert.equal(exp.standExp.STR, 10);
   const sum = Object.values(exp.standExp).reduce((s, v) => s + v, 0);
   assert.equal(sum, exp.totalExp);
 });

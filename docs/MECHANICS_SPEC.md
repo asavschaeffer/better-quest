@@ -2,6 +2,8 @@
 
 This document captures **how mechanics work today** in the Expo app (`mobile/`). It’s meant to be reviewed and then evolved into the “intended design” spec.
 
+> Note: This spec should match the shipped code in `mobile/core/*`. If you change mechanics, update this doc + `mobile/tests/*.test.mjs` together.
+
 ## Scope
 
 - Quest model fields + allocation constraints
@@ -13,7 +15,7 @@ This document captures **how mechanics work today** in the Expo app (`mobile/`).
 
 ### Stand stats / axes
 
-- Axes (7): `STR, DEX, STA, INT, SPI, CRE, VIT` (`mobile/core/models.js`).
+- Axes (7): `STR, DEX, STA, INT, SPI, CHA, VIT` (`mobile/core/models.js`).
 
 ### Avatar
 
@@ -52,10 +54,10 @@ Created via `mobile/core/models.js:createTaskSession`.
 
 File: `mobile/core/exp.js`
 
-- **EXP rate**: `EXP_PER_MINUTE = 1`
+- **EXP rate**: `EXP_PER_MINUTE = 10`
 - **Duration clamp**: `durationMinutes` clamped to `1..240` (integer)
 - **Base total EXP**:
-  - `totalExp = durationMinutes * 1`
+  - `totalExp = durationMinutes * 10`
 
 ### 2) Distribute EXP across axes (using `session.allocation`)
 
@@ -113,8 +115,8 @@ File: `mobile/core/sessions.js:applyFatigueDamping` + `mobile/core/fatigue.js`
 - **Progressive overload (dead simple)**:
   - Budgets are multiplied by a per-stat factor `fatigueAdapt[stat]` (defaults to `1`).
   - That factor is updated based on how much you **actually earned today** (post-fatigue) relative to today’s budget:
-    - if `spentTodayAfter / budgetToday >= 1`: tomorrow’s factor nudges up
-    - if `spentTodayAfter / budgetToday < 0.25`: tomorrow’s factor nudges down slightly
+    - if `spentTodayAfter / budgetToday >= upRatio` (default `0.9`): tomorrow’s factor nudges up by `upPct` (default `+20%`)
+    - if `spentTodayAfter / budgetToday < downRatio` (default `0.3`): tomorrow’s factor nudges down by `downPct` (default `-10%`)
   - Important: the app applies updates to **tomorrow**, not the rest of today (day rollover swaps `fatigueAdaptNext` → `fatigueAdapt`).
 - Apply damping per axis:
   - `mult = dampingMultiplier({ spent: spentToday + gain, budget, floor: 0.4 })`
@@ -130,7 +132,7 @@ This is the step where `totalExp` is explicitly “made consistent” with the s
 
 File: `mobile/core/fatigue.js:chartValueToPoints`
 
-- Input chart value expected ~`1..5`
+- Input chart value expected ~`1..5` (the function clamps to `1..5` even though some chart sources use `1..6`)
 - Maps to quest-like “points” `1..3`, minimum 1:
   - `scaled = ((clamped - 1) / 4) * 3`
   - `points = max(1, round(scaled))`
@@ -178,6 +180,41 @@ File: `mobile/core/questStorage.js:questStatsToChartStats`
 - Else:
   - `value = 1 + (allocation / 3) * (1 + durationMinutes / 30)`
   - capped to `<= 6`
+
+## Markup: change candidates / decisions for “Mechanics Spec v1 (Intended)”
+
+Use this section to mark what you want to change next. I’ll turn your decisions into an “Intended v1” spec + failing tests, then implement until green.
+
+## Mechanics Spec v1 (Intended) — draft (proposed contract)
+
+This section captures the **intended rules** we’re moving toward. It may temporarily disagree with “current behavior” above; tests will encode this section and will intentionally fail until implementation catches up.
+
+### Goals / philosophy (v1)
+
+- **Keep the math simple and legible**: prefer small numbers and straightforward rules.
+- **Support both easy and hard quests**: low-point “micro quests” (e.g. 1 point) and high-effort quests (up to 9 total points) should both feel valid.
+- **Charts stay relative**: chart presentation should look “appropriate” regardless of overall level.
+
+### EXP rate + leveling (v1)
+
+- **Base EXP rate**: `EXP_PER_MINUTE = 1` (not 10).
+  - Rationale: smaller numbers, less inflation, easier to reason about.
+- **Level curve**: should be **lower than current** (currently `50*(level-1)*level`).
+  - **[TBD]**: pick a new coefficient (e.g. `10*(level-1)*level`) once we see how fast leveling feels with `EXP_PER_MINUTE = 1`.
+
+### Quest stat allocations (v1)
+
+- **Per-stat cap**: keep `0..3`.
+- **Total cap**: enforce a **max total allocation of 9 points** across all stats.
+  - Example: `MMA sparring` might be `STR:2, DEX:3, STA:3` (total 8).
+  - **Validation behavior** (v1): if `sum(stats) > 9`, quest creation/edit should fail with a clear error (no silent clamping).
+- **Intensity**:
+  - **[TBD]**: decide whether “intensity” is its own field or simply emerges from `(total points, duration)`.
+  - For v1, we can proceed without adding an intensity field, and revisit once the feel is tested.
+
+### Chart scaling (v1)
+
+- **Keep relative scaling** for avatar chart values (normalize to max axis, as today).
 
 ## Open questions / knobs (for “vision” spec)
 

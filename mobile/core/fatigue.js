@@ -75,11 +75,11 @@ export function updateFatigueAdaptNext({
   adaptNext = {},
   spentTodayAfter = {},
   budgetsToday = {},
-  upRatio = 1,
-  downRatio = 0.25,
-  upPct = 0.03,
-  downPct = 0.01,
-  min = 0.8,
+  upRatio = 0.9,    // Hit 90% to grow
+  downRatio = 0.3,  // <--- CHANGE: Must use 40% to maintain (was 0.25)
+  upPct = 0.20,     // <--- CHANGE: Grow by 20% (was 0.03)
+  downPct = 0.10,   // <--- CHANGE: Lose 10% if lazy (was 0.01)
+  min = 0.5,
   max = 2.0,
 } = {}) {
   const next = { ...(adaptNext || {}) };
