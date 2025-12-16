@@ -43,6 +43,7 @@ export function createTaskSession({
   comboBonus = false,
   restBonus = false,
   bonusMultiplier = 1,
+  bonusBreakdown,
   endTimeMs,
 }) {
   return {
@@ -62,6 +63,8 @@ export function createTaskSession({
     comboBonus,
     restBonus,
     bonusMultiplier,
+    // Optional: snapshot of which bonuses were applied and why (for UX + testing).
+    bonusBreakdown: Array.isArray(bonusBreakdown) ? bonusBreakdown : null,
     icon: null,
   };
 }

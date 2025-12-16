@@ -14,6 +14,8 @@ export default function SettingsScreen({
   postSaveBehavior = "library",
   onUpdatePickerDefaultMode,
   onUpdatePostSaveBehavior,
+  sunriseTimeLocal = "06:30",
+  onUpdateSunriseTimeLocal,
   showToast,
   // Quote props
   userQuotes = [],
@@ -23,6 +25,7 @@ export default function SettingsScreen({
   onToggleBuiltInQuotes,
 }) {
   const [name, setName] = useState(avatar.name);
+  const [localSunrise, setLocalSunrise] = useState(sunriseTimeLocal);
   const [localFooterConfig, setLocalFooterConfig] = useState(
     footerConfig || { showCompletedToday: true, showUpcoming: true }
   );
@@ -34,6 +37,9 @@ export default function SettingsScreen({
   useEffect(() => {
     setName(avatar.name);
   }, [avatar.name]);
+  useEffect(() => {
+    setLocalSunrise(sunriseTimeLocal || "06:30");
+  }, [sunriseTimeLocal]);
 
   function handleSaveName() {
     if (name.trim()) {
@@ -56,6 +62,28 @@ export default function SettingsScreen({
     showToast?.("Quote added");
   }
 
+  function normalizeHHMM(input) {
+    const s = (input ?? "").trim();
+    const m = s.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
+    if (h < 0 || h > 23) return null;
+    if (min < 0 || min > 59) return null;
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+  }
+
+  function handleSaveSunrise() {
+    const normalized = normalizeHHMM(localSunrise);
+    if (!normalized) {
+      showToast?.("Use HH:MM (e.g. 06:30)");
+      setLocalSunrise(sunriseTimeLocal || "06:30");
+      return;
+    }
+    onUpdateSunriseTimeLocal?.(normalized);
+  }
+
   return (
     <View style={styles.screenContainer}>
       <View style={styles.screenHeader}>
@@ -67,6 +95,27 @@ export default function SettingsScreen({
       </View>
 
       <ScrollView>
+        {/* Time section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.settingsSectionTitle}>Time</Text>
+          <Text style={styles.settingsDescription}>
+            Used for the Brahma Muhurta bonus. Manual for now (we’ll auto-detect later).
+          </Text>
+          <View style={styles.settingsRow}>
+            <Text style={styles.settingsLabel}>Sunrise (local)</Text>
+            <TextInput
+              style={styles.settingsInput}
+              value={localSunrise}
+              onChangeText={setLocalSunrise}
+              onBlur={handleSaveSunrise}
+              placeholder="06:30"
+              placeholderTextColor="#6b7280"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        </View>
+
         {/* Profile section */}
         <View style={styles.settingsSection}>
           <Text style={styles.settingsSectionTitle}>Profile</Text>

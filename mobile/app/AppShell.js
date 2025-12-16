@@ -16,6 +16,11 @@ import {
   computeAggregateConsistency,
 } from "../core/quests.js";
 import { applySessionBonuses, applyFatigueDamping } from "../core/sessions.js";
+import {
+  applyBrahmaMuhurtaBonus,
+  computeStreakBonusEntries,
+  resolveBonusMultiplier,
+} from "../core/bonuses.js";
 import { getAllQuotes, getQuoteOfTheDay, addUserQuote, deleteUserQuote as deleteQuote } from "../core/quotes.js";
 
 import { useAppState, useAppActions } from "../state/store.js";
@@ -56,6 +61,7 @@ export default function AppShell() {
     questStreaks,
     comboFromSessionId,
     wellRestedUntil,
+    sunriseTimeLocal,
     homeFooterConfig,
     quickStartMode,
     pickerDefaultMode,
@@ -70,6 +76,7 @@ export default function AppShell() {
     setQuestStreaks,
     setComboFromSessionId,
     setWellRestedUntil,
+    setSunriseTimeLocal,
     setHomeFooterConfig,
     setQuickStartMode,
     setPickerDefaultMode,
@@ -100,6 +107,7 @@ export default function AppShell() {
       setQuestStreaks,
       setComboFromSessionId,
       setWellRestedUntil,
+      setSunriseTimeLocal,
       setHomeFooterConfig,
       setQuickStartMode,
       setPickerDefaultMode,
@@ -114,6 +122,7 @@ export default function AppShell() {
       setQuestStreaks,
       setComboFromSessionId,
       setWellRestedUntil,
+      setSunriseTimeLocal,
       setHomeFooterConfig,
       setQuickStartMode,
       setPickerDefaultMode,
@@ -132,6 +141,7 @@ export default function AppShell() {
     questStreaks,
     comboFromSessionId,
     wellRestedUntil,
+    sunriseTimeLocal,
     homeFooterConfig,
     quickStartMode,
     pickerDefaultMode,
@@ -266,6 +276,23 @@ export default function AppShell() {
     let bonusMultiplier = 1;
     if (hasCombo) bonusMultiplier *= COMBO_BONUS_MULTIPLIER;
     if (hasRest) bonusMultiplier *= REST_BONUS_MULTIPLIER;
+    const bonusBreakdown = [];
+    if (hasCombo) {
+      bonusBreakdown.push({
+        key: "combo",
+        label: "Combo",
+        mode: "mult",
+        value: COMBO_BONUS_MULTIPLIER,
+      });
+    }
+    if (hasRest) {
+      bonusBreakdown.push({
+        key: "rest",
+        label: "Well-rested",
+        mode: "mult",
+        value: REST_BONUS_MULTIPLIER,
+      });
+    }
 
     const resolvedQuestKey = questKey || (description ? description.trim() : null);
 
@@ -285,6 +312,7 @@ export default function AppShell() {
       comboBonus: hasCombo,
       restBonus: hasRest,
       bonusMultiplier,
+      bonusBreakdown: bonusBreakdown.length ? bonusBreakdown : null,
       endTimeMs,
     });
     session.icon = inferEmojiForDescription(description);
@@ -301,10 +329,40 @@ export default function AppShell() {
       ...currentSession,
       endTime: new Date(endTimeMs).toISOString(),
     };
+
+    // Streak bonuses are determined at completion time (strict: day 1 => no bonus).
+    const existingBreakdown = Array.isArray(completedSession.bonusBreakdown)
+      ? completedSession.bonusBreakdown
+      : [];
+    const { entries: streakEntries } = computeStreakBonusEntries({
+      sessions,
+      questStreaks,
+      questKey: completedSession.questKey,
+      completedAt: completedSession.endTime,
+    });
+    const combinedBreakdown = [...existingBreakdown, ...streakEntries];
+    completedSession.bonusBreakdown = combinedBreakdown.length ? combinedBreakdown : null;
+    completedSession.bonusMultiplier = resolveBonusMultiplier({
+      bonusBreakdown: completedSession.bonusBreakdown,
+      fallbackMultiplier: completedSession.bonusMultiplier ?? 1,
+    });
+
     const baseExp = calculateExpForSession(completedSession);
     const expWithBonuses = applySessionBonuses(completedSession, baseExp);
+    const { exp: expWithBrahma, applied: brahmaApplied, breakdownEntry } =
+      applyBrahmaMuhurtaBonus({
+        session: { ...completedSession, endTimeMs },
+        exp: expWithBonuses,
+        sunriseTimeLocal,
+      });
+    if (brahmaApplied && breakdownEntry) {
+      const existing = Array.isArray(completedSession.bonusBreakdown)
+        ? completedSession.bonusBreakdown
+        : [];
+      completedSession.bonusBreakdown = [...existing, breakdownEntry];
+    }
     const exp = applyFatigueDamping({
-      baseExp: expWithBonuses,
+      baseExp: expWithBrahma,
       avatar,
       sessions,
       questStreaks,
@@ -335,6 +393,7 @@ export default function AppShell() {
         bonusMultiplier: completedSession.bonusMultiplier ?? 1,
         comboBonus: !!completedSession.comboBonus,
         restBonus: !!completedSession.restBonus,
+        bonusBreakdown: completedSession.bonusBreakdown ?? null,
       },
       ...prev,
     ]);
@@ -531,6 +590,11 @@ export default function AppShell() {
               if (mode === "library" || mode === "picker") {
                 setPostSaveBehavior(mode);
               }
+              showToast("Saved");
+            }}
+            sunriseTimeLocal={sunriseTimeLocal}
+            onUpdateSunriseTimeLocal={(value) => {
+              setSunriseTimeLocal(value);
               showToast("Saved");
             }}
             showToast={showToast}

@@ -34,6 +34,8 @@ export function AppStateProvider({ children, initialState }) {
         dispatch({ type: "SET_FIELD", key: "comboFromSessionId", value }),
       setWellRestedUntil: (value) =>
         dispatch({ type: "SET_FIELD", key: "wellRestedUntil", value }),
+      setSunriseTimeLocal: (value) =>
+        dispatch({ type: "SET_FIELD", key: "sunriseTimeLocal", value }),
       setHomeFooterConfig: (value) =>
         dispatch({ type: "SET_FIELD", key: "homeFooterConfig", value }),
       setQuickStartMode: (value) =>

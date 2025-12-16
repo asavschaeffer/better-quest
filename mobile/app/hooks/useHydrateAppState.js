@@ -35,6 +35,9 @@ export function useHydrateAppState(actions) {
         if (persisted.wellRestedUntil) {
           actions.setWellRestedUntil(persisted.wellRestedUntil);
         }
+        if (typeof persisted.sunriseTimeLocal === "string" && persisted.sunriseTimeLocal.trim()) {
+          actions.setSunriseTimeLocal(persisted.sunriseTimeLocal);
+        }
         if (persisted.homeFooterConfig) {
           actions.setHomeFooterConfig({
             showCompletedToday: persisted.homeFooterConfig.showCompletedToday ?? true,

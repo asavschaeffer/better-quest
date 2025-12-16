@@ -13,18 +13,50 @@ export default function CompleteScreen({
   onBreak,
   onEnd,
 }) {
+  const breakdown = Array.isArray(session?.bonusBreakdown) ? session.bonusBreakdown : [];
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Session complete</Text>
       <Text style={styles.summary}>
         You focused on "{session.description}" for {session.durationMinutes} minutes.
       </Text>
-      {session.bonusMultiplier && session.bonusMultiplier > 1 && (
-        <Text style={styles.muted}>
-          Bonuses applied (x{session.bonusMultiplier.toFixed(2)} EXP)
-          {session.comboBonus ? " • combo" : ""}
-          {session.restBonus ? " • well-rested" : ""}
-        </Text>
+      {(breakdown.length > 0 || (session.bonusMultiplier && session.bonusMultiplier > 1)) && (
+        <View style={styles.block}>
+          <Text style={styles.label}>
+            Bonuses applied
+            {session.bonusMultiplier && session.bonusMultiplier > 1
+              ? ` (x${session.bonusMultiplier.toFixed(2)} EXP)`
+              : ""}
+          </Text>
+          {breakdown.length ? (
+            <Text style={styles.muted}>
+              {breakdown
+                .map((b) => {
+                  const label = b?.label || b?.key || "bonus";
+                  const mode =
+                    b?.mode === "mult" ? "×" : b?.mode === "stat_mult" ? "×" : "+";
+                  const value =
+                    typeof b?.value === "number" && Number.isFinite(b.value) ? b.value : null;
+                  const stat = typeof b?.stat === "string" ? b.stat : null;
+                  const display =
+                    value == null
+                      ? ""
+                      : mode === "+"
+                        ? `+${(value * 100).toFixed(0)}%`
+                        : `×${value.toFixed(2)}`;
+                  const scope = stat ? ` ${stat}` : "";
+                  return `${label}${scope}${display ? ` (${display})` : ""}`;
+                })
+                .join(" • ")}
+            </Text>
+          ) : (
+            <Text style={styles.muted}>
+              {session.comboBonus ? "Combo" : ""}
+              {session.comboBonus && session.restBonus ? " • " : ""}
+              {session.restBonus ? "Well-rested" : ""}
+            </Text>
+          )}
+        </View>
       )}
       <View style={styles.blockRow}>
         <View style={styles.expCol}>

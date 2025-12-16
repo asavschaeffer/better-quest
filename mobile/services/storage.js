@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 
 const migrations = {
   // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
@@ -29,6 +29,12 @@ const migrations = {
     next.includeBuiltInQuotes = state.includeBuiltInQuotes ?? true;
     return next;
   },
+  // v3 -> v4: add manual sunrise time setting for Brahma Muhurta bonus (future: auto sunrise)
+  3: (state) => {
+    const next = { ...state };
+    next.sunriseTimeLocal = state.sunriseTimeLocal ?? "06:30";
+    return next;
+  },
 };
 
 function defaultState() {
@@ -46,6 +52,9 @@ function defaultState() {
     postSaveBehavior: "library",
     userQuotes: [],
     includeBuiltInQuotes: true,
+    // Manual sunrise time in local clock (HH:MM). Used for Brahma Muhurta bonus.
+    // TODO: Replace with auto sunrise via location/timezone + sunrise calculation or API.
+    sunriseTimeLocal: "06:30",
   };
 }
 

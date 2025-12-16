@@ -36,7 +36,15 @@ Quest creation/validation is in `mobile/core/models.js:createQuest`.
 Created via `mobile/core/models.js:createTaskSession`.
 
 - Required: `id`, `description`, `durationMinutes`
-- Optional: `standStats` (chart values), `questKey`, `isBreak`, `comboBonus`, `restBonus`, `bonusMultiplier`
+- Optional:
+  - `allocation` (authoritative intent; quest stat points `0..3` per axis)
+  - `standStats` (display-only chart values derived from allocation)
+  - `targetStats` (display-only chart values derived from allocation + duration)
+  - `questKey`, `isBreak`
+  - `comboBonus`, `restBonus`
+  - `bonusBreakdown` (array of applied bonus entries)
+  - `bonusMultiplier` (resolved scalar multiplier applied before fatigue)
+  - `endTimeMs` (timer target/end timestamp; used for time-window bonuses)
 
 ## Session → EXP pipeline (current behavior)
 
@@ -44,10 +52,10 @@ Created via `mobile/core/models.js:createTaskSession`.
 
 File: `mobile/core/exp.js`
 
-- **EXP rate**: `EXP_PER_MINUTE = 10`
+- **EXP rate**: `EXP_PER_MINUTE = 1`
 - **Duration clamp**: `durationMinutes` clamped to `1..240` (integer)
 - **Base total EXP**:
-  - `totalExp = durationMinutes * 10`
+  - `totalExp = durationMinutes * 1`
 
 ### 2) Distribute EXP across axes (using `session.allocation`)
 
@@ -70,6 +78,27 @@ File: `mobile/core/sessions.js:applySessionBonuses`
   - `totalExp = round(base.totalExp * bonusMultiplier)`
   - `standExp` is re-split from the new total using the same intent snapshot (`session.allocation`, with fallback).
 - Invariant: `sum(standExp) === totalExp`.
+
+#### Bonus sources (current)
+
+Bonus composition is managed in:
+
+- `mobile/app/AppShell.js` (session-level combo/rest + streak injection)
+- `mobile/core/bonuses.js` (streak rules, Brahma Muhurta, resolving mixed add/mult bonuses)
+
+Supported bonus entries (v1):
+
+- **Combo**: `mode: "mult"`; applies when chaining sessions via “Continue this quest”
+- **Well-rested**: `mode: "mult"`; applies to the next session started within a short window after “Take a break”
+- **Global streak**: `mode: "add"`; strict streak, **no bonus day 1**, `+20%` starting day 2+
+- **Mandala (per-quest) streak**: `mode: "add"`; strict streak per questKey,
+  - no bonus day 1
+  - `+10% * (streakDays - 1)` starting day 2
+  - capped at `+100%`
+- **Brahma Muhurta (SPI)**: `mode: "stat_mult"`; if `allocation.SPI > 0` and session ends in the Brahma window,
+  - doubles `SPI` gain
+  - increases `totalExp` (no stealing)
+  - preserves invariant `totalExp === sum(standExp)`
 
 ### 4) Apply fatigue damping (daily budgets)
 
@@ -146,8 +175,8 @@ File: `mobile/core/questStorage.js:questStatsToChartStats`
 
 ## Open questions / knobs (for “vision” spec)
 
-- Should total EXP always equal sum of per-axis EXP at every step?
-- Should `standStats` be treated as 1..6 (E..S) everywhere, or 1..5 in some places?
+- Should fatigue budgets remain chart-derived, or move to a pure “raw EXP” model (charts remain visual-only)?
+- Should Brahma Muhurta sunrise be auto-detected (location/timezone) instead of manual `sunriseTimeLocal`?
 - Are budgets and damping per-axis, or should they consider total effort across axes?
-- Bonus stacking: do we want multiplicative, additive, capped, or “best-of”?
-- Quest model: should we continue using `{stats: 0..3, sum<=4}` or move to a different distribution model?
+- Bonus stacking: do we want more bonuses to be additive vs multiplicative? Do we want caps?
+- Quest categorization/sorting: keep it stat-driven only (Option A) vs add explicit tags/categories?
