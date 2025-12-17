@@ -1,9 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Platform, Linking } from "react-native";
 
-import { Screens } from "../../navigation/navigator.js";
-
-export function useOpenQuestAction({ pendingQuestAction, setPendingQuestAction, screen }) {
+export function useOpenQuestAction({ pendingQuestAction, setPendingQuestAction, isSessionActive }) {
   const openQuestAction = useMemo(() => {
     return async (action) => {
       if (!action || !action.value) return;
@@ -43,11 +41,11 @@ export function useOpenQuestAction({ pendingQuestAction, setPendingQuestAction, 
 
   // Open pending action when session starts
   useEffect(() => {
-    if (pendingQuestAction && screen === Screens.SESSION) {
+    if (pendingQuestAction && isSessionActive) {
       openQuestAction(pendingQuestAction);
       setPendingQuestAction(null);
     }
-  }, [pendingQuestAction, screen, openQuestAction, setPendingQuestAction]);
+  }, [pendingQuestAction, isSessionActive, openQuestAction, setPendingQuestAction]);
 
   return { openQuestAction };
 }

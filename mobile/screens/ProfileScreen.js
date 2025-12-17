@@ -1,11 +1,11 @@
 import React, { useMemo } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import styles from "../../style";
 import { StandStatsChart } from "../StandStatsChart";
 import { playerStatsToChartValues } from "../core/stats";
 import { Avatar3D } from "../Avatar3D";
 
-export default function ProfileScreen({ player, onBack }) {
+export default function ProfileScreen({ player }) {
   // Convert player's standExp to chart values (normalized 1-6 scale)
   const chartStats = useMemo(() => {
     return playerStatsToChartValues(player.standExp || {});
@@ -43,14 +43,6 @@ export default function ProfileScreen({ player, onBack }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Header with back button */}
-      <View style={styles.profileHeader}>
-        <TouchableOpacity style={styles.profileBackBtn} onPress={onBack}>
-          <Text style={styles.backBtnText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.profileTitle}>{player.name}</Text>
-      </View>
-
       {/* Avatar section */}
       <View style={styles.profileAvatarSection}>
         <View style={styles.profileAvatarContainer}>

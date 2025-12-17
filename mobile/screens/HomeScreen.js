@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Animated,
   useWindowDimensions,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { StandStatsChart } from "../StandStatsChart";
 import { Avatar3D } from "../Avatar3D";
 import {
@@ -34,6 +35,20 @@ export default function HomeScreen({
   quotes = DEFAULT_QUOTES,
   announcements = [],
 }) {
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[HomeScreen] mount");
+    return () => console.log("[HomeScreen] unmount");
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!__DEV__) return undefined;
+      console.log("[HomeScreen] focus");
+      return () => console.log("[HomeScreen] blur");
+    }, []),
+  );
+
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -76,6 +91,8 @@ export default function HomeScreen({
   // Avatar roaming animation
   const avatarX = useRef(new Animated.Value(0)).current;
   const avatarY = useRef(new Animated.Value(0)).current;
+  const roamIntervalRef = useRef(null);
+  const glanceIntervalRef = useRef(null);
   const [showQuoteBubble, setShowQuoteBubble] = useState(true);
   const [lookAtChart, setLookAtChart] = useState(false);
   const [bubbleOnRight, setBubbleOnRight] = useState(true);
@@ -84,58 +101,58 @@ export default function HomeScreen({
   const bubbleOffsetX = bubbleOnRight ? avatarSize * 0.6 : -140;
   const bubbleOffsetY = -60; // Above the avatar
 
-  // Roaming animation - avatar wanders around
-  // Occasionally glance at the chart
-  useEffect(() => {
-    const glance = () => {
-      setLookAtChart(Math.random() > 0.6);
-    };
-    glance();
-    const interval = setInterval(glance, 3500);
-    return () => clearInterval(interval);
-  }, []);
+  // Roaming animation - only runs while Home is focused.
+  // This prevents the avatar from "progressing" in the background while you're in Settings/Profile,
+  // which can look like it snaps when you return.
+  useFocusEffect(
+    useCallback(() => {
+      const maxX = Math.max(0, stageWidth - avatarSize);
+      const maxY = Math.max(0, stageHeight - avatarSize);
 
-  useEffect(() => {
-    const maxX = Math.max(0, stageWidth - avatarSize);
-    const maxY = Math.max(0, stageHeight - avatarSize);
+      const glance = () => setLookAtChart(Math.random() > 0.6);
+      const roam = () => {
+        // Random position: stick to left/center with rare excursions to chart
+        const goRight = Math.random() > 0.85; // 15% chance to venture toward chart
+        const leftRange = maxX * 0.5;
+        const rightStart = Math.min(maxX, maxX * 0.55);
+        const targetX = goRight
+          ? rightStart + Math.random() * Math.max(12, maxX - rightStart)
+          : Math.random() * Math.max(20, leftRange);
+        const targetY = 20 + Math.random() * Math.max(12, maxY - 40);
 
-    const roam = () => {
-      // Random position: stick to left/center with rare excursions to chart
-      const goRight = Math.random() > 0.85; // 15% chance to venture toward chart
-      const leftRange = maxX * 0.5;
-      const rightStart = Math.min(maxX, maxX * 0.55);
-      const targetX = goRight
-        ? rightStart + Math.random() * Math.max(12, maxX - rightStart)
-        : Math.random() * Math.max(20, leftRange);
-      const targetY = 20 + Math.random() * Math.max(12, maxY - 40);
+        // Show quote bubble when avatar is not too far right
+        setShowQuoteBubble(!goRight);
+        // Position bubble on the side with more space
+        setBubbleOnRight(targetX < stageWidth * 0.4);
+        // If we move toward the chart, glance at it
+        if (goRight) setLookAtChart(true);
 
-      // Show quote bubble when avatar is not too far right
-      setShowQuoteBubble(!goRight);
-      // Position bubble on the side with more space
-      setBubbleOnRight(targetX < stageWidth * 0.4);
-      // If we move toward the chart, glance at it
-      if (goRight) setLookAtChart(true);
+        const duration = 3000 + Math.random() * 2000;
+        Animated.parallel([
+          Animated.timing(avatarX, { toValue: targetX, duration, useNativeDriver: false }),
+          Animated.timing(avatarY, { toValue: targetY, duration, useNativeDriver: false }),
+        ]).start();
+      };
 
-      const duration = 3000 + Math.random() * 2000;
+      // Start loops
+      glance();
+      roam();
+      glanceIntervalRef.current = setInterval(glance, 3500);
+      roamIntervalRef.current = setInterval(roam, 5000 + Math.random() * 3000);
 
-      Animated.parallel([
-        Animated.timing(avatarX, {
-          toValue: targetX,
-          duration,
-          useNativeDriver: false,
-        }),
-        Animated.timing(avatarY, {
-          toValue: targetY,
-          duration,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    };
+      if (__DEV__) console.log("[HomeScreen] roaming started");
 
-    roam();
-    const interval = setInterval(roam, 5000 + Math.random() * 3000);
-    return () => clearInterval(interval);
-  }, [screenWidth, stageWidth, stageHeight, avatarSize]);
+      return () => {
+        if (glanceIntervalRef.current) clearInterval(glanceIntervalRef.current);
+        if (roamIntervalRef.current) clearInterval(roamIntervalRef.current);
+        glanceIntervalRef.current = null;
+        roamIntervalRef.current = null;
+        avatarX.stopAnimation();
+        avatarY.stopAnimation();
+        if (__DEV__) console.log("[HomeScreen] roaming stopped");
+      };
+    }, [stageWidth, stageHeight, avatarSize, avatarX, avatarY]),
+  );
 
   return (
     <View style={styles.homeContainer}>

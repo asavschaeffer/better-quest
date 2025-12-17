@@ -20,8 +20,9 @@
         "backgroundColor": "#111827"
       }
     },
-    "web": {}
+    "web": {},
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }
-
-

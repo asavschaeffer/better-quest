@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import styles from "../../style";
 
 function Chip({ label, onPress, active }) {
@@ -60,6 +61,20 @@ export const MOCK_PLAYERS = [
 ];
 
 export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile }) {
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[LeaderboardScreen] mount");
+    return () => console.log("[LeaderboardScreen] unmount");
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!__DEV__) return undefined;
+      console.log("[LeaderboardScreen] focus");
+      return () => console.log("[LeaderboardScreen] blur");
+    }, []),
+  );
+
   const [metric, setMetric] = useState("exp"); // exp | time
 
   const totalMinutes = sessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);

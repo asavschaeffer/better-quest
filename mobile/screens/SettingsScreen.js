@@ -4,7 +4,6 @@ import styles from "../../style";
 
 export default function SettingsScreen({
   avatar,
-  onBack,
   onUpdateAvatar,
   footerConfig,
   onUpdateFooterConfig,
@@ -86,14 +85,6 @@ export default function SettingsScreen({
 
   return (
     <View style={styles.screenContainer}>
-      <View style={styles.screenHeader}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.backBtn}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.screenTitle}>Settings</Text>
-        <View style={{ width: 60 }} />
-      </View>
-
       <ScrollView>
         {/* Time section */}
         <View style={styles.settingsSection}>

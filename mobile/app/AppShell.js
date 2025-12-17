@@ -1,7 +1,18 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Platform } from "react-native";
+import React, { useEffect, useMemo, useState, useCallback, useContext } from "react";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { enableScreens } from "react-native-screens";
+
+import {
+  CommonActions,
+  DefaultTheme,
+  NavigationContainer,
+  createNavigationContainerRef,
+} from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import { createDefaultAvatar, createTaskSession, STAT_KEYS } from "../core/models.js";
 import { calculateExpForSession, applyExpToAvatar, getLevelProgress } from "../core/exp.js";
@@ -23,7 +34,6 @@ import {
 import { getAllQuotes, getQuoteOfTheDay, addUserQuote, deleteUserQuote as deleteQuote } from "../core/quotes.js";
 
 import { useAppState, useAppActions } from "../state/store.js";
-import { useNavigation, Screens } from "../navigation/navigator.js";
 
 import { useHydrateAppState } from "./hooks/useHydrateAppState.js";
 import { usePersistAppState } from "./hooks/usePersistAppState.js";
@@ -43,14 +53,233 @@ import NewQuestScreen from "../screens/NewQuestScreen.js";
 import SessionScreen from "../screens/SessionScreen.js";
 import CompleteScreen from "../screens/CompleteScreen.js";
 
-// Component imports
-import { Navbar } from "../components/Navbar.js";
 import Toast from "../components/Toast.js";
 import styles from "../../style.js";
 
 const COMBO_BONUS_MULTIPLIER = 1.2;
 const REST_BONUS_MULTIPLIER = 1.1;
 const REST_BONUS_WINDOW_MINUTES = 45;
+
+enableScreens(true);
+
+const navigationRef = createNavigationContainerRef();
+
+const RootStack = createNativeStackNavigator();
+const HomeStack = createNativeStackNavigator();
+const LibraryStack = createNativeStackNavigator();
+const HistoryStack = createNativeStackNavigator();
+const RankStack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+const ROUTES = {
+  TABS: "Tabs",
+  SETTINGS: "Settings",
+  PROFILE: "Profile",
+  QUEST_SETUP: "QuestSetup",
+  QUEST_EDITOR: "QuestEditor",
+  SESSION: "Session",
+  COMPLETE: "Complete",
+};
+
+const TAB_ROUTES = {
+  HOME: "HomeTab",
+  LIBRARY: "LibraryTab",
+  QUEST_ACTION: "QuestActionTab",
+  HISTORY: "HistoryTab",
+  RANK: "RankTab",
+};
+
+const TAB_BAR_STYLE = { backgroundColor: "#0f172a", borderTopColor: "#1f2937" };
+
+const AppShellContext = React.createContext(null);
+
+const NAV_BG = "#020617";
+const navTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: NAV_BG,
+    card: NAV_BG,
+    text: "#f9fafb",
+    border: "#1f2937",
+    primary: "#a5b4fc",
+  },
+};
+
+const stackScreenOptions = {
+  contentStyle: { backgroundColor: NAV_BG },
+  headerStyle: { backgroundColor: NAV_BG },
+  headerTintColor: "#f9fafb",
+  headerShadowVisible: false,
+  // Ensure iOS back swipe works consistently (even within scroll views).
+  // Session/Complete override this with gestureEnabled: false in their group.
+  gestureEnabled: true,
+  fullScreenGestureEnabled: Platform.OS === "ios",
+};
+
+function QuestActionStub() {
+  return null;
+}
+
+function HomeTab() {
+  const ctx = useContext(AppShellContext);
+
+  return (
+    <HomeStack.Navigator screenOptions={stackScreenOptions}>
+      <HomeStack.Screen name="Home" options={{ headerShown: false }}>
+        {({ navigation }) => (
+          <HomeScreen
+            avatar={ctx.avatar}
+            levelInfo={ctx.levelInfo}
+            fatigueOverlayStats={ctx.fatigueOverlayStats}
+            onOpenSettings={() => ctx.nav(ROUTES.SETTINGS)}
+            onOpenNotifications={ctx.handleOpenNotifications}
+            announcements={ctx.announcements}
+            quotes={ctx.quotes}
+          />
+        )}
+      </HomeStack.Screen>
+    </HomeStack.Navigator>
+  );
+}
+
+function LibraryTab() {
+  const ctx = useContext(AppShellContext);
+
+  return (
+    <LibraryStack.Navigator screenOptions={stackScreenOptions}>
+      <LibraryStack.Screen name="Library" options={{ headerShown: false }}>
+        {() => (
+          <LibraryScreen
+            userQuests={ctx.userQuests}
+            onSelectQuest={(quest) => ctx.nav(ROUTES.QUEST_EDITOR, { editQuest: quest })}
+            onCreateQuest={() => ctx.nav(ROUTES.QUEST_EDITOR, { initialName: "" })}
+          />
+        )}
+      </LibraryStack.Screen>
+    </LibraryStack.Navigator>
+  );
+}
+
+function HistoryTab() {
+  const ctx = useContext(AppShellContext);
+
+  return (
+    <HistoryStack.Navigator screenOptions={stackScreenOptions}>
+      <HistoryStack.Screen name="History" options={{ headerShown: false }}>
+        {() => <HistoryScreen sessions={ctx.sessions} />}
+      </HistoryStack.Screen>
+    </HistoryStack.Navigator>
+  );
+}
+
+function RankTab() {
+  const ctx = useContext(AppShellContext);
+
+  return (
+    <RankStack.Navigator screenOptions={stackScreenOptions}>
+      <RankStack.Screen name="Leaderboard" options={{ headerShown: false }}>
+        {() => (
+          <LeaderboardScreen
+            avatar={ctx.avatar}
+            sessions={ctx.sessions}
+            onViewProfile={(player) => ctx.nav(ROUTES.PROFILE, { player })}
+          />
+        )}
+      </RankStack.Screen>
+    </RankStack.Navigator>
+  );
+}
+
+function TabsNavigator() {
+  const ctx = useContext(AppShellContext);
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: TAB_BAR_STYLE,
+        tabBarActiveTintColor: "#a5b4fc",
+        tabBarInactiveTintColor: "#6b7280",
+        sceneContainerStyle: { backgroundColor: NAV_BG },
+      }}
+    >
+      <Tab.Screen
+        name={TAB_ROUTES.HOME}
+        component={HomeTab}
+        options={{ title: "Home", tabBarIcon: () => <Text>🏠</Text> }}
+      />
+      <Tab.Screen
+        name={TAB_ROUTES.LIBRARY}
+        component={LibraryTab}
+        options={{ title: "Library", tabBarIcon: () => <Text>📚</Text> }}
+      />
+      <Tab.Screen
+        name={TAB_ROUTES.QUEST_ACTION}
+        component={QuestActionStub}
+        options={{
+          title: "",
+          tabBarLabel: "",
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              {...props}
+              style={styles.navBigButton}
+              onPress={() => ctx.nav(ROUTES.QUEST_SETUP)}
+            >
+              <Text style={styles.navBigButtonIcon}>⚔️</Text>
+            </TouchableOpacity>
+          ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            ctx.nav(ROUTES.QUEST_SETUP);
+          },
+        }}
+      />
+      <Tab.Screen
+        name={TAB_ROUTES.HISTORY}
+        component={HistoryTab}
+        options={{ title: "History", tabBarIcon: () => <Text>📜</Text> }}
+      />
+      <Tab.Screen
+        name={TAB_ROUTES.RANK}
+        component={RankTab}
+        options={{ title: "Rank", tabBarIcon: () => <Text>🏆</Text> }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+function SettingsRootScreen() {
+  const ctx = useContext(AppShellContext);
+  return (
+    <SettingsScreen
+      avatar={ctx.avatar}
+      onUpdateAvatar={ctx.onUpdateAvatar}
+      footerConfig={ctx.homeFooterConfig}
+      onUpdateFooterConfig={ctx.onUpdateFooterConfig}
+      quickStartMode={ctx.quickStartMode}
+      pickerDefaultMode={ctx.pickerDefaultMode}
+      postSaveBehavior={ctx.postSaveBehavior}
+      onUpdateQuickStartMode={ctx.onUpdateQuickStartMode}
+      onUpdatePickerDefaultMode={ctx.onUpdatePickerDefaultMode}
+      onUpdatePostSaveBehavior={ctx.onUpdatePostSaveBehavior}
+      sunriseTimeLocal={ctx.sunriseTimeLocal}
+      onUpdateSunriseTimeLocal={ctx.onUpdateSunriseTimeLocal}
+      showToast={ctx.showToast}
+      userQuotes={ctx.userQuotes}
+      includeBuiltInQuotes={ctx.includeBuiltInQuotes}
+      onAddQuote={ctx.handleAddQuote}
+      onDeleteQuote={ctx.handleDeleteQuote}
+      onToggleBuiltInQuotes={ctx.handleToggleBuiltInQuotes}
+    />
+  );
+}
+
+function ProfileRootScreen({ route }) {
+  return <ProfileScreen player={route.params.player} />;
+}
 
 export default function AppShell() {
   const {
@@ -90,19 +319,33 @@ export default function AppShell() {
     setIncludeBuiltInQuotes,
   } = useAppActions();
 
-  const { state: navState, navigate, setActiveTab } = useNavigation(Screens.HOME);
-  const screen = navState.screen;
-  const activeTab = navState.activeTab;
-
   const [currentSession, setCurrentSession] = useState(null);
   const [notes, setNotes] = useState("");
   const [lastExpResult, setLastExpResult] = useState(null);
-  const [draftQuestName, setDraftQuestName] = useState("");
-  const [editingQuest, setEditingQuest] = useState(null);
-  const [viewingProfile, setViewingProfile] = useState(null);
   const [pendingQuestAction, setPendingQuestAction] = useState(null);
   const [pendingQuestSelection, setPendingQuestSelection] = useState(null);
   const { toastMessage, showToast } = useToast({ durationMs: 2000 });
+  const [routeName, setRouteName] = useState(null);
+  const isSessionActive = routeName === ROUTES.SESSION;
+
+  const nav = useCallback((name, params) => {
+    if (!navigationRef.isReady()) return;
+    navigationRef.navigate(name, params);
+  }, []);
+
+  const navToHomeTab = useCallback(() => {
+    nav(ROUTES.TABS, { screen: TAB_ROUTES.HOME });
+  }, [nav]);
+
+  const resetToTabs = useCallback((tabRoute = TAB_ROUTES.HOME) => {
+    if (!navigationRef.isReady()) return;
+    navigationRef.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: ROUTES.TABS, params: { screen: tabRoute } }],
+      }),
+    );
+  }, []);
 
   const hydrateActions = useMemo(
     () => ({
@@ -208,7 +451,7 @@ export default function AppShell() {
 
   const { remainingMs, setRemainingMs } = useSessionTimer({
     currentSession,
-    screen,
+    isActive: isSessionActive,
     onComplete: handleTimerComplete,
   });
 
@@ -330,7 +573,7 @@ export default function AppShell() {
     setRemainingMs(endTimeMs - Date.now());
     if (hasCombo) setComboFromSessionId(null);
     if (hasRest) setWellRestedUntil(null);
-    navigate(Screens.SESSION);
+    nav(ROUTES.SESSION);
   }
 
   function handleTimerComplete(endTimeMs) {
@@ -424,13 +667,14 @@ export default function AppShell() {
 
     setCurrentSession(completedSession);
     setNotes("");
-    navigate(Screens.COMPLETE);
+    nav(ROUTES.COMPLETE);
   }
 
   const handleCancelSession = useCallback(() => {
     setCurrentSession(null);
-    navigate(Screens.HOME);
-  }, [navigate]);
+    // Important: dismiss the full-screen modal route, not just "navigate" underneath it.
+    resetToTabs(TAB_ROUTES.HOME);
+  }, [resetToTabs]);
 
   function handleContinueQuest() {
     if (sessions[0] && notes.trim()) {
@@ -443,7 +687,7 @@ export default function AppShell() {
     if (sessions[0]) {
       setComboFromSessionId(sessions[0].id);
     }
-    navigate(Screens.QUEST);
+    nav(ROUTES.QUEST_SETUP);
   }
 
   function handleTakeBreak() {
@@ -457,7 +701,7 @@ export default function AppShell() {
     const windowMs = REST_BONUS_WINDOW_MINUTES * 60 * 1000;
     setWellRestedUntil(new Date(Date.now() + windowMs).toISOString());
     setCurrentSession(null);
-    navigate(Screens.HOME);
+    resetToTabs(TAB_ROUTES.HOME);
   }
 
   function handleEndForNow() {
@@ -469,258 +713,275 @@ export default function AppShell() {
       });
     }
     setCurrentSession(null);
-    navigate(Screens.HOME);
+    resetToTabs(TAB_ROUTES.HOME);
   }
 
   const { openQuestAction } = useOpenQuestAction({
     pendingQuestAction,
     setPendingQuestAction,
-    screen,
+    isSessionActive,
   });
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const handler = (e) => {
-      if (e.key === "Escape" && screen === Screens.SESSION && currentSession) {
+      if (e.key === "Escape" && isSessionActive && currentSession) {
         e.preventDefault();
         handleCancelSession();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [screen, currentSession, handleCancelSession]);
-
-  // Navigation helpers
-  function handleNavigation(tab) {
-    setActiveTab(tab);
-    navigate(tab);
-  }
-
-  function handleBigButtonPress() {
-    navigate(Screens.QUEST);
-  }
-
-  function handleOpenSettings() {
-    navigate(Screens.SETTINGS);
-  }
+  }, [isSessionActive, currentSession, handleCancelSession]);
 
   function handleOpenNotifications() {
     console.log("Notifications pressed");
   }
 
-  // Determine if navbar should show
-  const showNavbar = [Screens.HOME, Screens.LIBRARY, Screens.HISTORY, Screens.LEADERBOARD].includes(screen);
-
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.safe}>
-        <StatusBar style="light" />
-        {screen === Screens.HOME && (
-          <HomeScreen
-            avatar={avatar}
-            levelInfo={levelInfo}
-            fatigueOverlayStats={fatigueOverlayStats}
-            onOpenSettings={handleOpenSettings}
-            onOpenNotifications={handleOpenNotifications}
-            announcements={announcements}
-            quotes={allQuotes.map((q) => q.text)}
-          />
-        )}
-        {screen === Screens.LIBRARY && (
-          <LibraryScreen
-            userQuests={userQuests}
-            onSelectQuest={(quest) => {
-              setEditingQuest(quest);
-              setDraftQuestName("");
-              navigate(Screens.NEW_QUEST);
-            }}
-            onCreateQuest={() => {
-              setDraftQuestName("");
-              setEditingQuest(null);
-              navigate(Screens.NEW_QUEST);
-            }}
-          />
-        )}
-        {screen === Screens.HISTORY && <HistoryScreen sessions={sessions} />}
-        {screen === Screens.LEADERBOARD && (
-          <LeaderboardScreen
-            avatar={avatar}
-            sessions={sessions}
-            onViewProfile={(player) => {
-              setViewingProfile(player);
-              navigate(Screens.PROFILE);
-            }}
-          />
-        )}
-        {screen === Screens.PROFILE && viewingProfile && (
-          <ProfileScreen
-            player={viewingProfile}
-            onBack={() => {
-              setViewingProfile(null);
-              navigate(Screens.LEADERBOARD);
-            }}
-          />
-        )}
-        {screen === Screens.SETTINGS && (
-          <SettingsScreen
-            avatar={avatar}
-            onBack={() => {
-              navigate(activeTab);
-            }}
-            onUpdateAvatar={(updates) => {
-              setUser((prev) => ({
-                ...prev,
-                avatar: { ...prev.avatar, ...updates },
-              }));
-              showToast("Saved");
-            }}
-            footerConfig={homeFooterConfig}
-            onUpdateFooterConfig={(next) => {
-              setHomeFooterConfig(next);
-              showToast("Saved");
-            }}
-            quickStartMode={quickStartMode}
-            pickerDefaultMode={pickerDefaultMode}
-            postSaveBehavior={postSaveBehavior}
-            onUpdateQuickStartMode={(mode) => {
-              if (mode === "picker" || mode === "instant") {
-                setQuickStartMode(mode);
-              }
-              showToast("Saved");
-            }}
-            onUpdatePickerDefaultMode={(mode) => {
-              if (mode === "top" || mode === "blank") {
-                setPickerDefaultMode(mode);
-              }
-              showToast("Saved");
-            }}
-            onUpdatePostSaveBehavior={(mode) => {
-              if (mode === "library" || mode === "picker") {
-                setPostSaveBehavior(mode);
-              }
-              showToast("Saved");
-            }}
-            sunriseTimeLocal={sunriseTimeLocal}
-            onUpdateSunriseTimeLocal={(value) => {
-              setSunriseTimeLocal(value);
-              showToast("Saved");
-            }}
-            showToast={showToast}
-            userQuotes={userQuotes ?? []}
-            includeBuiltInQuotes={includeBuiltInQuotes ?? true}
-            onAddQuote={handleAddQuote}
-            onDeleteQuote={handleDeleteQuote}
-            onToggleBuiltInQuotes={handleToggleBuiltInQuotes}
-          />
-        )}
-        {screen === Screens.QUEST && (
-          <QuestSetupScreen
-            userQuests={userQuests}
-            pickerDefaultMode={pickerDefaultMode}
-            dailyBudgets={dailyBudgets}
-            todayStandExp={todayStandExp}
-            autoSelectQuest={pendingQuestSelection}
-            onAutoSelectConsumed={() => setPendingQuestSelection(null)}
-            onBack={() => navigate(Screens.HOME)}
-            onStartSession={(params) => {
-              if (params.questAction) {
-                setPendingQuestAction(params.questAction);
-              }
-              handleStartSession({
-                ...params,
-                questKey: params.questKey || params.questId || params.description || null,
-              });
-            }}
-            onCreateQuestDraft={(name) => {
-              const trimmed = (name ?? "").trim();
-              if (!trimmed) return;
-              setDraftQuestName(trimmed);
-              navigate(Screens.NEW_QUEST);
-            }}
-            onDeleteQuest={async (questId) => {
-              const updated = await deleteUserQuest(questId);
-              setUserQuests(updated);
-            }}
-            onEditQuest={(quest) => {
-              setEditingQuest(quest);
-              setDraftQuestName("");
-              navigate(Screens.NEW_QUEST);
-            }}
-            onOpenQuestAction={openQuestAction}
-          />
-        )}
-        {screen === Screens.NEW_QUEST && (
-          <NewQuestScreen
-            initialName={draftQuestName}
-            editQuest={editingQuest}
-            onBack={() => {
-              setEditingQuest(null);
-              navigate(Screens.QUEST);
-            }}
-            onSave={async (quest) => {
-              const updated = await addUserQuest(quest);
-              setUserQuests(updated);
-              setEditingQuest(null);
-              if (postSaveBehavior === "picker") {
-                setPendingQuestSelection(quest);
-                navigate(Screens.QUEST);
-              } else {
-                navigate(Screens.LIBRARY);
-              }
-              showToast("Quest saved");
-            }}
-            onSaveAndStart={async (quest, sessionParams) => {
-              const updated = await addUserQuest(quest);
-              setUserQuests(updated);
-              setEditingQuest(null);
-              if (quest.action) {
-                openQuestAction(quest.action);
-              }
-              handleStartSession({
-                ...sessionParams,
-                questKey: quest.id || sessionParams.questKey || quest.label || null,
-              });
-            }}
-            onDelete={async (questId) => {
-              const updated = await deleteUserQuest(questId);
-              setUserQuests(updated);
-              setEditingQuest(null);
-              navigate(Screens.QUEST);
-              showToast("Quest deleted");
-            }}
-          />
-        )}
-        {screen === Screens.SESSION && currentSession && (
-          <SessionScreen
-            session={currentSession}
-            remainingMs={remainingMs}
-            avatar={avatar}
-            onCancel={handleCancelSession}
-          />
-        )}
-        {screen === Screens.COMPLETE && currentSession && lastExpResult && (
-          <CompleteScreen
-            session={currentSession}
-            expResult={lastExpResult}
-            avatar={avatar}
-            levelInfo={levelInfo}
-            notes={notes}
-            onNotesChange={setNotes}
-            onContinue={handleContinueQuest}
-            onBreak={handleTakeBreak}
-            onEnd={handleEndForNow}
-          />
-        )}
-        <Toast message={toastMessage} />
-        {showNavbar && (
-          <Navbar
-            activeTab={activeTab}
-            onNavigate={handleNavigation}
-            onBigButtonPress={handleBigButtonPress}
-          />
-        )}
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safe}>
+          <StatusBar style="light" />
+          <AppShellContext.Provider
+            value={useMemo(
+              () => ({
+                nav,
+                avatar,
+                levelInfo,
+                fatigueOverlayStats,
+                announcements,
+                quotes: allQuotes.map((q) => q.text),
+                sessions,
+                userQuests,
+                handleOpenNotifications,
+                showToast,
+                // Settings
+                homeFooterConfig,
+                quickStartMode,
+                pickerDefaultMode,
+                postSaveBehavior,
+                sunriseTimeLocal,
+                userQuotes: userQuotes ?? [],
+                includeBuiltInQuotes: includeBuiltInQuotes ?? true,
+                onUpdateAvatar: (updates) => {
+                  setUser((prev) => ({
+                    ...prev,
+                    avatar: { ...prev.avatar, ...updates },
+                  }));
+                  showToast("Saved");
+                },
+                onUpdateFooterConfig: (next) => {
+                  setHomeFooterConfig(next);
+                  showToast("Saved");
+                },
+                onUpdateQuickStartMode: (mode) => {
+                  if (mode === "picker" || mode === "instant") {
+                    setQuickStartMode(mode);
+                  }
+                  showToast("Saved");
+                },
+                onUpdatePickerDefaultMode: (mode) => {
+                  if (mode === "top" || mode === "blank") {
+                    setPickerDefaultMode(mode);
+                  }
+                  showToast("Saved");
+                },
+                onUpdatePostSaveBehavior: (mode) => {
+                  if (mode === "library" || mode === "picker") {
+                    setPostSaveBehavior(mode);
+                  }
+                  showToast("Saved");
+                },
+                onUpdateSunriseTimeLocal: (value) => {
+                  setSunriseTimeLocal(value);
+                  showToast("Saved");
+                },
+                handleAddQuote,
+                handleDeleteQuote,
+                handleToggleBuiltInQuotes,
+              }),
+              [
+                nav,
+                avatar,
+                levelInfo,
+                fatigueOverlayStats,
+                announcements,
+                allQuotes,
+                sessions,
+                userQuests,
+                handleOpenNotifications,
+                showToast,
+                homeFooterConfig,
+                quickStartMode,
+                pickerDefaultMode,
+                postSaveBehavior,
+                sunriseTimeLocal,
+                userQuotes,
+                includeBuiltInQuotes,
+                setUser,
+                setHomeFooterConfig,
+                setQuickStartMode,
+                setPickerDefaultMode,
+                setPostSaveBehavior,
+                setSunriseTimeLocal,
+                handleAddQuote,
+                handleDeleteQuote,
+                handleToggleBuiltInQuotes,
+              ],
+            )}
+          >
+            <NavigationContainer
+              ref={navigationRef}
+              theme={navTheme}
+              onReady={() => setRouteName(navigationRef.getCurrentRoute()?.name ?? null)}
+              onStateChange={() => setRouteName(navigationRef.getCurrentRoute()?.name ?? null)}
+            >
+            <RootStack.Navigator screenOptions={stackScreenOptions}>
+              <RootStack.Screen name={ROUTES.TABS} component={TabsNavigator} options={{ headerShown: false }} />
+              {/* Drill-down screens live above tabs, so the tab bar never "animates away" mid-transition */}
+              <RootStack.Screen
+                name={ROUTES.SETTINGS}
+                component={SettingsRootScreen}
+                options={{ title: "Settings" }}
+              />
+              <RootStack.Screen
+                name={ROUTES.PROFILE}
+                component={ProfileRootScreen}
+                options={({ route }) => ({
+                  title: route?.params?.player?.name ?? "Profile",
+                })}
+              />
+
+              {/* Modals */}
+              <RootStack.Group screenOptions={{ presentation: "modal", headerShown: false }}>
+                <RootStack.Screen name={ROUTES.QUEST_SETUP}>
+                  {({ navigation }) => (
+                    <QuestSetupScreen
+                      userQuests={userQuests}
+                      pickerDefaultMode={pickerDefaultMode}
+                      dailyBudgets={dailyBudgets}
+                      todayStandExp={todayStandExp}
+                      autoSelectQuest={pendingQuestSelection}
+                      onAutoSelectConsumed={() => setPendingQuestSelection(null)}
+                      onBack={() => navigation.goBack()}
+                      onStartSession={(params) => {
+                        if (params.questAction) {
+                          setPendingQuestAction(params.questAction);
+                        }
+                        handleStartSession({
+                          ...params,
+                          questKey: params.questKey || params.questId || params.description || null,
+                        });
+                      }}
+                      onCreateQuestDraft={(name) => {
+                        const trimmed = (name ?? "").trim();
+                        if (!trimmed) return;
+                        nav(ROUTES.QUEST_EDITOR, { initialName: trimmed });
+                      }}
+                      onDeleteQuest={async (questId) => {
+                        const updated = await deleteUserQuest(questId);
+                        setUserQuests(updated);
+                      }}
+                      onEditQuest={(quest) => nav(ROUTES.QUEST_EDITOR, { editQuest: quest })}
+                      onOpenQuestAction={openQuestAction}
+                    />
+                  )}
+                </RootStack.Screen>
+
+                <RootStack.Screen
+                  name={ROUTES.QUEST_EDITOR}
+                  options={({ route }) => ({
+                    headerShown: true,
+                    title: route?.params?.editQuest ? "Edit Quest" : "New Quest",
+                  })}
+                >
+                  {({ navigation, route }) => (
+                    <NewQuestScreen
+                      initialName={route?.params?.initialName ?? ""}
+                      editQuest={route?.params?.editQuest ?? null}
+                      onBack={() => navigation.goBack()}
+                      onSave={async (quest) => {
+                        const updated = await addUserQuest(quest);
+                        setUserQuests(updated);
+                        showToast("Quest saved");
+                        if (postSaveBehavior === "picker") {
+                          setPendingQuestSelection(quest);
+                          nav(ROUTES.QUEST_SETUP);
+                        }
+                        navigation.goBack();
+                      }}
+                      onSaveAndStart={async (quest, sessionParams) => {
+                        const updated = await addUserQuest(quest);
+                        setUserQuests(updated);
+                        if (quest.action) {
+                          openQuestAction(quest.action);
+                        }
+                        handleStartSession({
+                          ...sessionParams,
+                          questKey: quest.id || sessionParams.questKey || quest.label || null,
+                        });
+                      }}
+                      onDelete={async (questId) => {
+                        const updated = await deleteUserQuest(questId);
+                        setUserQuests(updated);
+                        showToast("Quest deleted");
+                        navigation.goBack();
+                      }}
+                    />
+                  )}
+                </RootStack.Screen>
+              </RootStack.Group>
+
+              {/* Focused session flow */}
+              <RootStack.Group
+                screenOptions={{
+                  presentation: "fullScreenModal",
+                  headerShown: false,
+                  gestureEnabled: false,
+                }}
+              >
+                <RootStack.Screen name={ROUTES.SESSION}>
+                  {() =>
+                    currentSession ? (
+                      <SessionScreen
+                        session={currentSession}
+                        remainingMs={remainingMs}
+                        avatar={avatar}
+                        onCancel={handleCancelSession}
+                      />
+                    ) : (
+                      <View />
+                    )
+                  }
+                </RootStack.Screen>
+                <RootStack.Screen name={ROUTES.COMPLETE}>
+                  {() =>
+                    currentSession && lastExpResult ? (
+                      <CompleteScreen
+                        session={currentSession}
+                        expResult={lastExpResult}
+                        avatar={avatar}
+                        levelInfo={levelInfo}
+                        notes={notes}
+                        onNotesChange={setNotes}
+                        onContinue={handleContinueQuest}
+                        onBreak={handleTakeBreak}
+                        onEnd={handleEndForNow}
+                      />
+                    ) : (
+                      <View />
+                    )
+                  }
+                </RootStack.Screen>
+              </RootStack.Group>
+            </RootStack.Navigator>
+            </NavigationContainer>
+          </AppShellContext.Provider>
+          <Toast message={toastMessage} />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
