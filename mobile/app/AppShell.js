@@ -10,7 +10,6 @@ import { inferEmojiForDescription } from "../core/emoji.js";
 import { addUserQuest, deleteUserQuest, questStatsToChartStats } from "../core/questStorage.js";
 import { playerStatsToChartValues, computeTodayStandExp, addStandExp } from "../core/stats.js";
 import {
-  computeQuickstartSuggestions,
   updateQuestStreaks,
   getMaxMandalaStreak,
   computeAggregateConsistency,
@@ -216,11 +215,6 @@ export default function AppShell() {
   const avatar = user?.avatar ?? createDefaultAvatar();
   const levelInfo = useMemo(() => getLevelProgress(avatar.totalExp ?? 0), [avatar.totalExp]);
 
-  const quickstartSuggestions = useMemo(
-    () => computeQuickstartSuggestions(userQuests, avatar),
-    [userQuests, avatar],
-  );
-
   const todayStandExp = useMemo(() => computeTodayStandExp(sessions), [sessions]);
   const mandalaStreak = useMemo(() => getMaxMandalaStreak(questStreaks), [questStreaks]);
   const aggregateConsistency = useMemo(
@@ -272,37 +266,6 @@ export default function AppShell() {
 
   function handleToggleBuiltInQuotes(enabled) {
     setIncludeBuiltInQuotes(enabled);
-  }
-
-  function handleStartQuest() {
-    navigate(Screens.QUEST);
-  }
-
-  function startQuestFromTemplate(template) {
-    if (!template) {
-      navigate(Screens.QUEST);
-      return;
-    }
-
-    // Extract raw allocation (0-3 scale)
-    const allocation = {};
-    STAT_KEYS.forEach((key) => {
-      allocation[key] = template.stats?.[key] ?? 0;
-    });
-
-    const sessionParams = {
-      description: template.label || "Quest",
-      durationMinutes: template.defaultDurationMinutes || 25,
-      allocation,
-      questKey: template.id || template.label || null,
-      questAction: template.action || null,
-    };
-
-    if (sessionParams.questAction) {
-      setPendingQuestAction(sessionParams.questAction);
-    }
-
-    handleStartSession(sessionParams);
   }
 
   function handleStartSession({ description, durationMinutes, allocation, questKey = null }) {
@@ -533,16 +496,8 @@ export default function AppShell() {
     navigate(tab);
   }
 
-  function handleQuickstartPress() {
-    if (quickStartMode === "instant" && quickstartSuggestions.length > 0) {
-      startQuestFromTemplate(quickstartSuggestions[0]);
-      return;
-    }
+  function handleBigButtonPress() {
     navigate(Screens.QUEST);
-  }
-
-  function handleQuickstartSelect(template) {
-    startQuestFromTemplate(template);
   }
 
   function handleOpenSettings() {
@@ -565,16 +520,8 @@ export default function AppShell() {
             avatar={avatar}
             levelInfo={levelInfo}
             fatigueOverlayStats={fatigueOverlayStats}
-            onStartQuest={handleStartQuest}
-            onQuickstart={handleQuickstartPress}
-            onQuickstartSelect={handleQuickstartSelect}
-            quickStartMode={quickStartMode}
-            quickstartSuggestions={quickstartSuggestions}
             onOpenSettings={handleOpenSettings}
             onOpenNotifications={handleOpenNotifications}
-            sessions={sessions}
-            userQuests={userQuests}
-            homeFooterConfig={homeFooterConfig}
             announcements={announcements}
             quotes={allQuotes.map((q) => q.text)}
           />
@@ -769,7 +716,7 @@ export default function AppShell() {
           <Navbar
             activeTab={activeTab}
             onNavigate={handleNavigation}
-            onBigButtonPress={handleQuickstartPress}
+            onBigButtonPress={handleBigButtonPress}
           />
         )}
       </SafeAreaView>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,6 @@ import {
   getAvatarPose,
   playerStatsToChartValues,
 } from "../core/stats";
-import { BUILT_IN_QUEST_TEMPLATES } from "../core/questStorage";
 import styles from "../../style";
 
 const DEFAULT_QUOTES = [
@@ -30,17 +29,9 @@ export default function HomeScreen({
   avatar,
   levelInfo,
   fatigueOverlayStats,
-  onStartQuest,
-  onQuickstart,
-  onQuickstartSelect,
-  quickStartMode = "picker",
-  quickstartSuggestions = [],
   onOpenSettings,
   onOpenNotifications,
   quotes = DEFAULT_QUOTES,
-  sessions = [],
-  userQuests = [],
-  homeFooterConfig,
   announcements = [],
 }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -59,34 +50,12 @@ export default function HomeScreen({
 
   const currentQuote = quotes[quoteIndex] || quotes[0];
   const playerTitle = getPlayerTitle(avatar.level);
-  const footerPrefs = homeFooterConfig || { showCompletedToday: true, showUpcoming: true };
 
   // Responsive sizing
   const stageWidth = Math.max(280, screenWidth - 32);
   const avatarSize = Math.min(240, stageWidth * 0.68);
   const stageHeight = Math.max(avatarSize + 60, Math.min(420, screenHeight * 0.45));
   const chartSize = Math.min(200, stageWidth * 0.38);
-
-  const todayKey = useMemo(() => new Date().toDateString(), []);
-  const todaySessions = useMemo(() => {
-    return (sessions || []).filter((s) => {
-      const date = s.completedAt || s.endTime || s.startTime;
-      if (!date) return false;
-      return new Date(date).toDateString() === todayKey;
-    });
-  }, [sessions, todayKey]);
-
-  const upcomingQuests = useMemo(() => {
-    const list = [...(userQuests || [])];
-    if (list.length < 3) {
-      BUILT_IN_QUEST_TEMPLATES.forEach((q) => {
-        if (!list.find((item) => item.id === q.id) && list.length < 5) {
-          list.push(q);
-        }
-      });
-    }
-    return list.slice(0, 3);
-  }, [userQuests]);
 
   useEffect(() => {
     if (!announcements.length && isNotificationsOpen) {
@@ -309,93 +278,6 @@ export default function HomeScreen({
           {levelInfo.current} / {levelInfo.required} EXP to next level
         </Text>
       </View>
-
-      {/* Quickstart CTA */}
-      <View style={styles.quickstartCard}>
-        <View style={styles.quickstartHeader}>
-          <Text style={styles.sectionLabel}>Quickstart</Text>
-          <Text style={styles.quickstartMode}>
-            {quickStartMode === "instant" ? "Instant start" : "Picker"}
-          </Text>
-        </View>
-        <TouchableOpacity style={styles.quickstartBtn} onPress={onQuickstart}>
-          <Text style={styles.quickstartBtnText}>
-            {quickStartMode === "instant"
-              ? "Start top quest now"
-              : "Choose a quest"}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.quickstartSuggestions}>
-          {(quickstartSuggestions || []).slice(0, 3).map((quest) => (
-            <TouchableOpacity
-              key={quest.id}
-              style={styles.quickstartChip}
-              onPress={() => onQuickstartSelect?.(quest)}
-            >
-              <Text style={styles.quickstartChipLabel}>{quest.label}</Text>
-              {quest.defaultDurationMinutes ? (
-                <Text style={styles.quickstartChipMeta}>
-                  {quest.defaultDurationMinutes}m
-                </Text>
-              ) : null}
-            </TouchableOpacity>
-          ))}
-          {(!quickstartSuggestions || quickstartSuggestions.length === 0) && (
-            <Text style={styles.footerEmpty}>Add quests to get suggestions.</Text>
-          )}
-        </View>
-      </View>
-
-      {(footerPrefs.showCompletedToday || footerPrefs.showUpcoming) && (
-        <View style={styles.homeFooter}>
-          {footerPrefs.showCompletedToday && (
-            <View style={styles.homeFooterSection}>
-              <View style={styles.homeFooterHeader}>
-                <Text style={styles.sectionLabel}>Completed Today</Text>
-                <Text style={styles.footerMeta}>{todaySessions.length} done</Text>
-              </View>
-              {todaySessions.length === 0 ? (
-                <Text style={styles.footerEmpty}>No quests finished yet today.</Text>
-              ) : (
-                todaySessions.slice(0, 3).map((s) => (
-                  <View key={s.id} style={styles.footerItem}>
-                    <Text style={styles.footerItemTitle}>{s.description || "Quest"}</Text>
-                    <Text style={styles.footerItemMeta}>
-                      {s.durationMinutes || 0}m • +{s.expResult?.totalExp || 0} EXP
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
-
-          {footerPrefs.showUpcoming && (
-            <View style={styles.homeFooterSection}>
-              <View style={styles.homeFooterHeader}>
-                <Text style={styles.sectionLabel}>Important / Upcoming</Text>
-                <Text style={styles.footerMeta}>{upcomingQuests.length} queued</Text>
-              </View>
-              {upcomingQuests.length === 0 ? (
-                <Text style={styles.footerEmpty}>Add quests to see suggestions.</Text>
-              ) : (
-                upcomingQuests.map((q) => (
-                  <View key={q.id} style={styles.footerItem}>
-                    <Text style={styles.footerItemTitle}>{q.label}</Text>
-                    {q.stats && (
-                      <Text style={styles.footerItemMeta}>
-                        {Object.entries(q.stats)
-                          .filter(([, v]) => v > 0)
-                          .map(([k, v]) => `${k}+${v}`)
-                          .join(" · ")}
-                      </Text>
-                    )}
-                  </View>
-                ))
-              )}
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 }
