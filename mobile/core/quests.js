@@ -147,3 +147,104 @@ export function computeAggregateConsistency(sessions = []) {
   const monthRatio = activeDays.month.size / 30;
   return Math.max(0, Math.min(1, weekRatio * 0.6 + monthRatio * 0.4));
 }
+
+/**
+ * Miller's Law-based quest suggestions (5–9 quests).
+ * Combines budget-gap need + chart selection + text filter.
+ *
+ * @param {object} params
+ * @param {Array} params.quests - All quest templates (user + built-in)
+ * @param {object} params.budgets - Per-stat daily budgets (EXP)
+ * @param {object} params.spentToday - Per-stat EXP spent today
+ * @param {object} params.selectedAllocation - Per-stat allocation (0–3) from chart selection
+ * @param {string} params.query - Text search query
+ * @param {number} params.limit - Max results (default 7, clamped 5–9)
+ * @returns {Array} Top quest suggestions
+ */
+export function suggestQuests({
+  quests = [],
+  budgets = {},
+  spentToday = {},
+  selectedAllocation = {},
+  query = "",
+  limit = 7,
+} = {}) {
+  // Miller's Law: limit to 5–9 suggestions
+  const effectiveLimit = Math.max(5, Math.min(9, limit));
+
+  // Compute budget-gap weights (per stat)
+  const remainingAbs = {};
+  const remainingFrac = {};
+  STAT_KEYS.forEach((k) => {
+    const budget = budgets?.[k] ?? 0;
+    const spent = spentToday?.[k] ?? 0;
+    remainingAbs[k] = Math.max(0, budget - spent);
+    remainingFrac[k] = budget > 0 ? Math.max(0, 1 - spent / budget) : 0;
+  });
+
+  // Normalize vectors to 0..1 range
+  const normalize = (obj) => {
+    const vals = STAT_KEYS.map((k) => obj[k] ?? 0);
+    const maxVal = Math.max(...vals, 1);
+    const result = {};
+    STAT_KEYS.forEach((k) => {
+      result[k] = (obj[k] ?? 0) / maxVal;
+    });
+    return result;
+  };
+
+  const normAbs = normalize(remainingAbs);
+  const normFrac = normalize(remainingFrac);
+
+  // needWeight = 70% fraction + 30% absolute
+  const needWeight = {};
+  STAT_KEYS.forEach((k) => {
+    needWeight[k] = 0.7 * normFrac[k] + 0.3 * normAbs[k];
+  });
+
+  // chartWeight from selectedAllocation (normalize 0–3 to 0–1)
+  const chartWeight = {};
+  STAT_KEYS.forEach((k) => {
+    const alloc = selectedAllocation?.[k] ?? 0;
+    chartWeight[k] = Math.max(0, Math.min(3, alloc)) / 3;
+  });
+
+  // Final stat weight: 50% need + 50% chart
+  const statWeight = {};
+  STAT_KEYS.forEach((k) => {
+    statWeight[k] = 0.5 * needWeight[k] + 0.5 * chartWeight[k];
+  });
+
+  // Score each quest by dot product with stat weights
+  const scored = quests.map((q) => {
+    const stats = q.stats || {};
+    let score = 0;
+    STAT_KEYS.forEach((k) => {
+      const questStatNorm = Math.max(0, Math.min(3, stats[k] ?? 0)) / 3;
+      score += statWeight[k] * questStatNorm;
+    });
+    return { ...q, suggestionScore: score };
+  });
+
+  // Sort by score descending
+  scored.sort((a, b) => b.suggestionScore - a.suggestionScore);
+
+  // Apply text filter last
+  const q = (query ?? "").trim().toLowerCase();
+  let filtered = scored;
+  if (q) {
+    filtered = scored.filter((quest) => {
+      const searchable = [
+        quest.label,
+        quest.description,
+        ...(quest.keywords ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(q);
+    });
+  }
+
+  return filtered.slice(0, effectiveLimit);
+}

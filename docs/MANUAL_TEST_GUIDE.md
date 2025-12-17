@@ -245,6 +245,71 @@ This will start a local server. You should see output like:
 
 ---
 
+## Test Scenario 10: Quest Picker UX (Miller's Law Suggestions)
+
+**Goal:** Verify the new Apple-search-style quest picker works correctly
+
+### Steps:
+
+1. **Open the Quest Setup screen:**
+   - Click the big center button on the navbar (or tap "Start Quest" from home)
+   - You should see the radar chart and a search input
+
+2. **Verify suggestion grid:**
+   - Below the search input, you should see 5–9 quest buttons in a grid layout
+   - The default shows 7 suggestions (Miller's Law center)
+   - Buttons should be compact and wrap to multiple rows if needed
+
+3. **Test chart-driven suggestions:**
+   - Drag on the radar chart to emphasize a stat (e.g., drag STR axis outward)
+   - Watch the suggestion grid update in real-time
+   - Quests matching your selected stats should appear higher/more prominent
+
+4. **Test budget-gap prioritization:**
+   - Complete a few sessions focusing on one stat (e.g., INT)
+   - Return to Quest Setup
+   - Suggestions should now prioritize stats you haven't trained today
+   - Stats with remaining daily budget get weighted higher
+
+5. **Test text search:**
+   - Type a keyword like "gym" or "study" in the search field
+   - Suggestions filter to matching quests immediately
+   - Non-matching quests disappear from the grid
+
+6. **Test "+ New" button:**
+   - When your search text doesn't match any quest name, a "+ New" button should appear
+   - Clicking it opens the New Quest screen with your text pre-filled
+
+7. **Test quest selection:**
+   - Tap a quest button in the grid
+   - It should highlight (active state with glow)
+   - The chart, duration, and description should update to match the selected quest
+
+8. **Test "All quests" link:**
+   - If there are more quests than shown in the grid, an "All quests (N)" link appears
+   - (Note: This leads to the full library if implemented)
+
+### Expected Behavior:
+
+| Action | Expected Result |
+|--------|-----------------|
+| Open Quest Setup | 7 suggested quests shown in grid |
+| Drag chart to emphasize STR | STR-heavy quests rise in suggestions |
+| Type "run" in search | Only running-related quests shown |
+| Clear search | Full 7 suggestions return |
+| Tap a quest button | Quest selected, chart updates, button glows |
+| Complete INT session, return | INT quests deprioritized (budget spent) |
+
+### Verify:
+- [ ] Suggestions update live as chart changes
+- [ ] Suggestions update live as text changes
+- [ ] Grid shows 5–9 buttons (clamped to Miller's Law range)
+- [ ] Selected quest has visual highlight
+- [ ] User quests show ★ badge
+- [ ] "+ New" button appears when search doesn't match
+
+---
+
 ## Common Issues & Troubleshooting
 
 ### Issue: Timer doesn't start

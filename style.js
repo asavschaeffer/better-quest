@@ -292,6 +292,55 @@ export const styles = StyleSheet.create({
   questItemUserBadge: {
     display: "none",
   },
+  // Apple-search-style quest suggestion grid
+  questGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  questGridItem: {
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    minWidth: 90,
+    maxWidth: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  questGridItemActive: {
+    borderColor: "#4f46e5",
+    backgroundColor: "#1e1b4b",
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 0px 8px rgba(79,70,229,0.4)" }
+      : {
+          shadowColor: "#4f46e5",
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+        }),
+    elevation: 4,
+  },
+  questGridItemUser: {
+    borderColor: "#2563eb",
+  },
+  questGridItemText: {
+    color: "#e5e7eb",
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  questGridBadge: {
+    position: "absolute",
+    top: 4,
+    right: 6,
+    fontSize: 10,
+    color: "#fbbf24",
+  },
   questActionsRow: {
     flexDirection: "row",
     gap: 8,

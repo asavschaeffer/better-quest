@@ -670,6 +670,8 @@ export default function AppShell() {
           <QuestSetupScreen
             userQuests={userQuests}
             pickerDefaultMode={pickerDefaultMode}
+            dailyBudgets={dailyBudgets}
+            todayStandExp={todayStandExp}
             autoSelectQuest={pendingQuestSelection}
             onAutoSelectConsumed={() => setPendingQuestSelection(null)}
             onBack={() => navigate(Screens.HOME)}

@@ -1,14 +1,34 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Platform,
+  KeyboardAvoidingView,
+  Keyboard,
+} from "react-native";
 import styles from "../../style";
 import { StandStatsChart } from "../StandStatsChart";
 import { BUILT_IN_QUEST_TEMPLATES, questStatsToChartStats } from "../core/questStorage";
-import { rankQuests } from "../core/quests";
+import { suggestQuests } from "../core/quests";
 import { STAT_KEYS } from "../core/models";
+
+// Convert chart values (1–6) to allocation points (0–3)
+function chartValueToAllocation(chartValue) {
+  // E=1 → 0, D=2 → 0, C=3 → 1, B=4 → 2, A=5 → 3, S=6 → 3
+  const clamped = Math.max(1, Math.min(6, chartValue ?? 1));
+  if (clamped <= 2) return 0;
+  if (clamped === 3) return 1;
+  if (clamped === 4) return 2;
+  return 3;
+}
 
 export default function QuestSetupScreen({
   userQuests = [],
   pickerDefaultMode = "top",
+  dailyBudgets = {},
+  todayStandExp = {},
   autoSelectQuest = null,
   onAutoSelectConsumed,
   onBack,
@@ -27,33 +47,64 @@ export default function QuestSetupScreen({
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
-  const autoApplyRef = useRef({ desc: "", questId: null });
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Track keyboard visibility to collapse chart on mobile
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Compute chart values from allocation + duration
   const baseStats = useMemo(() => questStatsToChartStats(allocation, 0), [allocation]);
   const targetStats = useMemo(() => questStatsToChartStats(allocation, duration), [allocation, duration]);
-  // Legacy: keep focusStats for compatibility with existing code
-  const focusStats = baseStats;
 
   // Combine user quests with built-in templates
   const allQuests = useMemo(() => {
     return [...userQuests, ...BUILT_IN_QUEST_TEMPLATES];
   }, [userQuests]);
 
-  const sortedQuests = useMemo(
-    () => rankQuests(allQuests, focusStats, description),
-    [allQuests, focusStats, description]
+  // Miller's Law suggestions: 5–9 quests (default 7)
+  const suggestedQuests = useMemo(
+    () => suggestQuests({
+      quests: allQuests,
+      budgets: dailyBudgets,
+      spentToday: todayStandExp,
+      selectedAllocation: allocation,
+      query: description,
+      limit: 7,
+    }),
+    [allQuests, dailyBudgets, todayStandExp, allocation, description]
   );
+
+  // Handle chart interaction: convert chart values to allocation points
+  function handleChartChange(newChartStats) {
+    const newAllocation = {};
+    STAT_KEYS.forEach((key) => {
+      newAllocation[key] = chartValueToAllocation(newChartStats[key]);
+    });
+    setAllocation(newAllocation);
+    // Clear quest selection when user manually adjusts chart
+    if (selectedQuestId) {
+      setSelectedQuestId(null);
+      setSelectedQuestAction(null);
+    }
+  }
 
   const hasDirectNameMatch = useMemo(() => {
     const q = description.trim().toLowerCase();
     if (!q) return false;
-    return sortedQuests.some((tpl) => {
+    return suggestedQuests.some((tpl) => {
       const label = (tpl.label ?? "").toLowerCase();
       const desc = (tpl.description ?? "").toLowerCase();
       return label.startsWith(q) || desc.startsWith(q);
     });
-  }, [sortedQuests, description]);
+  }, [suggestedQuests, description]);
 
   function start() {
     const trimmed = description.trim();
@@ -81,9 +132,9 @@ export default function QuestSetupScreen({
       setError("Please enter what you want to work on.");
       return;
     }
-    if (!selectedQuestId && sortedQuests.length > 0) {
+    if (!selectedQuestId && suggestedQuests.length > 0) {
       // First enter: pick the top matching quest.
-      applyQuestTemplate(sortedQuests[0]);
+      applyQuestTemplate(suggestedQuests[0]);
       return;
     }
     // If a quest is already selected, treat enter as "begin timer".
@@ -119,37 +170,9 @@ export default function QuestSetupScreen({
     return () => window.removeEventListener("keydown", handler);
   });
 
-  useEffect(() => {
-    const trimmed = description.trim();
-    if (selectedQuestId || !trimmed) return;
-    if (!sortedQuests.length) return;
-    const top = sortedQuests[0];
-    if (!top?.stats) return;
-
-    // Avoid feedback loop: only auto-apply once per description change
-    if (autoApplyRef.current.desc === trimmed) return;
-
-    // Update allocation from top matching quest
-    const suggestedAlloc = {};
-    STAT_KEYS.forEach(key => {
-      suggestedAlloc[key] = top.stats?.[key] ?? 0;
-    });
-    const allocChanged = STAT_KEYS.some(
-      (key) => allocation[key] !== suggestedAlloc[key]
-    );
-    if (allocChanged) {
-      setAllocation(suggestedAlloc);
-    }
-
-    const actionChanged =
-      (selectedQuestAction?.type || null) !== (top.action?.type || null) ||
-      (selectedQuestAction?.value || null) !== (top.action?.value || null);
-    if (actionChanged) {
-      setSelectedQuestAction(top.action || null);
-    }
-
-    autoApplyRef.current = { desc: trimmed, questId: top.id || null };
-  }, [sortedQuests, selectedQuestId, description, allocation, selectedQuestAction]);
+  // Note: Auto-apply from top suggestion removed to prevent infinite loops.
+  // Users now explicitly tap quest buttons to apply templates.
+  // The suggestQuests algorithm already prioritizes relevant quests at the top.
 
   // Auto-select quest when provided (e.g., saved from library)
   useEffect(() => {
@@ -161,31 +184,34 @@ export default function QuestSetupScreen({
     }
   }, [autoSelectQuest, onAutoSelectConsumed]);
 
-  // Picker default mode: preselect top suggestion unless user started typing
+  // Picker default mode: preselect top suggestion on initial mount only
+  const defaultAppliedRef = useRef(false);
   useEffect(() => {
     if (pickerDefaultMode !== "top") return;
-    if (description.trim() || selectedQuestId || !sortedQuests.length) return;
-    const top = sortedQuests[0];
+    if (defaultAppliedRef.current) return; // Only apply once
+    if (description.trim() || selectedQuestId || !suggestedQuests.length) return;
+    const top = suggestedQuests[0];
     if (top) {
+      defaultAppliedRef.current = true;
       applyQuestTemplate(top);
     }
-  }, [pickerDefaultMode, description, selectedQuestId, sortedQuests]);
+  }, [pickerDefaultMode, description, selectedQuestId, suggestedQuests]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Pick your quest</Text>
-      <StandStatsChart
-        value={baseStats}
-        targetValue={targetStats}
-        duration={duration}
-        onDurationChange={setDuration}
-      />
-      <View style={styles.block}>
-        <Text style={styles.label}>Quests</Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, styles.inputGrow]}
-            value={description}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={styles.title}>Pick your quest</Text>
+
+        {/* Search input - always at top for easy access */}
+        <View style={styles.block}>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, styles.inputGrow]}
+              value={description}
             onChangeText={(text) => {
               setDescription(text);
               // Clear selection when user types something different
@@ -197,106 +223,131 @@ export default function QuestSetupScreen({
                 }
               }
             }}
-            placeholder="e.g. Study math, go for a run, practice guitar"
-            autoFocus={Platform.OS === "web"}
-            onSubmitEditing={handleSubmitFromInput}
-            returnKeyType="done"
-          />
-        </View>
-        <View style={styles.questList}>
-          {!hasDirectNameMatch && (
-            <TouchableOpacity
-              style={styles.questItem}
-              onPress={() => onCreateQuestDraft?.(description)}
-            >
-              <Text style={styles.questItemLabel}>＋ New</Text>
-            </TouchableOpacity>
-          )}
-          {sortedQuests.map((q) => {
-            const isUserQuest = userQuests.some((uq) => uq.id === q.id);
-            return (
+              placeholder="Search quests..."
+              autoFocus={Platform.OS === "web"}
+              onSubmitEditing={handleSubmitFromInput}
+              returnKeyType="done"
+            />
+          </View>
+
+          {/* Apple-search-style suggestion grid (5–9 buttons) */}
+          <View style={styles.questGrid}>
+            {!hasDirectNameMatch && description.trim() && (
               <TouchableOpacity
-                key={q.id}
-                style={[
-                  styles.questItem,
-                  selectedQuestId === q.id && styles.questItemActive,
-                  isUserQuest && styles.questItemUser,
-                ]}
-                onPress={() => applyQuestTemplate(q)}
-                onLongPress={
-                  isUserQuest
-                    ? () => {
-                        // Long press to delete user quest
-                        if (Platform.OS === "web") {
-                          if (window.confirm(`Delete "${q.label}"?`)) {
+                style={styles.questGridItem}
+                onPress={() => onCreateQuestDraft?.(description)}
+              >
+                <Text style={styles.questGridItemText}>＋ New</Text>
+              </TouchableOpacity>
+            )}
+            {suggestedQuests.map((q) => {
+              const isUserQuest = userQuests.some((uq) => uq.id === q.id);
+              return (
+                <TouchableOpacity
+                  key={q.id}
+                  style={[
+                    styles.questGridItem,
+                    selectedQuestId === q.id && styles.questGridItemActive,
+                    isUserQuest && styles.questGridItemUser,
+                  ]}
+                  onPress={() => {
+                    applyQuestTemplate(q);
+                    // Dismiss keyboard after selecting a quest on mobile
+                    if (Platform.OS !== "web") {
+                      Keyboard.dismiss();
+                    }
+                  }}
+                  onLongPress={
+                    isUserQuest
+                      ? () => {
+                          // Long press to delete user quest
+                          if (Platform.OS === "web") {
+                            if (window.confirm(`Delete "${q.label}"?`)) {
+                              onDeleteQuest?.(q.id);
+                              if (selectedQuestId === q.id) {
+                                setSelectedQuestId(null);
+                                setSelectedQuestAction(null);
+                              }
+                            }
+                          } else {
+                            // On native, just delete (could add Alert later)
                             onDeleteQuest?.(q.id);
                             if (selectedQuestId === q.id) {
                               setSelectedQuestId(null);
                               setSelectedQuestAction(null);
                             }
                           }
-                        } else {
-                          // On native, just delete (could add Alert later)
-                          onDeleteQuest?.(q.id);
-                          if (selectedQuestId === q.id) {
-                            setSelectedQuestId(null);
-                            setSelectedQuestAction(null);
-                          }
                         }
-                      }
-                    : undefined
-                }
-              >
-                <Text style={styles.questItemLabel}>{q.label}</Text>
-                {q.defaultDurationMinutes ? (
-                  <Text style={styles.questItemMeta}>{q.defaultDurationMinutes}m</Text>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
+                      : undefined
+                  }
+                >
+                  <Text style={styles.questGridItemText} numberOfLines={2}>
+                    {q.label}
+                  </Text>
+                  {isUserQuest && <Text style={styles.questGridBadge}>★</Text>}
+                </TouchableOpacity>
+              );
+            })}
           {hasDirectNameMatch && (
             <TouchableOpacity
-              style={styles.questItem}
+              style={styles.questGridItem}
               onPress={() => onCreateQuestDraft?.(description)}
             >
-              <Text style={styles.questItemLabel}>＋ New</Text>
+              <Text style={styles.questGridItemText}>＋ New</Text>
             </TouchableOpacity>
           )}
         </View>
+        </View>
+
+        {/* Chart - collapsed when keyboard is visible on mobile */}
+        {!isKeyboardVisible && (
+          <StandStatsChart
+            value={baseStats}
+            targetValue={targetStats}
+            duration={duration}
+            onDurationChange={setDuration}
+            onChange={handleChartChange}
+            size={Platform.OS === "web" ? 260 : 220}
+          />
+        )}
+
+        {/* Action buttons row */}
+        {(selectedQuestAction ||
+          (selectedQuestId && userQuests.some((q) => q.id === selectedQuestId))) && (
+          <View style={styles.questActionsRow}>
+            {selectedQuestAction && onOpenQuestAction && (
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => onOpenQuestAction(selectedQuestAction)}
+              >
+                <Text style={styles.actionBtnText}>
+                  {selectedQuestAction.type === "url"
+                    ? "🔗"
+                    : selectedQuestAction.type === "file"
+                    ? "📁"
+                    : "📱"}{" "}
+                  Open
+                </Text>
+              </TouchableOpacity>
+            )}
+            {selectedQuestId && userQuests.some((q) => q.id === selectedQuestId) && (
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => {
+                  const quest = userQuests.find((q) => q.id === selectedQuestId);
+                  if (quest) onEditQuest?.(quest);
+                }}
+              >
+                <Text style={styles.editBtnText}>✏️ Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
-      {/* Action buttons row */}
-      {(selectedQuestAction ||
-        (selectedQuestId && userQuests.some((q) => q.id === selectedQuestId))) && (
-        <View style={styles.questActionsRow}>
-          {selectedQuestAction && onOpenQuestAction && (
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => onOpenQuestAction(selectedQuestAction)}
-            >
-              <Text style={styles.actionBtnText}>
-                {selectedQuestAction.type === "url"
-                  ? "🔗"
-                  : selectedQuestAction.type === "file"
-                  ? "📁"
-                  : "📱"}{" "}
-                Open
-              </Text>
-            </TouchableOpacity>
-          )}
-          {selectedQuestId && userQuests.some((q) => q.id === selectedQuestId) && (
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={() => {
-                const quest = userQuests.find((q) => q.id === selectedQuestId);
-                if (quest) onEditQuest?.(quest);
-              }}
-            >
-              <Text style={styles.editBtnText}>✏️ Edit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {/* Bottom buttons - always visible */}
       <View style={styles.rowBetween}>
         <TouchableOpacity style={styles.ghostBtn} onPress={onBack}>
           <Text style={styles.ghostBtnText}>Back</Text>
@@ -305,6 +356,6 @@ export default function QuestSetupScreen({
           <Text style={styles.primaryBtnText}>Begin timer</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
