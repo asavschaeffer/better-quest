@@ -35,20 +35,6 @@ export default function HomeScreen({
   quotes = DEFAULT_QUOTES,
   announcements = [],
 }) {
-  useEffect(() => {
-    if (!__DEV__) return;
-    console.log("[HomeScreen] mount");
-    return () => console.log("[HomeScreen] unmount");
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!__DEV__) return undefined;
-      console.log("[HomeScreen] focus");
-      return () => console.log("[HomeScreen] blur");
-    }, []),
-  );
-
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -140,8 +126,6 @@ export default function HomeScreen({
       glanceIntervalRef.current = setInterval(glance, 3500);
       roamIntervalRef.current = setInterval(roam, 5000 + Math.random() * 3000);
 
-      if (__DEV__) console.log("[HomeScreen] roaming started");
-
       return () => {
         if (glanceIntervalRef.current) clearInterval(glanceIntervalRef.current);
         if (roamIntervalRef.current) clearInterval(roamIntervalRef.current);
@@ -149,7 +133,6 @@ export default function HomeScreen({
         roamIntervalRef.current = null;
         avatarX.stopAnimation();
         avatarY.stopAnimation();
-        if (__DEV__) console.log("[HomeScreen] roaming stopped");
       };
     }, [stageWidth, stageHeight, avatarSize, avatarX, avatarY]),
   );
