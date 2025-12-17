@@ -1122,7 +1122,7 @@ export const styles = StyleSheet.create({
     textAlign: "center",
     marginRight: 60,
   },
-  backBtn: {
+  profileBackBtn: {
     padding: 8,
   },
   backBtnText: {

@@ -45,7 +45,7 @@ export default function ProfileScreen({ player, onBack }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header with back button */}
       <View style={styles.profileHeader}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+        <TouchableOpacity style={styles.profileBackBtn} onPress={onBack}>
           <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.profileTitle}>{player.name}</Text>

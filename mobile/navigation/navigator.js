@@ -20,13 +20,8 @@ export function useNavigation(initialScreen = Screens.HOME) {
   const navigate = useCallback(
     (next) => {
       setScreen(next);
-      if (
-        next === Screens.HOME ||
-        next === Screens.LIBRARY ||
-        next === Screens.HISTORY ||
-        next === Screens.LEADERBOARD ||
-        next === Screens.SETTINGS
-      ) {
+      // Only "tab" destinations should update the active tab. Settings is a modal screen.
+      if ([Screens.HOME, Screens.LIBRARY, Screens.HISTORY, Screens.LEADERBOARD].includes(next)) {
         setActiveTab(next);
       }
     },
