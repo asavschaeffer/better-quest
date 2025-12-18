@@ -153,6 +153,137 @@ function getBackLabelFromRootState(rootState) {
   return typeof prev.name === "string" ? prev.name : "Back";
 }
 
+function QuestEditorScreen({
+  rootNavigation,
+  questNav,
+  questRoute,
+  backLabel,
+  addUserQuest,
+  deleteUserQuest,
+  setUserQuests,
+  showToast,
+  postSaveBehavior,
+  setPendingQuestSelection,
+  openQuestAction,
+  handleStartSession,
+}) {
+  const editQuest = questRoute?.params?.editQuest ?? null;
+  const initialName = questRoute?.params?.initialName ?? "";
+  const isEditing = !!editQuest;
+  const [draft, setDraft] = useState({ isValid: false, quest: null, error: "" });
+
+  const title = isEditing ? "Edit Quest" : "New Quest";
+
+  const questState = questNav.getState?.();
+  const isFirstInQuestFlow =
+    typeof questState?.index === "number" ? questState.index === 0 : !questNav.canGoBack();
+
+  async function handleSave() {
+    if (!draft?.quest) return;
+    const updated = await addUserQuest(draft.quest);
+    setUserQuests(updated);
+    showToast("Quest saved");
+    if (postSaveBehavior === "picker") {
+      setPendingQuestSelection(draft.quest);
+      questNav.reset({ index: 0, routes: [{ name: ROUTES.QUEST_SETUP }] });
+      return;
+    }
+    if (questNav.canGoBack()) questNav.goBack();
+    else rootNavigation.goBack();
+  }
+
+  async function handleDelete() {
+    if (!editQuest?.id) return;
+    const updated = await deleteUserQuest(editQuest.id);
+    setUserQuests(updated);
+    showToast("Quest deleted");
+    if (questNav.canGoBack()) questNav.goBack();
+    else rootNavigation.goBack();
+  }
+
+  async function handleSaveAndStart() {
+    if (!draft?.quest) return;
+    const updated = await addUserQuest(draft.quest);
+    setUserQuests(updated);
+    if (draft.quest.action) {
+      openQuestAction(draft.quest.action);
+    }
+    handleStartSession({
+      description: draft.quest.label,
+      durationMinutes: draft.quest.defaultDurationMinutes,
+      allocation: draft.quest.stats,
+      questAction: draft.quest.action,
+      questKey: draft.quest.id || draft.quest.label || null,
+    });
+  }
+
+  useEffect(() => {
+    questNav.setOptions({
+      headerShown: true,
+      title,
+      headerTitleAlign: "center",
+      // If this editor screen is the root of the quest flow (e.g., opened from Library),
+      // show a labeled back/dismiss button that returns to the previous root screen.
+      headerLeft: isFirstInQuestFlow
+        ? () => (
+            <HeaderBackButton
+              label={backLabel}
+              onPress={() => rootNavigation.goBack()}
+              tintColor="#a5b4fc"
+            />
+          )
+        : undefined,
+      headerRight: () => (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {isEditing ? (
+            <Pressable
+              onPress={handleDelete}
+              hitSlop={10}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="trash-outline" size={20} color="#fb7185" />
+            </Pressable>
+          ) : null}
+
+          {!isEditing ? (
+            <Pressable
+              onPress={handleSaveAndStart}
+              disabled={!draft?.isValid}
+              hitSlop={10}
+              style={({ pressed }) => [
+                { opacity: draft?.isValid ? 1 : 0.45 },
+                pressed && draft?.isValid && { opacity: 0.8 },
+              ]}
+            >
+              <Ionicons name="play" size={20} color="#a5b4fc" />
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={handleSave}
+            disabled={!draft?.isValid}
+            hitSlop={10}
+            style={({ pressed }) => [
+              { opacity: draft?.isValid ? 1 : 0.45 },
+              pressed && draft?.isValid && { opacity: 0.8 },
+            ]}
+          >
+            <Text style={{ color: "#a5b4fc", fontSize: 15, fontWeight: "700" }}>Save</Text>
+          </Pressable>
+        </View>
+      ),
+    });
+  }, [questNav, rootNavigation, isFirstInQuestFlow, backLabel, title, isEditing, draft?.isValid]);
+
+  return (
+    <NewQuestScreen
+      initialName={initialName}
+      editQuest={editQuest}
+      onChange={(next) => setDraft(next)}
+    />
+  );
+}
+
 function QuestActionStub() {
   return null;
 }
@@ -1031,58 +1162,22 @@ export default function AppShell() {
                         <QuestStack.Screen
                           name={ROUTES.QUEST_EDITOR}
                           initialParams={editorParams || undefined}
-                          options={({ route: r }) => ({
-                            headerShown: true,
-                            title: r?.params?.editQuest ? "Edit Quest" : "New Quest",
-                          })}
+                          options={{ headerShown: true }}
                         >
                           {({ navigation: questNav, route: questRoute }) => (
-                            <NewQuestScreen
-                              initialName={questRoute?.params?.initialName ?? ""}
-                              editQuest={questRoute?.params?.editQuest ?? null}
-                              onBack={() => {
-                                if (questNav.canGoBack()) questNav.goBack();
-                                else navigation.goBack();
-                              }}
-                              onSave={async (quest) => {
-                                const updated = await addUserQuest(quest);
-                                setUserQuests(updated);
-                                showToast("Quest saved");
-
-                                if (postSaveBehavior === "picker") {
-                                  setPendingQuestSelection(quest);
-                                  questNav.reset({
-                                    index: 0,
-                                    routes: [{ name: ROUTES.QUEST_SETUP }],
-                                  });
-                                  return;
-                                }
-
-                                if (questNav.canGoBack()) questNav.goBack();
-                                else navigation.goBack();
-                              }}
-                              onSaveAndStart={async (quest, sessionParams) => {
-                                const updated = await addUserQuest(quest);
-                                setUserQuests(updated);
-                                if (quest.action) {
-                                  openQuestAction(quest.action);
-                                }
-                                handleStartSession({
-                                  ...sessionParams,
-                                  questKey:
-                                    quest.id ||
-                                    sessionParams.questKey ||
-                                    quest.label ||
-                                    null,
-                                });
-                              }}
-                              onDelete={async (questId) => {
-                                const updated = await deleteUserQuest(questId);
-                                setUserQuests(updated);
-                                showToast("Quest deleted");
-                                if (questNav.canGoBack()) questNav.goBack();
-                                else navigation.goBack();
-                              }}
+                            <QuestEditorScreen
+                              rootNavigation={navigation}
+                              questNav={questNav}
+                              questRoute={questRoute}
+                              backLabel={backLabel}
+                              addUserQuest={addUserQuest}
+                              deleteUserQuest={deleteUserQuest}
+                              setUserQuests={setUserQuests}
+                              showToast={showToast}
+                              postSaveBehavior={postSaveBehavior}
+                              setPendingQuestSelection={setPendingQuestSelection}
+                              openQuestAction={openQuestAction}
+                              handleStartSession={handleStartSession}
                             />
                           )}
                         </QuestStack.Screen>

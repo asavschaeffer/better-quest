@@ -16,10 +16,9 @@ const DURATION_PRESETS = [10, 20, 30, 45, 60];
 export default function NewQuestScreen({
   initialName = "",
   editQuest = null,
-  onBack,
-  onSave,
-  onSaveAndStart,
-  onDelete,
+  // Navigation + actions are now handled in the native header (QuestStack screen options).
+  // This screen just renders the form and reports validation errors.
+  onChange,
 }) {
   const isEditing = !!editQuest;
 
@@ -43,21 +42,18 @@ export default function NewQuestScreen({
     }
   }, [label, isEditing]);
 
-  function validate() {
+  function buildQuestData() {
     const trimmedLabel = label.trim();
     if (!trimmedLabel) {
-      setError("Quest title is required");
-      return null;
+      return { ok: false, error: "Quest title is required", questData: null };
     }
 
     const finalDuration = customDuration ? parseInt(customDuration, 10) : duration;
     if (!Number.isFinite(finalDuration) || finalDuration <= 0) {
-      setError("Please enter a valid duration");
-      return null;
+      return { ok: false, error: "Please enter a valid duration", questData: null };
     }
     if (finalDuration > 240) {
-      setError("Duration cannot exceed 240 minutes");
-      return null;
+      return { ok: false, error: "Duration cannot exceed 240 minutes", questData: null };
     }
 
     // Validate stats
@@ -69,9 +65,7 @@ export default function NewQuestScreen({
       .map((k) => k.trim().toLowerCase())
       .filter((k) => k.length > 0);
 
-    setError("");
-
-    return {
+    const questData = {
       id: editQuest?.id || `quest-${Date.now()}`,
       label: trimmedLabel,
       description: description.trim(),
@@ -80,48 +74,34 @@ export default function NewQuestScreen({
       keywords: keywordList,
       action: action?.value?.trim() ? action : null,
     };
+    return { ok: true, error: "", questData };
   }
 
-  function handleSave() {
-    const questData = validate();
-    if (!questData) return;
-
-    try {
-      const quest = createQuest(questData);
-      onSave?.(quest);
-    } catch (e) {
-      setError(e.message || "Failed to create quest");
+  // Report changes upward so the navigator header can enable/disable Save/Start.
+  useEffect(() => {
+    const res = buildQuestData();
+    if (!res.ok) {
+      setError(res.error);
+      onChange?.({ isValid: false, quest: null, error: res.error });
+      return;
     }
-  }
-
-  function handleSaveAndStart() {
-    const questData = validate();
-    if (!questData) return;
-
     try {
-      const quest = createQuest(questData);
-      const sessionParams = {
-        description: quest.label,
-        durationMinutes: quest.defaultDurationMinutes,
-        allocation: quest.stats,
-        questAction: quest.action,
-      };
-      onSaveAndStart?.(quest, sessionParams);
+      const quest = createQuest(res.questData);
+      setError("");
+      onChange?.({ isValid: true, quest, error: "" });
     } catch (e) {
-      setError(e.message || "Failed to create quest");
+      const msg = e?.message || "Invalid quest";
+      setError(msg);
+      onChange?.({ isValid: false, quest: null, error: msg });
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label, description, duration, customDuration, stats, keywords, action]);
 
   const statTotal = getQuestStatTotal(stats);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.title}>{isEditing ? "Edit Quest" : "Create Quest"}</Text>
-      <Text style={styles.muted}>
-        {isEditing
-          ? "Update your quest template"
-          : "Build a reusable quest template with stats and quick launch"}
-      </Text>
+      {/* Title/subtitle moved into native header to match iOS patterns */}
 
       {/* Title */}
       <View style={styles.block}>
@@ -246,38 +226,6 @@ export default function NewQuestScreen({
       {/* Error */}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {/* Actions */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.ghostBtn} onPress={onBack}>
-          <Text style={styles.ghostBtnText}>Cancel</Text>
-        </TouchableOpacity>
-        <View style={styles.actionsRight}>
-          {isEditing && onDelete && (
-            <TouchableOpacity
-              style={styles.dangerBtn}
-              onPress={() => {
-                if (Platform.OS === "web") {
-                  if (window.confirm(`Delete "${editQuest.label}"?`)) {
-                    onDelete(editQuest.id);
-                  }
-                } else {
-                  onDelete(editQuest.id);
-                }
-              }}
-            >
-              <Text style={styles.dangerBtnText}>Delete</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.secondaryBtn} onPress={handleSave}>
-            <Text style={styles.secondaryBtnText}>Save</Text>
-          </TouchableOpacity>
-          {!isEditing && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAndStart}>
-              <Text style={styles.primaryBtnText}>Save & Start</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
     </ScrollView>
   );
 }
