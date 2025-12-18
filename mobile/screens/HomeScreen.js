@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { StandStatsChart } from "../StandStatsChart";
 import { Avatar3D } from "../Avatar3D";
 import NotificationsSheet from "../components/NotificationsSheet";
@@ -159,14 +160,18 @@ export default function HomeScreen({
           <TouchableOpacity
             style={styles.headerIconBtn}
             onPress={handleNotificationsPress}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
           >
-            <Text style={styles.headerIcon}>🔔</Text>
+            <Ionicons name="notifications-outline" size={22} color="#e5e7eb" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconBtn}
             onPress={onOpenSettings}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
           >
-            <Text style={styles.headerIcon}>⚙️</Text>
+            <Ionicons name="settings-outline" size={22} color="#e5e7eb" />
           </TouchableOpacity>
         </View>
       </View>
