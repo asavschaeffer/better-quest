@@ -211,6 +211,76 @@ export const styles = StyleSheet.create({
     color: "#e5e7eb",
     textAlign: "center",
   },
+
+  // Session (focus / clock mode)
+  sessionFocusContainer: {
+    flex: 1,
+    backgroundColor: "#020617",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    justifyContent: "space-between",
+  },
+  sessionFocusHeader: {
+    alignItems: "center",
+    paddingTop: 6,
+  },
+  sessionFocusMeta: {
+    color: "#9ca3af",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.4,
+  },
+  sessionFocusTitle: {
+    color: "#f9fafb",
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    maxWidth: 520,
+  },
+  sessionFocusClockWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+  },
+  sessionFocusFooter: {
+    alignItems: "center",
+    gap: 10,
+  },
+  sessionFocusHint: {
+    color: "#6b7280",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  sessionHoldBtn: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#0b1220",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sessionHoldBtnPressed: {
+    borderColor: "#a5b4fc",
+  },
+  sessionHoldBtnFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(79,70,229,0.35)",
+  },
+  sessionHoldBtnText: {
+    color: "#e5e7eb",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   summary: {
     marginTop: 8,
     color: "#e5e7eb",

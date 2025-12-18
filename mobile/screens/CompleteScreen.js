@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import styles from "../../style";
 
 export default function CompleteScreen({
@@ -13,9 +14,18 @@ export default function CompleteScreen({
   onBreak,
   onEnd,
 }) {
+  const insets = useSafeAreaInsets();
   const breakdown = Array.isArray(session?.bonusBreakdown) ? session.bonusBreakdown : [];
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: 12 + (insets?.top ?? 0),
+          paddingBottom: 12 + (insets?.bottom ?? 0),
+        },
+      ]}
+    >
       <Text style={styles.title}>Session complete</Text>
       <Text style={styles.summary}>
         You focused on "{session.description}" for {session.durationMinutes} minutes.
