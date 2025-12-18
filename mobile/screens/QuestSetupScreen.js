@@ -7,7 +7,10 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  Pressable,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
 import { StandStatsChart } from "../StandStatsChart";
 import { BUILT_IN_QUEST_TEMPLATES, questStatsToChartStats } from "../core/questStorage";
@@ -38,6 +41,7 @@ export default function QuestSetupScreen({
   onEditQuest,
   onOpenQuestAction,
 }) {
+  const insets = useSafeAreaInsets();
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
   const [error, setError] = useState("");
@@ -199,13 +203,20 @@ export default function QuestSetupScreen({
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[
+        styles.container,
+        {
+          // Header is provided by the native stack (like Settings/Profile),
+          // so we only need bottom safe-area room for the big Begin CTA.
+          paddingTop: 12,
+          // Extra breathing room so the pill button never hugs the home indicator.
+          paddingBottom: 28 + (insets?.bottom ?? 0),
+        },
+      ]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
       <View style={{ flex: 1 }}>
-        <Text style={styles.title}>Pick your quest</Text>
-
         {/* Search input - always at top for easy access */}
         <View style={styles.block}>
           <View style={styles.inputRow}>
@@ -347,14 +358,43 @@ export default function QuestSetupScreen({
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
 
-      {/* Bottom buttons - always visible */}
-      <View style={styles.rowBetween}>
-        <TouchableOpacity style={styles.ghostBtn} onPress={onBack}>
-          <Text style={styles.ghostBtnText}>Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.primaryBtn} onPress={start}>
-          <Text style={styles.primaryBtnText}>Begin timer</Text>
-        </TouchableOpacity>
+      {/* iOS-ish: big centered primary CTA anchored at bottom */}
+      <View style={{ alignItems: "center", marginTop: 10, marginBottom: 14 }}>
+        <Pressable
+          onPress={start}
+          style={({ pressed }) => [
+            {
+              width: "100%",
+              maxWidth: 420,
+              height: 56,
+              borderRadius: 999,
+              backgroundColor: pressed ? "#4338ca" : "#4f46e5",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 10,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.08)",
+              ...(Platform.OS === "web"
+                ? { boxShadow: "0px 8px 18px rgba(79,70,229,0.35)" }
+                : {
+                    shadowColor: "#4f46e5",
+                    shadowOpacity: 0.35,
+                    shadowRadius: 14,
+                    shadowOffset: { width: 0, height: 8 },
+                    elevation: 8,
+                  }),
+            },
+            pressed && { transform: [{ scale: 0.99 }], opacity: 0.98 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Begin timer"
+        >
+          <Ionicons name="play" size={22} color="#f9fafb" />
+          <Text style={{ color: "#f9fafb", fontSize: 16, fontWeight: "800" }}>
+            Begin
+          </Text>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
