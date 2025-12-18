@@ -784,7 +784,7 @@ export default function AppShell() {
   }, [isSessionActive, currentSession, handleCancelSession]);
 
   function handleOpenNotifications() {
-    console.log("Notifications pressed");
+    // Hook for future analytics/haptics, intentionally no-op for now.
   }
 
   return (

@@ -15,12 +15,16 @@ export function SettingsSectionHeader({ title, subtitle }) {
 export function SettingsGroup({ rows = [] }) {
   return (
     <View style={styles.settingsGroup}>
-      {rows.map((row, idx) => (
-        <View key={row.key ?? idx}>
-          <SettingsRow {...row} />
-          {idx < rows.length - 1 ? <View style={styles.settingsCellSeparator} /> : null}
-        </View>
-      ))}
+      {rows.map((row, idx) => {
+        // React treats `key` as a special prop; don't spread it into SettingsRow.
+        const { key: rowKey, ...rowProps } = row || {};
+        return (
+          <View key={rowKey ?? idx}>
+            <SettingsRow {...rowProps} />
+            {idx < rows.length - 1 ? <View style={styles.settingsCellSeparator} /> : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
