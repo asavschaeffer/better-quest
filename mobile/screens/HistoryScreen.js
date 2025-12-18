@@ -31,7 +31,7 @@ function Chip({ label, onPress, active, highlighted }) {
 export default function HistoryScreen({ sessions }) {
   const [logStyle, setLogStyle] = useState("raw");
   const [copied, setCopied] = useState(false);
-  const [selectedPeriods, setSelectedPeriods] = useState(["day"]); // multi-select
+  const [selectedPeriod, setSelectedPeriod] = useState("week"); // single-select
 
   async function copyLog() {
     const text = buildLogText(logStyle, sessions);
@@ -44,52 +44,46 @@ export default function HistoryScreen({ sessions }) {
     }
   }
 
-  const togglePeriod = (id) => {
-    setSelectedPeriods((prev) => {
-      if (prev.includes(id)) {
-        const next = prev.filter((p) => p !== id);
-        return next.length ? next : ["day"];
-      }
-      return [...prev, id];
-    });
+  const selectPeriod = (id) => {
+    setSelectedPeriod(id);
   };
 
   const now = useMemo(() => new Date(), []);
 
-  const datasets = useMemo(() => {
-    const list = [];
-    selectedPeriods.forEach((id) => {
-      const def = PERIODS[id];
-      if (!def) return;
-      let filtered = sessions;
-      if (def.days) {
-        const start = new Date(now);
-        start.setDate(start.getDate() - def.days);
-        filtered = sessions.filter((s) => {
-          const d = new Date(s.completedAt || s.endTime || s.startTime);
-          return d >= start;
-        });
-      }
-      const exp = filtered.reduce((sum, s) => sum + (s.expResult?.totalExp || 0), 0);
-      const minutes = filtered.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
-      const gains = aggregateStandGains(filtered);
-      const chart = playerStatsToChartValues(gains);
-      list.push({
-        id,
-        label: def.label,
-        color: def.color,
-        fill: def.fill,
-        sessions: filtered,
-        exp,
-        minutes,
-        chart,
-        count: filtered.length,
-      });
-    });
-    return list;
-  }, [selectedPeriods, sessions, now]);
+  // Calculate data for the selected period
+  const periodData = useMemo(() => {
+    const def = PERIODS[selectedPeriod];
+    if (!def) return null;
 
-  const primary = datasets[0] || {
+    let filtered = sessions;
+    if (def.days) {
+      const start = new Date(now);
+      start.setDate(start.getDate() - def.days);
+      filtered = sessions.filter((s) => {
+        const d = new Date(s.completedAt || s.endTime || s.startTime);
+        return d >= start;
+      });
+    }
+
+    const exp = filtered.reduce((sum, s) => sum + (s.expResult?.totalExp || 0), 0);
+    const minutes = filtered.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+    const gains = aggregateStandGains(filtered);
+    const chart = playerStatsToChartValues(gains);
+
+    return {
+      id: selectedPeriod,
+      label: def.label,
+      color: def.color,
+      fill: def.fill,
+      sessions: filtered,
+      exp,
+      minutes,
+      chart,
+      count: filtered.length,
+    };
+  }, [selectedPeriod, sessions, now]);
+
+  const primary = periodData || {
     id: "all",
     label: "All",
     color: PERIODS.all.color,
@@ -101,35 +95,20 @@ export default function HistoryScreen({ sessions }) {
     count: sessions.length,
   };
 
-  // Group sessions by date for list rendering (use union of selected sessions)
-  const unionSessions = useMemo(() => {
-    const map = new Map();
-    datasets.forEach((d) => {
-      d.sessions.forEach((s) => map.set(s.id, s));
-    });
-    return Array.from(map.values());
-  }, [datasets]);
+  // Sessions for the selected period
+  const filteredSessions = primary.sessions;
 
   const groupedSessions = useMemo(() => {
     const groups = {};
-    unionSessions.forEach((session) => {
+    filteredSessions.forEach((session) => {
       const date = new Date(session.completedAt || session.endTime || session.startTime).toLocaleDateString();
       if (!groups[date]) groups[date] = [];
       groups[date].push(session);
     });
     return groups;
-  }, [unionSessions]);
+  }, [filteredSessions]);
 
-  const totalExp = datasets.reduce((sum, d) => sum + d.exp, 0);
-  const totalMinutes = datasets.reduce((sum, d) => sum + d.minutes, 0);
   const streakDays = computeStreakDays(sessions);
-  const overlays = datasets.slice(1).map((d) => ({
-    value: d.chart,
-    stroke: d.color,
-    fill: d.fill,
-    dash: "6,3",
-    strokeWidth: 2,
-  }));
 
   return (
     <View style={styles.screenContainer}>
@@ -144,13 +123,13 @@ export default function HistoryScreen({ sessions }) {
             <Chip
               key={id}
               label={def.label}
-              active={selectedPeriods.includes(id)}
-              onPress={() => togglePeriod(id)}
+              active={selectedPeriod === id}
+              onPress={() => selectPeriod(id)}
               highlighted
             />
           ))}
         </View>
-        {unionSessions.length > 0 && (
+        {filteredSessions.length > 0 && (
           <TouchableOpacity style={styles.exportBtn} onPress={copyLog}>
             <Text style={styles.exportBtnText}>{copied ? "Copied!" : "Copy log"}</Text>
           </TouchableOpacity>
@@ -164,17 +143,12 @@ export default function HistoryScreen({ sessions }) {
         hideOuterRing
         size={260}
         showTotalExp={primary.exp}
-        overlays={overlays}
       />
 
-      {/* Period stat echoes */}
-      <View style={styles.historyEchoList}>
-        {datasets.map((d) => (
-          <Text key={d.id} style={[styles.historyEchoItem, { color: d.color }]}>
-            {d.label}: {d.count} quests • {Math.round(d.minutes / 60)}h • {d.exp} EXP
-          </Text>
-        ))}
-      </View>
+      {/* Period summary */}
+      <Text style={[styles.historyEchoItem, { color: primary.color, textAlign: "center", marginTop: 8 }]}>
+        {primary.label}: {primary.count} quests • {Math.round(primary.minutes / 60)}h • {primary.exp} EXP
+      </Text>
 
       {/* Stats summary */}
       <View style={styles.historyStats}>
@@ -198,7 +172,7 @@ export default function HistoryScreen({ sessions }) {
 
       {/* Session list */}
       <ScrollView style={styles.historyList}>
-        {unionSessions.length === 0 ? (
+        {filteredSessions.length === 0 ? (
           <Text style={styles.emptyText}>No quests in this period. Start your journey!</Text>
         ) : (
           Object.entries(groupedSessions).map(([date, dateSessions]) => (
