@@ -3,15 +3,14 @@ import { View, StyleSheet, Platform } from "react-native";
 import { Canvas, useFrame } from "@react-three/fiber";
 
 // Simple cylinder body with googly eyes
-function CylinderAvatar({ accessories = [], lookAtChart = false, pose = "idle" }) {
+function CylinderAvatar({ accessories = [], lookAtChart = false, pose = "idle", animate = true }) {
   const groupRef = useRef();
 
-  // Gentle idle animation - slight bobbing and rotation
+  // Gentle idle animation - slight bobbing and rotation (only when animate=true)
   useFrame((state) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
-      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.05;
-    }
+    if (!animate || !groupRef.current) return;
+    groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+    groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.05;
   });
 
   const hasWand = accessories.includes("wand");
@@ -197,7 +196,7 @@ function Pedestal() {
 }
 
 // Main 3D Avatar component
-export function Avatar3D({ size = 200, accessories = [], lookAtChart = false, pose = "idle" }) {
+export function Avatar3D({ size = 200, accessories = [], lookAtChart = false, pose = "idle", animate = true }) {
   // For web, we use the canvas directly
   // For native, expo-gl handles the context
 
@@ -207,13 +206,14 @@ export function Avatar3D({ size = 200, accessories = [], lookAtChart = false, po
         camera={{ position: [0, 0.5, 3.5], fov: 50 }}
         style={styles.canvas}
         gl={{ antialias: true }}
+        frameloop={animate ? "always" : "demand"}
       >
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={0.8} />
         <directionalLight position={[-3, 2, -2]} intensity={0.3} color="#a5b4fc" />
 
         <Suspense fallback={null}>
-          <CylinderAvatar accessories={accessories} lookAtChart={lookAtChart} pose={pose} />
+          <CylinderAvatar accessories={accessories} lookAtChart={lookAtChart} pose={pose} animate={animate} />
           <Pedestal />
         </Suspense>
       </Canvas>
