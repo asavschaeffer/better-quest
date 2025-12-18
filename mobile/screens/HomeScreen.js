@@ -10,6 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { StandStatsChart } from "../StandStatsChart";
 import { Avatar3D } from "../Avatar3D";
+import NotificationsSheet from "../components/NotificationsSheet";
 import {
   getPlayerTitle,
   getUnlockedAccessories,
@@ -37,6 +38,7 @@ export default function HomeScreen({
 }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notificationsAnchorTop, setNotificationsAnchorTop] = useState(null);
 
   // Pick a random quote on mount (or cycle daily)
   const [quoteIndex] = useState(() => {
@@ -140,7 +142,14 @@ export default function HomeScreen({
   return (
     <View style={styles.homeContainer}>
       {/* Header Row: Username | Level + Title | Bell + Cog */}
-      <View style={styles.homeHeader}>
+      <View
+        style={styles.homeHeader}
+        onLayout={(e) => {
+          const { y, height } = e.nativeEvent.layout;
+          // Place notifications panel below this header.
+          setNotificationsAnchorTop(y + height + 6);
+        }}
+      >
         <Text style={styles.headerUsername}>{avatar.name}</Text>
         <View style={styles.headerCenter}>
           <Text style={styles.headerLevel}>Lv {avatar.level}</Text>
@@ -162,34 +171,12 @@ export default function HomeScreen({
         </View>
       </View>
 
-      {isNotificationsOpen && announcements.length > 0 && (
-        <View style={styles.notificationDropdownContainer} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.notificationBackdrop}
-            activeOpacity={1}
-            onPress={() => setIsNotificationsOpen(false)}
-          />
-          <View style={styles.notificationDropdown}>
-            <View style={styles.notificationDropdownHeader}>
-              <Text style={styles.notificationDropdownTitle}>Notifications</Text>
-              <TouchableOpacity
-                style={styles.notificationCloseBtn}
-                onPress={() => setIsNotificationsOpen(false)}
-              >
-                <Text style={styles.notificationCloseIcon}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.notificationList}>
-              {announcements.map((a) => (
-                <View key={a.id} style={styles.announcementCard}>
-                  <Text style={styles.announcementTitle}>{a.title}</Text>
-                  <Text style={styles.announcementBody}>{a.body}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      )}
+      <NotificationsSheet
+        visible={isNotificationsOpen}
+        announcements={announcements}
+        onClose={() => setIsNotificationsOpen(false)}
+        anchorTop={notificationsAnchorTop}
+      />
 
       {/* Stage: Chart as background, Avatar roams in foreground */}
       <View style={[styles.stage, { height: stageHeight }]}>
