@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
 import { BUILT_IN_QUEST_TEMPLATES } from "../core/questStorage";
 import { getQuestStatTotal } from "../core/models";
@@ -13,8 +14,13 @@ export default function LibraryScreen({ userQuests = [], onSelectQuest, onCreate
     <View style={styles.screenContainer}>
       <View style={styles.screenHeader}>
         <Text style={styles.screenTitle}>Quest Library</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={onCreateQuest}>
-          <Text style={styles.addBtnText}>+ New</Text>
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={onCreateQuest}
+          accessibilityRole="button"
+          accessibilityLabel="New quest"
+        >
+          <Ionicons name="add-circle" size={28} color="#a5b4fc" />
         </TouchableOpacity>
       </View>
       <ScrollView style={styles.questLibraryList}>
@@ -34,7 +40,7 @@ export default function LibraryScreen({ userQuests = [], onSelectQuest, onCreate
                   {quest.defaultDurationMinutes}m • {getQuestStatTotal(quest.stats)} pts
                 </Text>
               </View>
-              <Text style={styles.libraryQuestArrow}>→</Text>
+              <Ionicons name="chevron-forward" size={18} color="#64748b" />
             </TouchableOpacity>
           ))
         )}

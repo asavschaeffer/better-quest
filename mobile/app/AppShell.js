@@ -198,17 +198,12 @@ function TabsNavigator() {
     const bottom = Math.max(0, insets?.bottom ?? 0);
     // iOS-feeling sizing: keep the bar "tall enough" and pad to clear the home indicator.
     return {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
       backgroundColor: "#0b1220",
       borderTopColor: "#1f2937",
       borderTopWidth: 1,
       height: 56 + bottom,
       paddingBottom: bottom,
       paddingTop: 8,
-      overflow: "visible",
     };
   }, [insets]);
 

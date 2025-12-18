@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
 
 function Chip({ label, onPress, active }) {
@@ -130,6 +131,7 @@ export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile
             <Text style={styles.leaderboardExp}>
               {metric === "exp" ? `${player.exp}` : `${Math.round((player.minutes || 0) / 60)}h`}
             </Text>
+            <Ionicons name="chevron-forward" size={16} color="#64748b" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         ))}
       </View>
