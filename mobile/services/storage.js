@@ -1,16 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 7;
+const CURRENT_VERSION = 8;
 
 const migrations = {
-  // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
+  // v1 -> v2: normalize quickstart prefs
   1: (state) => {
     const next = { ...state };
-    next.homeFooterConfig = {
-      showCompletedToday: state.homeFooterConfig?.showCompletedToday ?? true,
-      showUpcoming: state.homeFooterConfig?.showUpcoming ?? true,
-    };
     if (state.quickStartMode !== "instant" && state.quickStartMode !== "picker") {
       next.quickStartMode = "picker";
     }
@@ -59,6 +55,12 @@ const migrations = {
     next.inAppAnnouncementsEnabled = state.inAppAnnouncementsEnabled ?? true;
     return next;
   },
+  // v7 -> v8: remove obsolete homeFooterConfig (was used for an old Home footer UI)
+  7: (state) => {
+    const next = { ...state };
+    if ("homeFooterConfig" in next) delete next.homeFooterConfig;
+    return next;
+  },
 };
 
 function defaultState() {
@@ -74,7 +76,6 @@ function defaultState() {
     questStreaks: {},
     comboFromSessionId: null,
     wellRestedUntil: null,
-    homeFooterConfig: { showCompletedToday: true, showUpcoming: true },
     quickStartMode: "picker",
     pickerDefaultMode: "top",
     postSaveBehavior: "library",

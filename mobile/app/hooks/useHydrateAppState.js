@@ -47,12 +47,6 @@ export function useHydrateAppState(actions) {
         if (persisted.fatigueAdaptDay) {
           actions.setFatigueAdaptDay(persisted.fatigueAdaptDay);
         }
-        if (persisted.homeFooterConfig) {
-          actions.setHomeFooterConfig({
-            showCompletedToday: persisted.homeFooterConfig.showCompletedToday ?? true,
-            showUpcoming: persisted.homeFooterConfig.showUpcoming ?? true,
-          });
-        }
         if (persisted.quickStartMode === "instant" || persisted.quickStartMode === "picker") {
           actions.setQuickStartMode(persisted.quickStartMode);
         }

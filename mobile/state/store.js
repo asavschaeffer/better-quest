@@ -40,8 +40,6 @@ export function AppStateProvider({ children, initialState }) {
       setFatigueAdaptNext: (value) =>
         dispatch({ type: "SET_FIELD", key: "fatigueAdaptNext", value }),
       setFatigueAdaptDay: (value) => dispatch({ type: "SET_FIELD", key: "fatigueAdaptDay", value }),
-      setHomeFooterConfig: (value) =>
-        dispatch({ type: "SET_FIELD", key: "homeFooterConfig", value }),
       setQuickStartMode: (value) =>
         dispatch({ type: "SET_FIELD", key: "quickStartMode", value }),
       setPickerDefaultMode: (value) =>
@@ -102,7 +100,6 @@ export function usePreferences() {
   const state = useAppState();
   return {
     motivation: state.motivation,
-    homeFooterConfig: state.homeFooterConfig,
     quickStartMode: state.quickStartMode,
     pickerDefaultMode: state.pickerDefaultMode,
     postSaveBehavior: state.postSaveBehavior,
