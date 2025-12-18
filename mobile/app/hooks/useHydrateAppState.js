@@ -70,6 +70,9 @@ export function useHydrateAppState(actions) {
         if (typeof persisted.includeBuiltInQuotes === "boolean") {
           actions.setIncludeBuiltInQuotes(persisted.includeBuiltInQuotes);
         }
+        if (typeof persisted.inAppAnnouncementsEnabled === "boolean") {
+          actions.setInAppAnnouncementsEnabled(persisted.inAppAnnouncementsEnabled);
+        }
 
         // Load user quests
         const quests = await loadUserQuests();

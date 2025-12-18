@@ -52,6 +52,8 @@ export function AppStateProvider({ children, initialState }) {
         dispatch({ type: "SET_FIELD", key: "userQuotes", value }),
       setIncludeBuiltInQuotes: (value) =>
         dispatch({ type: "SET_FIELD", key: "includeBuiltInQuotes", value }),
+      setInAppAnnouncementsEnabled: (value) =>
+        dispatch({ type: "SET_FIELD", key: "inAppAnnouncementsEnabled", value }),
       merge: (payload) => dispatch({ type: "MERGE", payload }),
     }),
     [],
@@ -104,6 +106,7 @@ export function usePreferences() {
     quickStartMode: state.quickStartMode,
     pickerDefaultMode: state.pickerDefaultMode,
     postSaveBehavior: state.postSaveBehavior,
+    inAppAnnouncementsEnabled: state.inAppAnnouncementsEnabled ?? true,
   };
 }
 

@@ -23,6 +23,7 @@ export function usePersistAppState(state) {
         postSaveBehavior: state.postSaveBehavior,
         userQuotes: state.userQuotes,
         includeBuiltInQuotes: state.includeBuiltInQuotes,
+        inAppAnnouncementsEnabled: state.inAppAnnouncementsEnabled,
       });
     };
     save();
@@ -43,6 +44,7 @@ export function usePersistAppState(state) {
     state.postSaveBehavior,
     state.userQuotes,
     state.includeBuiltInQuotes,
+    state.inAppAnnouncementsEnabled,
   ]);
 }
 

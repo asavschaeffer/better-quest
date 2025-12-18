@@ -133,6 +133,7 @@ function HomeTab() {
             fatigueOverlayStats={ctx.fatigueOverlayStats}
             onOpenSettings={() => ctx.nav(ROUTES.SETTINGS)}
             onOpenNotifications={ctx.handleOpenNotifications}
+            inAppAnnouncementsEnabled={ctx.inAppAnnouncementsEnabled}
             announcements={ctx.announcements}
             quotes={ctx.quotes}
           />
@@ -322,6 +323,8 @@ function SettingsRootScreen() {
       onAddQuote={ctx.handleAddQuote}
       onDeleteQuote={ctx.handleDeleteQuote}
       onToggleBuiltInQuotes={ctx.handleToggleBuiltInQuotes}
+      inAppAnnouncementsEnabled={ctx.inAppAnnouncementsEnabled}
+      onUpdateInAppAnnouncementsEnabled={ctx.handleToggleInAppAnnouncementsEnabled}
     />
   );
 }
@@ -348,6 +351,7 @@ export default function AppShell() {
     postSaveBehavior,
     userQuotes,
     includeBuiltInQuotes,
+    inAppAnnouncementsEnabled,
   } = useAppState();
   const {
     setUser,
@@ -366,6 +370,7 @@ export default function AppShell() {
     setPostSaveBehavior,
     setUserQuotes,
     setIncludeBuiltInQuotes,
+    setInAppAnnouncementsEnabled,
   } = useAppActions();
 
   const [currentSession, setCurrentSession] = useState(null);
@@ -558,6 +563,11 @@ export default function AppShell() {
 
   function handleToggleBuiltInQuotes(enabled) {
     setIncludeBuiltInQuotes(enabled);
+  }
+
+  function handleToggleInAppAnnouncementsEnabled(enabled) {
+    setInAppAnnouncementsEnabled(enabled);
+    showToast(enabled ? "Announcements enabled" : "Announcements disabled");
   }
 
   function handleStartSession({ description, durationMinutes, allocation, questKey = null }) {
@@ -805,6 +815,7 @@ export default function AppShell() {
                 userQuests,
                 handleOpenNotifications,
                 showToast,
+                inAppAnnouncementsEnabled: inAppAnnouncementsEnabled ?? true,
                 // Settings
                 quickStartMode,
                 pickerDefaultMode,
@@ -844,6 +855,7 @@ export default function AppShell() {
                 handleAddQuote,
                 handleDeleteQuote,
                 handleToggleBuiltInQuotes,
+                handleToggleInAppAnnouncementsEnabled,
               }),
               [
                 nav,
@@ -857,6 +869,7 @@ export default function AppShell() {
                 handleOpenNotifications,
                 showToast,
                 homeFooterConfig,
+                inAppAnnouncementsEnabled,
                 quickStartMode,
                 pickerDefaultMode,
                 postSaveBehavior,
@@ -869,9 +882,11 @@ export default function AppShell() {
                 setPickerDefaultMode,
                 setPostSaveBehavior,
                 setSunriseTimeLocal,
+                setInAppAnnouncementsEnabled,
                 handleAddQuote,
                 handleDeleteQuote,
                 handleToggleBuiltInQuotes,
+                handleToggleInAppAnnouncementsEnabled,
               ],
             )}
           >

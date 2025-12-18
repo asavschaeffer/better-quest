@@ -34,6 +34,7 @@ export default function HomeScreen({
   fatigueOverlayStats,
   onOpenSettings,
   onOpenNotifications,
+  inAppAnnouncementsEnabled = true,
   quotes = DEFAULT_QUOTES,
   announcements = [],
 }) {
@@ -62,12 +63,17 @@ export default function HomeScreen({
   const chartSize = Math.min(200, stageWidth * 0.38);
 
   useEffect(() => {
+    if (!inAppAnnouncementsEnabled && isNotificationsOpen) {
+      setIsNotificationsOpen(false);
+      return;
+    }
     if (!announcements.length && isNotificationsOpen) {
       setIsNotificationsOpen(false);
     }
-  }, [announcements.length, isNotificationsOpen]);
+  }, [announcements.length, inAppAnnouncementsEnabled, isNotificationsOpen]);
 
   function handleNotificationsPress() {
+    if (!inAppAnnouncementsEnabled) return;
     if (announcements.length === 0) {
       return;
     }
@@ -157,14 +163,16 @@ export default function HomeScreen({
           <Text style={styles.headerTitle}>{playerTitle}</Text>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={handleNotificationsPress}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-          >
-            <Ionicons name="notifications-outline" size={22} color="#e5e7eb" />
-          </TouchableOpacity>
+          {inAppAnnouncementsEnabled ? (
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={handleNotificationsPress}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+            >
+              <Ionicons name="notifications-outline" size={22} color="#e5e7eb" />
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             style={styles.headerIconBtn}
             onPress={onOpenSettings}
@@ -177,7 +185,7 @@ export default function HomeScreen({
       </View>
 
       <NotificationsSheet
-        visible={isNotificationsOpen}
+        visible={inAppAnnouncementsEnabled && isNotificationsOpen}
         announcements={announcements}
         onClose={() => setIsNotificationsOpen(false)}
         anchorTop={notificationsAnchorTop}

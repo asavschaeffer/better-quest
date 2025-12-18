@@ -15,6 +15,8 @@ export default function SettingsScreen({
   sunriseTimeLocal = "06:30",
   onUpdateSunriseTimeLocal,
   showToast,
+  inAppAnnouncementsEnabled = true,
+  onUpdateInAppAnnouncementsEnabled,
   // Quote props
   userQuotes = [],
   includeBuiltInQuotes = true,
@@ -303,8 +305,10 @@ export default function SettingsScreen({
                 label: "In-app announcements",
                 icon: "notifications-outline",
                 iconBg: "#f59e0b",
-                disabled: true,
-                right: <Text style={styles.settingsCellRightText}>Enabled</Text>,
+                onPress: () => onUpdateInAppAnnouncementsEnabled?.(!inAppAnnouncementsEnabled),
+                right: inAppAnnouncementsEnabled ? (
+                  <Text style={styles.settingsCellRightCheck}>✓</Text>
+                ) : null,
               },
               {
                 key: "notifs-push",
@@ -376,11 +380,13 @@ export default function SettingsScreen({
     ];
   }, [
     includeBuiltInQuotes,
+    inAppAnnouncementsEnabled,
     localSunrise,
     name,
     newQuote,
     onDeleteQuote,
     onToggleBuiltInQuotes,
+    onUpdateInAppAnnouncementsEnabled,
     onUpdatePickerDefaultMode,
     onUpdatePostSaveBehavior,
     onUpdateQuickStartMode,

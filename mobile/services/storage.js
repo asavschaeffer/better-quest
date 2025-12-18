@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 7;
 
 const migrations = {
   // v1 -> v2: ensure homeFooterConfig flags default to true, normalize quickstart prefs
@@ -53,6 +53,12 @@ const migrations = {
     }
     return next;
   },
+  // v6 -> v7: add in-app announcements toggle (default enabled)
+  6: (state) => {
+    const next = { ...state };
+    next.inAppAnnouncementsEnabled = state.inAppAnnouncementsEnabled ?? true;
+    return next;
+  },
 };
 
 function defaultState() {
@@ -74,6 +80,8 @@ function defaultState() {
     postSaveBehavior: "library",
     userQuotes: [],
     includeBuiltInQuotes: true,
+    // In-app announcements (controls the 🔔 on Home + the in-app notifications sheet)
+    inAppAnnouncementsEnabled: true,
     // Manual sunrise time in local clock (HH:MM). Used for Brahma Muhurta bonus.
     // TODO: Replace with auto sunrise via location/timezone + sunrise calculation or API.
     sunriseTimeLocal: "06:30",
