@@ -6,8 +6,6 @@ import { SettingsGroup, SettingsSectionHeader } from "../components/SettingsCell
 export default function SettingsScreen({
   avatar,
   onUpdateAvatar,
-  footerConfig,
-  onUpdateFooterConfig,
   quickStartMode,
   onUpdateQuickStartMode,
   pickerDefaultMode = "top",
@@ -26,14 +24,8 @@ export default function SettingsScreen({
 }) {
   const [name, setName] = useState(avatar.name);
   const [localSunrise, setLocalSunrise] = useState(sunriseTimeLocal);
-  const [localFooterConfig, setLocalFooterConfig] = useState(
-    footerConfig || { showCompletedToday: true, showUpcoming: true }
-  );
   const [newQuote, setNewQuote] = useState("");
 
-  useEffect(() => {
-    setLocalFooterConfig(footerConfig);
-  }, [footerConfig]);
   useEffect(() => {
     setName(avatar.name);
   }, [avatar.name]);
@@ -46,12 +38,6 @@ export default function SettingsScreen({
       onUpdateAvatar({ name: name.trim() });
       showToast?.("Saved");
     }
-  }
-
-  function toggleFooter(key) {
-    const next = { ...localFooterConfig, [key]: !localFooterConfig[key] };
-    setLocalFooterConfig(next);
-    onUpdateFooterConfig(next);
   }
 
   function handleAddQuote() {
@@ -89,12 +75,16 @@ export default function SettingsScreen({
     quoteRows.push({
       key: "includeBuiltInQuotes",
       label: "Include built-in quotes",
+      icon: "chatbubbles-outline",
+      iconBg: "#22c55e",
       onPress: () => onToggleBuiltInQuotes?.(!includeBuiltInQuotes),
       right: includeBuiltInQuotes ? <Text style={styles.settingsCellRightCheck}>✓</Text> : null,
     });
     quoteRows.push({
       key: "addQuote",
       label: "Add a quote",
+      icon: "add-outline",
+      iconBg: "#3b82f6",
       right: (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TextInput
@@ -120,6 +110,8 @@ export default function SettingsScreen({
         quoteRows.push({
           key: `quote-${q.id}`,
           label: q.text,
+          icon: "chatbubble-ellipses-outline",
+          iconBg: "#64748b",
           right: (
             <TouchableOpacity
               style={styles.settingsQuoteDelete}
@@ -148,6 +140,8 @@ export default function SettingsScreen({
               {
                 key: "sunrise",
                 label: "Sunrise",
+                icon: "sunny-outline",
+                iconBg: "#f59e0b",
                 disabled: true,
                 right: (
                   <TextInput
@@ -176,6 +170,8 @@ export default function SettingsScreen({
               {
                 key: "name",
                 label: "Name",
+                icon: "person-outline",
+                iconBg: "#3b82f6",
                 disabled: true,
                 right: (
                   <TextInput
@@ -203,6 +199,8 @@ export default function SettingsScreen({
               {
                 key: "qs-picker",
                 label: "Show quest picker",
+                icon: "list-outline",
+                iconBg: "#8b5cf6",
                 onPress: () => onUpdateQuickStartMode?.("picker"),
                 right: quickStartMode === "picker" ? (
                   <Text style={styles.settingsCellRightCheck}>✓</Text>
@@ -211,6 +209,8 @@ export default function SettingsScreen({
               {
                 key: "qs-instant",
                 label: "Instant start: top suggestion",
+                icon: "flash-outline",
+                iconBg: "#f97316",
                 onPress: () => onUpdateQuickStartMode?.("instant"),
                 right: quickStartMode === "instant" ? (
                   <Text style={styles.settingsCellRightCheck}>✓</Text>
@@ -231,6 +231,8 @@ export default function SettingsScreen({
               {
                 key: "picker-top",
                 label: "Preselect top suggestion",
+                icon: "sparkles-outline",
+                iconBg: "#22c55e",
                 onPress: () => onUpdatePickerDefaultMode?.("top"),
                 right: pickerDefaultMode === "top" ? (
                   <Text style={styles.settingsCellRightCheck}>✓</Text>
@@ -239,6 +241,8 @@ export default function SettingsScreen({
               {
                 key: "picker-blank",
                 label: "Start blank",
+                icon: "create-outline",
+                iconBg: "#64748b",
                 onPress: () => onUpdatePickerDefaultMode?.("blank"),
                 right: pickerDefaultMode === "blank" ? (
                   <Text style={styles.settingsCellRightCheck}>✓</Text>
@@ -259,6 +263,8 @@ export default function SettingsScreen({
               {
                 key: "postsave-library",
                 label: "Stay in Library",
+                icon: "folder-outline",
+                iconBg: "#0ea5e9",
                 onPress: () => onUpdatePostSaveBehavior?.("library"),
                 right: postSaveBehavior === "library" ? (
                   <Text style={styles.settingsCellRightCheck}>✓</Text>
@@ -267,6 +273,8 @@ export default function SettingsScreen({
               {
                 key: "postsave-picker",
                 label: "Jump to picker with quest selected",
+                icon: "arrow-forward-outline",
+                iconBg: "#a855f7",
                 onPress: () => onUpdatePostSaveBehavior?.("picker"),
                 right: postSaveBehavior === "picker" ? (
                   <Text style={styles.settingsCellRightCheck}>✓</Text>
@@ -283,28 +291,56 @@ export default function SettingsScreen({
         data: [{ key: "quotes-group", rows: quoteRows }],
       },
       {
-        key: "home-footer",
-        title: "Home Footer Content",
-        subtitle: "Choose what appears under the stage on the home screen.",
+        key: "notifications",
+        title: "Notifications",
+        subtitle: "In-app announcements and future push notifications.",
         data: [
           {
-            key: "footer-group",
+            key: "notifications-group",
             rows: [
               {
-                key: "footer-completed",
-                label: "Show completed quests today",
-                onPress: () => toggleFooter("showCompletedToday"),
-                right: localFooterConfig.showCompletedToday ? (
-                  <Text style={styles.settingsCellRightCheck}>✓</Text>
-                ) : null,
+                key: "notifs-inapp",
+                label: "In-app announcements",
+                icon: "notifications-outline",
+                iconBg: "#f59e0b",
+                disabled: true,
+                right: <Text style={styles.settingsCellRightText}>Enabled</Text>,
               },
               {
-                key: "footer-upcoming",
-                label: "Show important upcoming quests",
-                onPress: () => toggleFooter("showUpcoming"),
-                right: localFooterConfig.showUpcoming ? (
-                  <Text style={styles.settingsCellRightCheck}>✓</Text>
-                ) : null,
+                key: "notifs-push",
+                label: "Push notifications",
+                icon: "phone-portrait-outline",
+                iconBg: "#64748b",
+                disabled: true,
+                right: <Text style={styles.settingsCellRightText}>Coming soon</Text>,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        key: "data",
+        title: "Data",
+        subtitle: "Export or reset your local data.",
+        data: [
+          {
+            key: "data-group",
+            rows: [
+              {
+                key: "data-export",
+                label: "Export sessions",
+                icon: "download-outline",
+                iconBg: "#0ea5e9",
+                disabled: true,
+                right: <Text style={styles.settingsCellRightText}>Coming soon</Text>,
+              },
+              {
+                key: "data-reset",
+                label: "Reset app data",
+                icon: "trash-outline",
+                iconBg: "#ef4444",
+                disabled: true,
+                right: <Text style={styles.settingsCellRightText}>Coming soon</Text>,
               },
             ],
           },
@@ -320,12 +356,16 @@ export default function SettingsScreen({
               {
                 key: "about-version",
                 label: "Version",
+                icon: "information-circle-outline",
+                iconBg: "#64748b",
                 disabled: true,
                 right: <Text style={styles.settingsCellRightText}>0.1</Text>,
               },
               {
                 key: "about-tagline",
                 label: "Tagline",
+                icon: "heart-outline",
+                iconBg: "#ef4444",
                 disabled: true,
                 right: <Text style={styles.settingsCellRightText}>Turn your life into an RPG</Text>,
               },
@@ -336,7 +376,6 @@ export default function SettingsScreen({
     ];
   }, [
     includeBuiltInQuotes,
-    localFooterConfig,
     localSunrise,
     name,
     newQuote,
@@ -351,7 +390,6 @@ export default function SettingsScreen({
     quickStartMode,
     showToast,
     sunriseTimeLocal,
-    toggleFooter,
     userQuotes,
   ]);
 

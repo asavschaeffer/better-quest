@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
 
 export function SettingsSectionHeader({ title, subtitle }) {
@@ -24,7 +25,15 @@ export function SettingsGroup({ rows = [] }) {
   );
 }
 
-export function SettingsRow({ label, right, onPress, disabled }) {
+export function SettingsRow({
+  label,
+  right,
+  onPress,
+  disabled,
+  icon,
+  iconBg,
+  iconColor,
+}) {
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress
     ? { onPress, activeOpacity: 0.7, disabled: !!disabled }
@@ -32,6 +41,11 @@ export function SettingsRow({ label, right, onPress, disabled }) {
 
   return (
     <Wrapper style={styles.settingsCell} {...wrapperProps}>
+      {icon ? (
+        <View style={[styles.settingsCellIconWrap, iconBg ? { backgroundColor: iconBg } : null]}>
+          <Ionicons name={icon} size={16} color={iconColor || "#f9fafb"} />
+        </View>
+      ) : null}
       <Text style={styles.settingsCellLabel}>{label}</Text>
       <View style={styles.settingsCellRight}>{right}</View>
     </Wrapper>

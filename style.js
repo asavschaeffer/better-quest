@@ -1132,6 +1132,15 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 44,
   },
+  settingsCellIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    backgroundColor: "#334155",
+  },
   settingsCellLabel: {
     color: "#e5e7eb",
     fontSize: 14,

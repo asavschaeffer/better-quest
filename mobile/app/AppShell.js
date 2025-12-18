@@ -308,8 +308,6 @@ function SettingsRootScreen() {
     <SettingsScreen
       avatar={ctx.avatar}
       onUpdateAvatar={ctx.onUpdateAvatar}
-      footerConfig={ctx.homeFooterConfig}
-      onUpdateFooterConfig={ctx.onUpdateFooterConfig}
       quickStartMode={ctx.quickStartMode}
       pickerDefaultMode={ctx.pickerDefaultMode}
       postSaveBehavior={ctx.postSaveBehavior}
@@ -808,7 +806,6 @@ export default function AppShell() {
                 handleOpenNotifications,
                 showToast,
                 // Settings
-                homeFooterConfig,
                 quickStartMode,
                 pickerDefaultMode,
                 postSaveBehavior,
@@ -820,10 +817,6 @@ export default function AppShell() {
                     ...prev,
                     avatar: { ...prev.avatar, ...updates },
                   }));
-                  showToast("Saved");
-                },
-                onUpdateFooterConfig: (next) => {
-                  setHomeFooterConfig(next);
                   showToast("Saved");
                 },
                 onUpdateQuickStartMode: (mode) => {
