@@ -842,7 +842,8 @@ export const styles = StyleSheet.create({
     backgroundColor: "#4f46e5",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -20,
+    // Lift above the tab bar, like a centered action button on iOS.
+    transform: [{ translateY: -20 }],
     ...(Platform.OS === "web"
       ? { boxShadow: "0px 4px 8px rgba(79,70,229,0.4)" }
       : {
@@ -853,7 +854,7 @@ export const styles = StyleSheet.create({
         }),
     elevation: 8,
     borderWidth: 3,
-    borderColor: "#0f172a",
+    borderColor: "#0b1220",
   },
   navBigButtonIcon: {
     fontSize: 28,

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState, useCallback, useContext } from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
+import { Platform, Text, TouchableOpacity, View, Pressable } from "react-native";
+import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { enableScreens } from "react-native-screens";
+import { Ionicons } from "@expo/vector-icons";
 
 import {
   CommonActions,
@@ -88,8 +89,6 @@ const TAB_ROUTES = {
   HISTORY: "HistoryTab",
   RANK: "RankTab",
 };
-
-const TAB_BAR_STYLE = { backgroundColor: "#0f172a", borderTopColor: "#1f2937" };
 
 const AppShellContext = React.createContext(null);
 
@@ -193,26 +192,76 @@ function RankTab() {
 
 function TabsNavigator() {
   const ctx = useContext(AppShellContext);
+  const insets = useSafeAreaInsets();
+
+  const tabBarStyle = useMemo(() => {
+    const bottom = Math.max(0, insets?.bottom ?? 0);
+    // iOS-feeling sizing: keep the bar "tall enough" and pad to clear the home indicator.
+    return {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "#0b1220",
+      borderTopColor: "#1f2937",
+      borderTopWidth: 1,
+      height: 56 + bottom,
+      paddingBottom: bottom,
+      paddingTop: 8,
+      overflow: "visible",
+    };
+  }, [insets]);
+
+  function TabCenterButton({ onPress, accessibilityLabel }) {
+    return (
+      <View style={{ flex: 1, alignItems: "center" }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.navBigButton,
+            pressed && { transform: [{ translateY: -20 }, { scale: 0.98 }], opacity: 0.95 },
+          ]}
+        >
+          <Ionicons name="play" size={26} color="#f9fafb" />
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: TAB_BAR_STYLE,
+        tabBarStyle,
         tabBarActiveTintColor: "#a5b4fc",
         tabBarInactiveTintColor: "#6b7280",
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginBottom: 2 },
+        tabBarIconStyle: { marginTop: 2 },
+        tabBarItemStyle: { justifyContent: "center" },
         sceneContainerStyle: { backgroundColor: NAV_BG },
       }}
     >
       <Tab.Screen
         name={TAB_ROUTES.HOME}
         component={HomeTab}
-        options={{ title: "Home", tabBarIcon: () => <Text>🏠</Text> }}
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name={TAB_ROUTES.LIBRARY}
         component={LibraryTab}
-        options={{ title: "Library", tabBarIcon: () => <Text>📚</Text> }}
+        options={{
+          title: "Library",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "book" : "book-outline"} size={24} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name={TAB_ROUTES.QUEST_ACTION}
@@ -220,14 +269,11 @@ function TabsNavigator() {
         options={{
           title: "",
           tabBarLabel: "",
-          tabBarButton: (props) => (
-            <TouchableOpacity
-              {...props}
-              style={styles.navBigButton}
+          tabBarButton: () => (
+            <TabCenterButton
+              accessibilityLabel="Start quest"
               onPress={() => ctx.nav(ROUTES.QUEST_SETUP)}
-            >
-              <Text style={styles.navBigButtonIcon}>⚔️</Text>
-            </TouchableOpacity>
+            />
           ),
         }}
         listeners={{
@@ -240,12 +286,22 @@ function TabsNavigator() {
       <Tab.Screen
         name={TAB_ROUTES.HISTORY}
         component={HistoryTab}
-        options={{ title: "History", tabBarIcon: () => <Text>📜</Text> }}
+        options={{
+          title: "History",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "time" : "time-outline"} size={24} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name={TAB_ROUTES.RANK}
         component={RankTab}
-        options={{ title: "Rank", tabBarIcon: () => <Text>🏆</Text> }}
+        options={{
+          title: "Rank",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "podium" : "podium-outline"} size={24} color={color} />
+          ),
+        }}
       />
     </Tab.Navigator>
   );
@@ -741,7 +797,7 @@ export default function AppShell() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={["top"]}>
           <StatusBar style="light" />
           <AppShellContext.Provider
             value={useMemo(
