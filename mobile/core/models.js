@@ -83,7 +83,7 @@ export function createTaskSession({
  * @param {string[]} [params.keywords] - Tags for search/ranking
  * @param {object} [params.action] - Quick launch action { type: "url"|"app", value: string }
  * @param {string} [params.icon] - Ionicons glyph name (e.g. "book-outline") or null
- * @param {string} [params.imageUri] - App-local file URI for quest image or null
+ * @param {string} [params.imageUri] - Quest image URI (app-local file://... or remote https://...) or null
  * @param {string} [params.authorName] - Display name of quest author
  * @returns {object} Quest object
  */

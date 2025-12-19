@@ -13,6 +13,7 @@ import {
   STAT_KEYS,
 } from "../core/models";
 import { deleteQuestImageAsync, persistQuestImageAsync } from "../core/questStorage";
+import { getAutoImageUriForAction, isAutoPreviewImageUri } from "../core/linkPreviews";
 
 // Curated icon set for quest icons
 const QUEST_ICON_OPTIONS = [
@@ -83,6 +84,22 @@ export default function NewQuestScreen({
       setStats(suggested);
     }
   }, [label, isEditing]);
+
+  // Auto-derive cover image from supported URLs (YouTube) when the user hasn't picked a custom image.
+  useEffect(() => {
+    const auto = getAutoImageUriForAction(action);
+
+    // If there's no custom image yet (or current is an auto preview), refresh it from the URL.
+    if (auto && (!imageUri || isAutoPreviewImageUri(imageUri))) {
+      setImageUri(auto);
+      return;
+    }
+
+    // If the action is no longer supported, and we were only showing an auto preview, clear it.
+    if (!auto && isAutoPreviewImageUri(imageUri)) {
+      setImageUri(null);
+    }
+  }, [action, imageUri]);
 
   async function pickImage() {
     try {
