@@ -178,13 +178,19 @@ function QuestEditorScreen({
   const isFirstInQuestFlow =
     typeof questState?.index === "number" ? questState.index === 0 : !questNav.canGoBack();
 
+  const latestDraftRef = React.useRef(draft);
+  useEffect(() => {
+    latestDraftRef.current = draft;
+  }, [draft]);
+
   async function handleSave() {
-    if (!draft?.quest) return;
-    const updated = await addUserQuest(draft.quest);
+    const current = latestDraftRef.current;
+    if (!current?.quest) return;
+    const updated = await addUserQuest(current.quest);
     setUserQuests(updated);
     showToast("Quest saved");
     if (postSaveBehavior === "picker") {
-      setPendingQuestSelection(draft.quest);
+      setPendingQuestSelection(current.quest);
       questNav.reset({ index: 0, routes: [{ name: ROUTES.QUEST_SETUP }] });
       return;
     }
@@ -202,18 +208,19 @@ function QuestEditorScreen({
   }
 
   async function handleSaveAndStart() {
-    if (!draft?.quest) return;
-    const updated = await addUserQuest(draft.quest);
+    const current = latestDraftRef.current;
+    if (!current?.quest) return;
+    const updated = await addUserQuest(current.quest);
     setUserQuests(updated);
-    if (draft.quest.action) {
-      openQuestAction(draft.quest.action);
+    if (current.quest.action) {
+      openQuestAction(current.quest.action);
     }
     handleStartSession({
-      description: draft.quest.label,
-      durationMinutes: draft.quest.defaultDurationMinutes,
-      allocation: draft.quest.stats,
-      questAction: draft.quest.action,
-      questKey: draft.quest.id || draft.quest.label || null,
+      description: current.quest.label,
+      durationMinutes: current.quest.defaultDurationMinutes,
+      allocation: current.quest.stats,
+      questAction: current.quest.action,
+      questKey: current.quest.id || current.quest.label || null,
     });
   }
 
@@ -235,16 +242,6 @@ function QuestEditorScreen({
         : undefined,
       headerRight: () => (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          {isEditing ? (
-            <Pressable
-              onPress={handleDelete}
-              hitSlop={10}
-              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-            >
-              <Ionicons name="trash-outline" size={20} color="#fb7185" />
-            </Pressable>
-          ) : null}
-
           {!isEditing ? (
             <Pressable
               onPress={handleSaveAndStart}
@@ -280,6 +277,7 @@ function QuestEditorScreen({
       initialName={initialName}
       editQuest={editQuest}
       onChange={(next) => setDraft(next)}
+      onDelete={handleDelete}
     />
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Alert } from "react-native";
 import styles from "../../style";
 import { QuestStatsWheel } from "../QuestStatsWheel";
 import { QuickLaunchEditor } from "../QuickLaunchEditor";
@@ -19,6 +19,7 @@ export default function NewQuestScreen({
   // Navigation + actions are now handled in the native header (QuestStack screen options).
   // This screen just renders the form and reports validation errors.
   onChange,
+  onDelete,
 }) {
   const isEditing = !!editQuest;
 
@@ -98,6 +99,22 @@ export default function NewQuestScreen({
   }, [label, description, duration, customDuration, stats, keywords, action]);
 
   const statTotal = getQuestStatTotal(stats);
+
+  function confirmDelete() {
+    const labelText = (editQuest?.label || "this quest").trim();
+    const message = `Delete "${labelText}"? This can't be undone.`;
+
+    if (Platform.OS === "web") {
+      // eslint-disable-next-line no-alert
+      if (window.confirm(message)) onDelete?.();
+      return;
+    }
+
+    Alert.alert("Delete Quest", message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => onDelete?.() },
+    ]);
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -222,6 +239,21 @@ export default function NewQuestScreen({
 
       {/* Quick Launch */}
       <QuickLaunchEditor value={action} onChange={setAction} />
+
+      {/* Danger zone */}
+      {isEditing ? (
+        <View style={styles.block}>
+          <Text style={styles.label}>Danger zone</Text>
+          <TouchableOpacity
+            style={[styles.dangerBtn, { marginTop: 8 }]}
+            onPress={confirmDelete}
+            accessibilityRole="button"
+            accessibilityLabel="Delete quest"
+          >
+            <Text style={styles.dangerBtnText}>Delete quest</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* Error */}
       {error ? <Text style={styles.error}>{error}</Text> : null}
