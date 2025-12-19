@@ -2,6 +2,202 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STAT_KEYS } from "./models.js";
 
 const USER_QUESTS_KEY = "better-quest-user-quests-v1";
+const DEBUG_INGEST = "http://127.0.0.1:7242/ingest/d7add573-3752-4b30-89e0-4c436052ce12";
+
+/**
+ * NOTE: `expo-file-system` and `expo-file-system/legacy` are Expo-native modules.
+ * Our Node test runner (`node --test`) cannot import their TypeScript entrypoints,
+ * so we lazy-load them only inside the image helpers.
+ */
+let _FileSystem = null;
+let _questImagesDir = null;
+
+async function getFileSystem() {
+  if (_FileSystem) return _FileSystem;
+  try {
+    // Prefer the legacy API to avoid deprecation warnings in Expo SDK 54+.
+    _FileSystem = await import("expo-file-system/legacy");
+    return _FileSystem;
+  } catch {
+    try {
+      // Fallback for environments where `/legacy` isn't available.
+      _FileSystem = await import("expo-file-system");
+      return _FileSystem;
+    } catch {
+      _FileSystem = null;
+      return null;
+    }
+  }
+}
+
+async function getQuestImagesDir() {
+  if (_questImagesDir) return _questImagesDir;
+  const FileSystem = await getFileSystem();
+  const documentDirectory = FileSystem?.documentDirectory ?? null;
+  if (!documentDirectory) return null;
+  _questImagesDir = `${documentDirectory}quest-images/`;
+  return _questImagesDir;
+}
+
+/**
+ * Ensure the quest images directory exists
+ */
+async function ensureQuestImagesDir() {
+  const FileSystem = await getFileSystem();
+  const QUEST_IMAGES_DIR = await getQuestImagesDir();
+  if (!FileSystem || !QUEST_IMAGES_DIR) return;
+
+  // #region agent log
+  fetch(DEBUG_INGEST, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: "mobile/core/questStorage.js:ensureQuestImagesDir:entry",
+      message: "ensureQuestImagesDir entry",
+      data: {
+        QUEST_IMAGES_DIR,
+        documentDirectory: FileSystem?.documentDirectory ?? null,
+        hasGetInfoAsync: typeof FileSystem?.getInfoAsync === "function",
+        hasMakeDirectoryAsync: typeof FileSystem?.makeDirectoryAsync === "function",
+      },
+      timestamp: Date.now(),
+      sessionId: "debug-session",
+      runId: "pre-fix",
+      hypothesisId: "A",
+    }),
+  }).catch(() => {});
+  // #endregion agent log
+
+  const info = await FileSystem.getInfoAsync(QUEST_IMAGES_DIR);
+  // #region agent log
+  fetch(DEBUG_INGEST, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: "mobile/core/questStorage.js:ensureQuestImagesDir:afterGetInfo",
+      message: "ensureQuestImagesDir getInfoAsync result",
+      data: { exists: !!info?.exists, isDirectory: info?.isDirectory ?? null, uri: info?.uri ?? null },
+      timestamp: Date.now(),
+      sessionId: "debug-session",
+      runId: "pre-fix",
+      hypothesisId: "A",
+    }),
+  }).catch(() => {});
+  // #endregion agent log
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(QUEST_IMAGES_DIR, { intermediates: true });
+    // #region agent log
+    fetch(DEBUG_INGEST, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "mobile/core/questStorage.js:ensureQuestImagesDir:madeDir",
+        message: "ensureQuestImagesDir made directory",
+        data: { QUEST_IMAGES_DIR },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "B",
+      }),
+    }).catch(() => {});
+    // #endregion agent log
+  }
+}
+
+/**
+ * Copy a selected image into app storage for persistence
+ * @param {string} sourceUri - URI from image picker (temporary location)
+ * @returns {Promise<string>} - Permanent file URI in app storage
+ */
+export async function persistQuestImageAsync(sourceUri) {
+  if (!sourceUri) return null;
+  try {
+    const FileSystem = await getFileSystem();
+    const QUEST_IMAGES_DIR = await getQuestImagesDir();
+    if (!FileSystem || !QUEST_IMAGES_DIR) return null;
+
+    // #region agent log
+    fetch(DEBUG_INGEST, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "mobile/core/questStorage.js:persistQuestImageAsync:entry",
+        message: "persistQuestImageAsync entry",
+        data: {
+          sourceUri,
+          QUEST_IMAGES_DIR,
+          documentDirectory: FileSystem?.documentDirectory ?? null,
+          hasCopyAsync: typeof FileSystem?.copyAsync === "function",
+        },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "C",
+      }),
+    }).catch(() => {});
+    // #endregion agent log
+
+    await ensureQuestImagesDir();
+    const filename = `quest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const destUri = `${QUEST_IMAGES_DIR}${filename}`;
+    await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+    // #region agent log
+    fetch(DEBUG_INGEST, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "mobile/core/questStorage.js:persistQuestImageAsync:copied",
+        message: "persistQuestImageAsync copyAsync success",
+        data: { destUri },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "D",
+      }),
+    }).catch(() => {});
+    // #endregion agent log
+    return destUri;
+  } catch (err) {
+    // #region agent log
+    fetch(DEBUG_INGEST, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "mobile/core/questStorage.js:persistQuestImageAsync:catch",
+        message: "persistQuestImageAsync error",
+        data: { errMessage: err?.message ?? String(err), errName: err?.name ?? null },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "A",
+      }),
+    }).catch(() => {});
+    // #endregion agent log
+    console.warn("Failed to persist quest image:", err);
+    return null;
+  }
+}
+
+/**
+ * Delete a persisted quest image
+ * @param {string} imageUri - URI to delete
+ */
+export async function deleteQuestImageAsync(imageUri) {
+  if (!imageUri) return;
+  try {
+    const FileSystem = await getFileSystem();
+    const QUEST_IMAGES_DIR = await getQuestImagesDir();
+    if (!FileSystem || !QUEST_IMAGES_DIR) return;
+    if (!imageUri.startsWith(QUEST_IMAGES_DIR)) return;
+
+    const info = await FileSystem.getInfoAsync(imageUri);
+    if (info.exists) {
+      await FileSystem.deleteAsync(imageUri, { idempotent: true });
+    }
+  } catch (err) {
+    console.warn("Failed to delete quest image:", err);
+  }
+}
 
 /**
  * Load user-created quests from AsyncStorage
@@ -78,6 +274,11 @@ export async function updateUserQuest(questId, updates) {
  */
 export async function deleteUserQuest(questId) {
   const quests = await loadUserQuests();
+  const toDelete = quests.find(q => q.id === questId) || null;
+  // Best-effort cleanup of persisted quest images.
+  if (toDelete?.imageUri) {
+    await deleteQuestImageAsync(toDelete.imageUri);
+  }
   const filtered = quests.filter(q => q.id !== questId);
   await saveUserQuests(filtered);
   return filtered;
@@ -94,6 +295,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 3, SPI: 0, CHA: 0, VIT: 1 },
     keywords: ["math", "calculus", "algebra", "geometry", "study"],
     action: { type: "url", value: "https://mathacademy.com" },
+    icon: "calculator-outline",
+    authorName: "Better Quest",
   },
   {
     id: "science",
@@ -103,6 +306,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 1, STA: 0, INT: 2, SPI: 0, CHA: 0, VIT: 1 },
     keywords: ["science", "physics", "chemistry", "biology", "research"],
     action: null,
+    icon: "flask-outline",
+    authorName: "Better Quest",
   },
   {
     id: "writing",
@@ -112,6 +317,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 1, SPI: 2, CHA: 0, VIT: 1 },
     keywords: ["writing", "journal", "essay", "blog", "article"],
     action: null,
+    icon: "pencil-outline",
+    authorName: "Better Quest",
   },
   {
     id: "reading",
@@ -121,6 +328,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 2, SPI: 1, CHA: 0, VIT: 1 },
     keywords: ["reading", "book", "novel", "article", "study"],
     action: null,
+    icon: "book-outline",
+    authorName: "Better Quest",
   },
   {
     id: "weightlifting",
@@ -130,6 +339,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 2, DEX: 0, STA: 1, INT: 0, SPI: 0, CHA: 0, VIT: 1 },
     keywords: ["weightlifting", "weights", "gym", "strength", "lift"],
     action: null,
+    icon: "barbell-outline",
+    authorName: "Better Quest",
   },
   {
     id: "running",
@@ -139,6 +350,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 1, DEX: 0, STA: 2, INT: 0, SPI: 0, CHA: 0, VIT: 1 },
     keywords: ["running", "run", "jog", "cardio", "sprint"],
     action: null,
+    icon: "walk-outline",
+    authorName: "Better Quest",
   },
   {
     id: "prayer",
@@ -148,6 +361,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 3, CHA: 0, VIT: 1 },
     keywords: ["prayer", "faith", "spiritual", "devotion"],
     action: null,
+    icon: "heart-outline",
+    authorName: "Better Quest",
   },
   {
     id: "meditation",
@@ -157,6 +372,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 2, CHA: 0, VIT: 2 },
     keywords: ["meditation", "mindfulness", "calm", "breathing"],
     action: null,
+    icon: "leaf-outline",
+    authorName: "Better Quest",
   },
   {
     id: "yoga",
@@ -166,6 +383,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 1, STA: 1, INT: 0, SPI: 1, CHA: 0, VIT: 1 },
     keywords: ["yoga", "stretch", "flexibility", "pose"],
     action: null,
+    icon: "body-outline",
+    authorName: "Better Quest",
   },
   {
     id: "work",
@@ -175,6 +394,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 1, INT: 1, SPI: 0, CHA: 1, VIT: 1 },
     keywords: ["work", "job", "office", "project", "task"],
     action: null,
+    icon: "briefcase-outline",
+    authorName: "Better Quest",
   },
   {
     id: "cooking",
@@ -184,6 +405,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 2, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 2 },
     keywords: ["cooking", "cook", "meal", "food", "recipe", "baking"],
     action: null,
+    icon: "restaurant-outline",
+    authorName: "Better Quest",
   },
   {
     id: "cleaning",
@@ -193,6 +416,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 1, INT: 0, SPI: 1, CHA: 0, VIT: 2 },
     keywords: ["cleaning", "clean", "organize", "tidy", "chores"],
     action: null,
+    icon: "sparkles-outline",
+    authorName: "Better Quest",
   },
   {
     id: "walking",
@@ -202,6 +427,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 1, INT: 0, SPI: 1, CHA: 0, VIT: 2 },
     keywords: ["walking", "walk", "hike", "stroll", "nature"],
     action: null,
+    icon: "footsteps-outline",
+    authorName: "Better Quest",
   },
   {
     id: "guitar",
@@ -211,6 +438,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 2, STA: 0, INT: 0, SPI: 1, CHA: 0, VIT: 1 },
     keywords: ["guitar", "music", "piano", "instrument", "song", "practice"],
     action: null,
+    icon: "musical-notes-outline",
+    authorName: "Better Quest",
   },
   {
     id: "socializing",
@@ -220,6 +449,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 1, CHA: 2, VIT: 1 },
     keywords: ["social", "friends", "family", "hangout", "party"],
     action: null,
+    icon: "people-outline",
+    authorName: "Better Quest",
   },
   {
     id: "presentation",
@@ -229,6 +460,8 @@ export const BUILT_IN_QUEST_TEMPLATES = [
     stats: { STR: 0, DEX: 0, STA: 0, INT: 1, SPI: 0, CHA: 2, VIT: 1 },
     keywords: ["presentation", "speech", "talk", "present", "public speaking"],
     action: null,
+    icon: "mic-outline",
+    authorName: "Better Quest",
   },
 ];
 

@@ -54,6 +54,7 @@ import QuestSetupScreen from "../screens/QuestSetupScreen.js";
 import NewQuestScreen from "../screens/NewQuestScreen.js";
 import SessionScreen from "../screens/SessionScreen.js";
 import CompleteScreen from "../screens/CompleteScreen.js";
+import QuestDetailScreen from "../screens/QuestDetailScreen.js";
 
 import Toast from "../components/Toast.js";
 import styles from "../../style.js";
@@ -81,6 +82,7 @@ const ROUTES = {
   QUEST_FLOW: "QuestFlow",
   QUEST_SETUP: "QuestSetup",
   QUEST_EDITOR: "QuestEditor",
+  QUEST_DETAILS: "QuestDetails",
   SESSION: "Session",
   COMPLETE: "Complete",
 };
@@ -320,10 +322,21 @@ function LibraryTab() {
             userQuests={ctx.userQuests}
             onSelectQuest={(quest) =>
               ctx.nav(ROUTES.QUEST_FLOW, {
+                initialRoute: ROUTES.QUEST_DETAILS,
+                detailsParams: { quest, isBuiltIn: !ctx.userQuests.some(q => q.id === quest.id) },
+              })
+            }
+            onEditQuest={(quest) =>
+              ctx.nav(ROUTES.QUEST_FLOW, {
                 initialRoute: ROUTES.QUEST_EDITOR,
                 editorParams: { editQuest: quest },
               })
             }
+            onDeleteQuest={async (questId) => {
+              const updated = await deleteUserQuest(questId);
+              ctx.setUserQuests(updated);
+              ctx.showToast("Quest deleted");
+            }}
             onCreateQuest={() =>
               ctx.nav(ROUTES.QUEST_FLOW, {
                 initialRoute: ROUTES.QUEST_EDITOR,
@@ -987,6 +1000,7 @@ export default function AppShell() {
                 quotes: allQuotes.map((q) => q.text),
                 sessions,
                 userQuests,
+                setUserQuests,
                 handleOpenNotifications,
                 showToast,
                 inAppAnnouncementsEnabled: inAppAnnouncementsEnabled ?? true,
@@ -1040,6 +1054,7 @@ export default function AppShell() {
                 allQuotes,
                 sessions,
                 userQuests,
+                setUserQuests,
                 handleOpenNotifications,
                 showToast,
                 inAppAnnouncementsEnabled,
@@ -1095,6 +1110,7 @@ export default function AppShell() {
                   {({ navigation, route }) => {
                     const initialRoute = route?.params?.initialRoute ?? ROUTES.QUEST_SETUP;
                     const editorParams = route?.params?.editorParams ?? null;
+                    const detailsParams = route?.params?.detailsParams ?? null;
                     const rootState = navigationRef.getRootState?.();
                     const backLabel = getBackLabelFromRootState(rootState);
 
@@ -1178,6 +1194,48 @@ export default function AppShell() {
                               handleStartSession={handleStartSession}
                             />
                           )}
+                        </QuestStack.Screen>
+
+                        <QuestStack.Screen
+                          name={ROUTES.QUEST_DETAILS}
+                          initialParams={detailsParams || undefined}
+                          options={({ route: detailRoute }) => ({
+                            headerShown: true,
+                            title: detailRoute?.params?.quest?.label || "Quest Details",
+                            headerTitleAlign: "center",
+                            headerLeft: () => (
+                              <HeaderBackButton
+                                label={backLabel}
+                                onPress={() => navigation.goBack()}
+                                tintColor="#a5b4fc"
+                              />
+                            ),
+                          })}
+                        >
+                          {({ navigation: questNav, route: detailRoute }) => {
+                            const quest = detailRoute?.params?.quest;
+                            const isBuiltIn = detailRoute?.params?.isBuiltIn ?? false;
+                            return (
+                              <QuestDetailScreen
+                                quest={quest}
+                                isBuiltIn={isBuiltIn}
+                                onEdit={(q) => questNav.navigate(ROUTES.QUEST_EDITOR, { editQuest: q })}
+                                onStart={(q) => {
+                                  if (q.action) {
+                                    setPendingQuestAction(q.action);
+                                  }
+                                  handleStartSession({
+                                    description: q.label,
+                                    durationMinutes: q.defaultDurationMinutes,
+                                    allocation: q.stats,
+                                    questAction: q.action,
+                                    questKey: q.id || q.label || null,
+                                  });
+                                }}
+                                onOpenAction={openQuestAction}
+                              />
+                            );
+                          }}
                         </QuestStack.Screen>
                       </QuestStack.Navigator>
                     );

@@ -82,6 +82,9 @@ export function createTaskSession({
  * @param {object} [params.stats] - Stat weights as points: { STR: 0-3, ... } (no total cap)
  * @param {string[]} [params.keywords] - Tags for search/ranking
  * @param {object} [params.action] - Quick launch action { type: "url"|"app", value: string }
+ * @param {string} [params.icon] - Ionicons glyph name (e.g. "book-outline") or null
+ * @param {string} [params.imageUri] - App-local file URI for quest image or null
+ * @param {string} [params.authorName] - Display name of quest author
  * @returns {object} Quest object
  */
 export function createQuest({
@@ -92,6 +95,9 @@ export function createQuest({
   stats = {},
   keywords = [],
   action = null,
+  icon = null,
+  imageUri = null,
+  authorName = null,
 }) {
   if (!id) {
     throw new Error("Quest id is required");
@@ -99,10 +105,10 @@ export function createQuest({
   if (!label || !label.trim()) {
     throw new Error("Quest label is required");
   }
-  
+
   // Validate and clamp duration
   const duration = Math.max(1, Math.min(240, Math.floor(defaultDurationMinutes) || 25));
-  
+
   // Validate and clamp stats
   const validatedStats = validateQuestStats(stats);
 
@@ -113,12 +119,12 @@ export function createQuest({
       `Quest stats total cannot exceed ${QUEST_STAT_MAX_TOTAL} (got ${totalPoints})`,
     );
   }
-  
+
   // Validate action
   const validatedAction = validateQuestAction(action);
-  
+
   const now = new Date().toISOString();
-  
+
   return {
     id,
     label: label.trim(),
@@ -127,6 +133,9 @@ export function createQuest({
     stats: validatedStats,
     keywords: Array.isArray(keywords) ? keywords.filter(k => typeof k === "string" && k.trim()) : [],
     action: validatedAction,
+    icon: typeof icon === "string" && icon.trim() ? icon.trim() : null,
+    imageUri: typeof imageUri === "string" && imageUri.trim() ? imageUri.trim() : null,
+    authorName: typeof authorName === "string" && authorName.trim() ? authorName.trim() : null,
     createdAt: now,
     updatedAt: now,
   };

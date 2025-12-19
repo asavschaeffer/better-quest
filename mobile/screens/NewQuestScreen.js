@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Alert, Image, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import styles from "../../style";
 import { QuestStatsWheel } from "../QuestStatsWheel";
 import { QuickLaunchEditor } from "../QuickLaunchEditor";
@@ -10,12 +12,48 @@ import {
   getQuestStatTotal,
   STAT_KEYS,
 } from "../core/models";
+import { deleteQuestImageAsync, persistQuestImageAsync } from "../core/questStorage";
+
+// Curated icon set for quest icons
+const QUEST_ICON_OPTIONS = [
+  "book-outline",
+  "calculator-outline",
+  "flask-outline",
+  "pencil-outline",
+  "barbell-outline",
+  "walk-outline",
+  "heart-outline",
+  "leaf-outline",
+  "body-outline",
+  "briefcase-outline",
+  "restaurant-outline",
+  "sparkles-outline",
+  "footsteps-outline",
+  "musical-notes-outline",
+  "people-outline",
+  "mic-outline",
+  "code-slash-outline",
+  "game-controller-outline",
+  "camera-outline",
+  "globe-outline",
+  "fitness-outline",
+  "bicycle-outline",
+  "bed-outline",
+  "cafe-outline",
+  "bulb-outline",
+  "construct-outline",
+  "color-palette-outline",
+  "megaphone-outline",
+  "school-outline",
+  "trophy-outline",
+];
 
 const DURATION_PRESETS = [10, 20, 30, 45, 60];
 
 export default function NewQuestScreen({
   initialName = "",
   editQuest = null,
+  userName = "You",
   // Navigation + actions are now handled in the native header (QuestStack screen options).
   // This screen just renders the form and reports validation errors.
   onChange,
@@ -30,6 +68,9 @@ export default function NewQuestScreen({
   const [stats, setStats] = useState(() => editQuest?.stats || suggestStatsForLabel(initialName));
   const [keywords, setKeywords] = useState(editQuest?.keywords?.join(", ") || "");
   const [action, setAction] = useState(editQuest?.action || null);
+  const [icon, setIcon] = useState(editQuest?.icon || null);
+  const [imageUri, setImageUri] = useState(editQuest?.imageUri || null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [error, setError] = useState("");
 
   // Update stats suggestion when label changes (only for new quests)
@@ -42,6 +83,72 @@ export default function NewQuestScreen({
       setStats(suggested);
     }
   }, [label, isEditing]);
+
+  async function pickImage() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        // expo-image-picker >=17 uses string media types (or an array of them).
+        // Using the string form avoids relying on deprecated MediaTypeOptions
+        // and prevents runtime crashes from non-existent enum exports.
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+      // #region agent log
+      fetch("http://127.0.0.1:7242/ingest/d7add573-3752-4b30-89e0-4c436052ce12", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "mobile/screens/NewQuestScreen.js:pickImage:afterPicker",
+          message: "ImagePicker result",
+          data: {
+            canceled: !!result?.canceled,
+            assetUri: result?.assets?.[0]?.uri ?? null,
+          },
+          timestamp: Date.now(),
+          sessionId: "debug-session",
+          runId: "pre-fix",
+          hypothesisId: "E",
+        }),
+      }).catch(() => {});
+      // #endregion agent log
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const persistedUri = await persistQuestImageAsync(result.assets[0].uri);
+        // #region agent log
+        fetch("http://127.0.0.1:7242/ingest/d7add573-3752-4b30-89e0-4c436052ce12", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "mobile/screens/NewQuestScreen.js:pickImage:afterPersist",
+            message: "persistQuestImageAsync return",
+            data: { persistedUri: persistedUri ?? null, prevImageUri: imageUri ?? null },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "pre-fix",
+            hypothesisId: "D",
+          }),
+        }).catch(() => {});
+        // #endregion agent log
+        if (persistedUri) {
+          // If we already had a persisted image, remove it to avoid leaking files.
+          if (imageUri) {
+            await deleteQuestImageAsync(imageUri);
+          }
+          setImageUri(persistedUri);
+        }
+      }
+    } catch (err) {
+      console.warn("Image picker error:", err);
+    }
+  }
+
+  async function removeImage() {
+    if (imageUri) {
+      await deleteQuestImageAsync(imageUri);
+    }
+    setImageUri(null);
+  }
 
   function buildQuestData() {
     const trimmedLabel = label.trim();
@@ -74,6 +181,9 @@ export default function NewQuestScreen({
       stats: validatedStats,
       keywords: keywordList,
       action: action?.value?.trim() ? action : null,
+      icon: icon || null,
+      imageUri: imageUri || null,
+      authorName: editQuest?.authorName || userName,
     };
     return { ok: true, error: "", questData };
   }
@@ -96,7 +206,7 @@ export default function NewQuestScreen({
       onChange?.({ isValid: false, quest: null, error: msg });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [label, description, duration, customDuration, stats, keywords, action]);
+  }, [label, description, duration, customDuration, stats, keywords, action, icon, imageUri]);
 
   const statTotal = getQuestStatTotal(stats);
 
@@ -148,6 +258,80 @@ export default function NewQuestScreen({
           multiline
           numberOfLines={2}
         />
+      </View>
+
+      {/* Icon Picker */}
+      <View style={styles.block}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Icon</Text>
+          <Text style={styles.optional}>(optional)</Text>
+        </View>
+        <TouchableOpacity
+          style={questEditorStyles.iconPickerToggle}
+          onPress={() => setShowIconPicker(!showIconPicker)}
+        >
+          {icon ? (
+            <View style={questEditorStyles.selectedIconWrap}>
+              <Ionicons name={icon} size={24} color="#a5b4fc" />
+              <Text style={questEditorStyles.selectedIconLabel}>{icon}</Text>
+            </View>
+          ) : (
+            <Text style={questEditorStyles.iconPickerPlaceholder}>Choose an icon...</Text>
+          )}
+          <Ionicons name={showIconPicker ? "chevron-up" : "chevron-down"} size={18} color="#6b7280" />
+        </TouchableOpacity>
+        {showIconPicker && (
+          <View style={questEditorStyles.iconGrid}>
+            {icon && (
+              <TouchableOpacity
+                style={[questEditorStyles.iconOption, questEditorStyles.iconOptionClear]}
+                onPress={() => { setIcon(null); setShowIconPicker(false); }}
+              >
+                <Ionicons name="close" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            )}
+            {QUEST_ICON_OPTIONS.map((iconName) => (
+              <TouchableOpacity
+                key={iconName}
+                style={[
+                  questEditorStyles.iconOption,
+                  icon === iconName && questEditorStyles.iconOptionActive,
+                ]}
+                onPress={() => { setIcon(iconName); setShowIconPicker(false); }}
+              >
+                <Ionicons name={iconName} size={20} color={icon === iconName ? "#a5b4fc" : "#9ca3af"} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Image Picker */}
+      <View style={styles.block}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Cover Image</Text>
+          <Text style={styles.optional}>(optional)</Text>
+        </View>
+        {imageUri ? (
+          <View style={questEditorStyles.imagePreviewWrap}>
+            <Image source={{ uri: imageUri }} style={questEditorStyles.imagePreview} />
+            <View style={questEditorStyles.imageActions}>
+              <TouchableOpacity style={questEditorStyles.imageActionBtn} onPress={pickImage}>
+                <Ionicons name="image-outline" size={16} color="#a5b4fc" />
+                <Text style={questEditorStyles.imageActionText}>Change</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={questEditorStyles.imageActionBtn} onPress={removeImage}>
+                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                <Text style={[questEditorStyles.imageActionText, { color: "#ef4444" }]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={questEditorStyles.imagePickerBtn} onPress={pickImage}>
+            <Ionicons name="image-outline" size={24} color="#6b7280" />
+            <Text style={questEditorStyles.imagePickerText}>Add cover image</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Stats allocation with integrated duration ring */}
@@ -261,3 +445,109 @@ export default function NewQuestScreen({
     </ScrollView>
   );
 }
+
+const questEditorStyles = StyleSheet.create({
+  iconPickerToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    padding: 12,
+    marginTop: 4,
+  },
+  selectedIconWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  selectedIconLabel: {
+    color: "#e5e7eb",
+    fontSize: 13,
+  },
+  iconPickerPlaceholder: {
+    color: "#6b7280",
+    fontSize: 14,
+  },
+  iconGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  iconOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  iconOptionActive: {
+    borderColor: "#4f46e5",
+    backgroundColor: "#1e1b4b",
+  },
+  iconOptionClear: {
+    borderColor: "#7f1d1d",
+    backgroundColor: "#1f1717",
+  },
+  imagePickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    borderStyle: "dashed",
+    padding: 24,
+    marginTop: 4,
+  },
+  imagePickerText: {
+    color: "#6b7280",
+    fontSize: 14,
+  },
+  imagePreviewWrap: {
+    marginTop: 4,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#1f2937",
+  },
+  imagePreview: {
+    width: "100%",
+    height: 160,
+    resizeMode: "cover",
+  },
+  imageActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+    padding: 10,
+  },
+  imageActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: "#111827",
+  },
+  imageActionText: {
+    color: "#a5b4fc",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

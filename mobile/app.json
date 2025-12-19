@@ -22,7 +22,13 @@
     },
     "web": {},
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Better Quest to access your photos to set quest cover images."
+        }
+      ]
     ]
   }
 }
