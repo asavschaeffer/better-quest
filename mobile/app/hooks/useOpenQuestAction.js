@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Platform, Linking } from "react-native";
 import { getYouTubeAppUrlCandidates } from "../../core/linkPreviews";
+import * as Sharing from "expo-sharing";
 
 export function useOpenQuestAction({ pendingQuestAction, setPendingQuestAction, isSessionActive }) {
   const openQuestAction = useMemo(() => {
@@ -15,7 +16,8 @@ export function useOpenQuestAction({ pendingQuestAction, setPendingQuestAction, 
             url = "https://" + url;
           }
         } else if (action.type === "file") {
-          if (!url.startsWith("file://")) {
+          // If it's already a URI (file://, content://, etc), keep it.
+          if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url)) {
             if (/^[a-zA-Z]:/.test(url)) {
               url = "file:///" + url.replace(/\\/g, "/");
             } else if (!url.startsWith("/")) {
@@ -42,6 +44,22 @@ export function useOpenQuestAction({ pendingQuestAction, setPendingQuestAction, 
                 // Ignore and fall back to https
               }
             }
+          }
+
+          // For file:// and content:// URIs, canOpenURL is not always reliable on iOS.
+          // Treat it as a hint and try openURL directly.
+          if (action.type === "file") {
+            // iOS: Sharing is a more reliable way to open local files (PDFs, etc.) than Linking.openURL(file://).
+            if (url.startsWith("file://") || url.startsWith("content://")) {
+              const canShare = await Sharing.isAvailableAsync();
+              if (canShare) {
+                await Sharing.shareAsync(url);
+                return;
+              }
+            }
+
+            await Linking.openURL(url);
+            return;
           }
 
           const canOpen = await Linking.canOpenURL(url);

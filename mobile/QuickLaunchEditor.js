@@ -1,5 +1,7 @@
 import React, { useState, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Linking, Platform, Switch } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as Sharing from "expo-sharing";
 
 /**
  * QuickLaunchEditor - Edit quest action (URL, app protocol, or file path)
@@ -40,6 +42,33 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
     fileInputRef.current?.click();
   }
 
+  // Native file picker (iOS/Android)
+  async function handleNativeFilePick() {
+    if (Platform.OS === "web" || disabled) return;
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        multiple: false,
+        copyToCacheDirectory: false,
+      });
+
+      // expo-document-picker API differs a bit across versions
+      const canceled = result?.canceled === true || result?.type === "cancel";
+      if (canceled) return;
+
+      const uri = result?.assets?.[0]?.uri ?? result?.uri ?? null;
+      if (!uri) return;
+
+      onChange?.({ type: "file", value: uri, openOnStart });
+      setTestStatus(null);
+    } catch (e) {
+      console.log("Native file pick failed:", e);
+      setTestStatus("error");
+      setTimeout(() => setTestStatus(null), 2000);
+    }
+  }
+
   function handleFileSelected(event) {
     const file = event.target.files?.[0];
     if (file) {
@@ -60,6 +89,15 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
       return;
     }
 
+    const startedAt = Date.now();
+    const debugBase = {
+      component: "QuickLaunchEditor",
+      actionType,
+      rawValue: actionValue,
+      platform: Platform.OS,
+      startedAt,
+    };
+
     try {
       let url = actionValue.trim();
       
@@ -69,8 +107,8 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
           url = "https://" + url;
         }
       } else if (actionType === "file") {
-        // Try file:// protocol
-        if (!url.startsWith("file://")) {
+        // If it's already a URI (file://, content://, etc), keep it.
+        if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url)) {
           // Convert Windows paths
           if (/^[a-zA-Z]:/.test(url)) {
             url = "file:///" + url.replace(/\\/g, "/");
@@ -84,21 +122,66 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
       // For "app" type, use the value as-is (protocol handler)
       
       const canOpen = await Linking.canOpenURL(url);
+
+      // Debug logging: show what we tried and why it may fail (include stack).
+      const debug = {
+        ...debugBase,
+        resolvedUrl: url,
+        canOpenURL: !!canOpen,
+        elapsedMs: Date.now() - startedAt,
+      };
+      console.log("[QuickLaunch Test]", debug);
+      console.log(
+        "[QuickLaunch Test stack]",
+        new Error("QuickLaunchEditor.handleTest stack").stack
+      );
       
-      if (canOpen) {
+      // Note: iOS often returns canOpenURL=false for file:// URLs even when openURL works.
+      // So we treat canOpenURL as a hint, not a gate. We try to open and only fail on throw.
+      if (Platform.OS === "web") {
+        window.open(url, "_blank");
+        setTestStatus("success");
+        return;
+      }
+
+      try {
+        // For local files on iOS, Sharing (Quick Look / Open In) is more reliable than Linking.openURL(file://).
+        if (actionType === "file" && (url.startsWith("file://") || url.startsWith("content://"))) {
+          const canShare = await Sharing.isAvailableAsync();
+          if (canShare) {
+            await Sharing.shareAsync(url);
+            setTestStatus("success");
+            return;
+          }
+        }
+
         await Linking.openURL(url);
         setTestStatus("success");
-      } else {
-        // Try opening anyway - some platforms don't report correctly
-        if (Platform.OS === "web") {
-          window.open(url, "_blank");
-          setTestStatus("success");
-        } else {
-          setTestStatus("error");
-        }
+      } catch (openErr) {
+        console.log("[QuickLaunch Test openURL failed]", {
+          ...debugBase,
+          resolvedUrl: url,
+          canOpenURL: !!canOpen,
+          elapsedMs: Date.now() - startedAt,
+          errName: openErr?.name ?? null,
+          errMessage: openErr?.message ?? String(openErr),
+          errStack: openErr?.stack ?? null,
+        });
+        setTestStatus("error");
       }
     } catch (e) {
-      console.log("Quick launch test failed:", e);
+      const err = e;
+      console.log("[QuickLaunch Test failed]", {
+        ...debugBase,
+        elapsedMs: Date.now() - startedAt,
+        errName: err?.name ?? null,
+        errMessage: err?.message ?? String(err),
+        errStack: err?.stack ?? null,
+      });
+      console.log(
+        "[QuickLaunch Test failed stack]",
+        err?.stack ?? new Error("QuickLaunchEditor.handleTest fallback stack").stack
+      );
       setTestStatus("error");
     }
     
@@ -180,6 +263,15 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
           <TouchableOpacity 
             style={styles.browseBtn} 
             onPress={handleFilePick}
+            disabled={disabled}
+          >
+            <Text style={styles.browseBtnText}>Browse</Text>
+          </TouchableOpacity>
+        )}
+        {actionType === "file" && Platform.OS !== "web" && (
+          <TouchableOpacity
+            style={styles.browseBtn}
+            onPress={handleNativeFilePick}
             disabled={disabled}
           >
             <Text style={styles.browseBtnText}>Browse</Text>

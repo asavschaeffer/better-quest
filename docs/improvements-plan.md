@@ -4,6 +4,7 @@
 
 - **Auto sunrise**: Replace manual `sunriseTimeLocal` setting with computed sunrise based on user location/timezone (with caching + offline fallback) for Brahma Muhurta.
 - **Quest draft automation (YouTube-first)**: see `docs/QUEST_DRAFT_AUTOMATION.md` for the roadmap (auto cover from link, open-in-app, import/share flows).
+- **File quick-launch “open” UX**: current file picker works, but opening local files is “share sheet / preview” and can feel janky vs app deep links. Later: add a proper in-app file viewer or a more native “open file then start timer” flow (likely EAS/dev-client work).
 
 ---
 
