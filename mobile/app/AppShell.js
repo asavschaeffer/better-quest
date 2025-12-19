@@ -1144,7 +1144,7 @@ export default function AppShell() {
                               onAutoSelectConsumed={() => setPendingQuestSelection(null)}
                               onBack={() => navigation.goBack()}
                               onStartSession={(params) => {
-                                if (params.questAction) {
+                                if (params.questAction && params.questAction.openOnStart !== false) {
                                   setPendingQuestAction(params.questAction);
                                 }
                                 handleStartSession({
@@ -1221,7 +1221,7 @@ export default function AppShell() {
                                 isBuiltIn={isBuiltIn}
                                 onEdit={(q) => questNav.navigate(ROUTES.QUEST_EDITOR, { editQuest: q })}
                                 onStart={(q) => {
-                                  if (q.action) {
+                                  if (q.action && q.action.openOnStart !== false) {
                                     setPendingQuestAction(q.action);
                                   }
                                   handleStartSession({

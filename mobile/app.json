@@ -13,7 +13,10 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["youtube", "vnd.youtube"]
+      }
     },
     "android": {
       "adaptiveIcon": {

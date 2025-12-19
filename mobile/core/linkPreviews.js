@@ -99,6 +99,26 @@ export function getAutoImageUriForAction(action) {
 }
 
 /**
+ * Build deep-link candidates that open the YouTube app (if installed).
+ * We try multiple schemes because support can vary by platform/version.
+ *
+ * @param {string} url
+ * @returns {string[]} candidate app URLs to try with Linking.canOpenURL
+ */
+export function getYouTubeAppUrlCandidates(url) {
+  const id = getYouTubeVideoId(url);
+  if (!id) return [];
+
+  // Android commonly supports vnd.youtube://
+  // iOS commonly supports youtube://
+  return [
+    `vnd.youtube://watch?v=${id}`,
+    `youtube://watch?v=${id}`,
+    `youtube://${id}`,
+  ];
+}
+
+/**
  * Heuristic: is this an auto-generated preview image URI?
  * We keep this narrow so we don't accidentally treat user images as "auto".
  * @param {string|null} imageUri

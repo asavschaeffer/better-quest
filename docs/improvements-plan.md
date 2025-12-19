@@ -3,6 +3,7 @@
 ## TODO (mechanics)
 
 - **Auto sunrise**: Replace manual `sunriseTimeLocal` setting with computed sunrise based on user location/timezone (with caching + offline fallback) for Brahma Muhurta.
+- **Quest draft automation (YouTube-first)**: see `docs/QUEST_DRAFT_AUTOMATION.md` for the roadmap (auto cover from link, open-in-app, import/share flows).
 
 ---
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Linking, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Linking, Platform, Switch } from "react-native";
 
 /**
  * QuickLaunchEditor - Edit quest action (URL, app protocol, or file path)
@@ -10,15 +10,22 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
   
   const actionType = value?.type || "url";
   const actionValue = value?.value || "";
+  const openOnStart = value?.openOnStart !== false;
 
   function handleTypeChange(type) {
     if (disabled) return;
-    onChange?.({ type, value: actionValue });
+    onChange?.({ type, value: actionValue, openOnStart });
   }
 
   function handleValueChange(text) {
     if (disabled) return;
-    onChange?.({ type: actionType, value: text });
+    onChange?.({ type: actionType, value: text, openOnStart });
+  }
+
+  function handleOpenOnStartChange(next) {
+    if (disabled) return;
+    // Preserve current type/value; only toggle auto-open behavior.
+    onChange?.({ type: actionType, value: actionValue, openOnStart: !!next });
   }
 
   function handleClear() {
@@ -216,6 +223,23 @@ export function QuickLaunchEditor({ value, onChange, disabled = false }) {
         )}
       </View>
 
+      {/* Auto-open toggle */}
+      {!!actionValue.trim() && (
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toggleTitle}>Open on quest start</Text>
+            <Text style={styles.toggleSubtitle}>
+              If off, you can still press “Open” manually from the quest.
+            </Text>
+          </View>
+          <Switch
+            value={openOnStart}
+            onValueChange={handleOpenOnStartChange}
+            disabled={disabled}
+          />
+        </View>
+      )}
+
       {/* Platform note for file type */}
       {actionType === "file" && (
         <Text style={styles.note}>
@@ -350,6 +374,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 6,
     fontStyle: "italic",
+  },
+  toggleRow: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  toggleTitle: {
+    color: "#e5e7eb",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  toggleSubtitle: {
+    marginTop: 2,
+    color: "#6b7280",
+    fontSize: 11,
   },
 });
 

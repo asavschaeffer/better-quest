@@ -185,7 +185,7 @@ export function getQuestStatTotal(stats) {
 
 /**
  * Validate quest action (URL, app protocol, or file path)
- * @param {object} action - { type: "url"|"app"|"file", value: string }
+ * @param {object} action - { type: "url"|"app"|"file", value: string, openOnStart?: boolean }
  * @returns {object|null} Validated action or null
  */
 export function validateQuestAction(action) {
@@ -195,6 +195,7 @@ export function validateQuestAction(action) {
   
   const type = action.type;
   let value = (action.value || "").trim();
+  const openOnStart = action.openOnStart !== false;
   
   if (!value) {
     return null;
@@ -205,17 +206,17 @@ export function validateQuestAction(action) {
     if (!/^https?:\/\//i.test(value)) {
       value = "https://" + value;
     }
-    return { type: "url", value };
+    return { type: "url", value, openOnStart };
   }
   
   if (type === "app") {
     // Store raw string for app protocol handlers
-    return { type: "app", value };
+    return { type: "app", value, openOnStart };
   }
   
   if (type === "file") {
     // Store file path - will be converted to file:// URL when opening
-    return { type: "file", value };
+    return { type: "file", value, openOnStart };
   }
   
   return null;
