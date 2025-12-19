@@ -21,5 +21,11 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native-web": "~0.20.0"
+  },
+  "devDependencies": {
+    "react-native-worklets": "0.5.1"
+  },
+  "overrides": {
+    "react-native-worklets": "0.5.1"
   }
 }

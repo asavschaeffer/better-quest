@@ -55,6 +55,7 @@ import NewQuestScreen from "../screens/NewQuestScreen.js";
 import SessionScreen from "../screens/SessionScreen.js";
 import CompleteScreen from "../screens/CompleteScreen.js";
 import QuestDetailScreen from "../screens/QuestDetailScreen.js";
+import StandStatsPickerTestScreen from "../screens/StandStatsPickerTestScreen.js";
 
 import Toast from "../components/Toast.js";
 import styles from "../../style.js";
@@ -299,6 +300,7 @@ function HomeTab() {
             avatar={ctx.avatar}
             levelInfo={ctx.levelInfo}
             fatigueOverlayStats={ctx.fatigueOverlayStats}
+            onOpenTesting={() => navigation.navigate("StandStatsPickerTest")}
             onOpenSettings={() => ctx.nav(ROUTES.SETTINGS)}
             onOpenNotifications={ctx.handleOpenNotifications}
             inAppAnnouncementsEnabled={ctx.inAppAnnouncementsEnabled}
@@ -307,6 +309,14 @@ function HomeTab() {
           />
         )}
       </HomeStack.Screen>
+      <HomeStack.Screen
+        name="StandStatsPickerTest"
+        component={StandStatsPickerTestScreen}
+        options={{
+          title: "StandStats Prototype",
+          headerBackTitle: "Home",
+        }}
+      />
     </HomeStack.Navigator>
   );
 }

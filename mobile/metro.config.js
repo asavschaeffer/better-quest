@@ -25,6 +25,10 @@ config.resolver.nodeModulesPaths = [
 config.resolver.extraNodeModules = {
   'react': path.resolve(monorepoRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  // Worklets must be a single version and must match the native runtime available in Expo Go/dev client.
+  // In this monorepo, pin Metro to the mobile workspace copy to avoid hoisted peer-version mismatches.
+  // We pin to the monorepo root install so Metro doesn't accidentally pick up a stale nested copy under `mobile/node_modules`.
+  'react-native-worklets': path.resolve(monorepoRoot, 'node_modules/react-native-worklets'),
 };
 
 module.exports = config;

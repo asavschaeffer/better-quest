@@ -32,6 +32,7 @@ export default function HomeScreen({
   avatar,
   levelInfo,
   fatigueOverlayStats,
+  onOpenTesting,
   onOpenSettings,
   onOpenNotifications,
   inAppAnnouncementsEnabled = true,
@@ -163,6 +164,16 @@ export default function HomeScreen({
           <Text style={styles.headerTitle}>{playerTitle}</Text>
         </View>
         <View style={styles.headerIcons}>
+          {onOpenTesting ? (
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={onOpenTesting}
+              accessibilityRole="button"
+              accessibilityLabel="Testing"
+            >
+              <Ionicons name="flask-outline" size={22} color="#e5e7eb" />
+            </TouchableOpacity>
+          ) : null}
           {inAppAnnouncementsEnabled ? (
             <TouchableOpacity
               style={styles.headerIconBtn}
