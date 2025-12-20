@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Circle, Line, Polygon } from "react-native-svg";
@@ -13,7 +13,7 @@ const MAX_VALUE = 3;
 
 // Convert stat value (0-3) to visual radius
 function valueToRadius(value) {
-  const t = value / MAX_VALUE;
+  const t = Math.min(MAX_VALUE, value) / MAX_VALUE;
   return MIN_RADIUS + t * (MAX_RADIUS - MIN_RADIUS);
 }
 
@@ -31,13 +31,12 @@ function buildPoints(values) {
 }
 
 // Convert finger distance to value (0 to ~3.5)
-// Allow going slightly past MAX_RADIUS so floor(3.x) = 3
-const OUTER_MARGIN = MAX_RADIUS * 0.2; // Extra drag zone beyond outer ring
+const OUTER_MARGIN = MAX_RADIUS * 0.2;
 
 function distanceToValue(dist) {
   const clamped = Math.min(MAX_RADIUS + OUTER_MARGIN, Math.max(0, dist));
   const t = clamped / MAX_RADIUS;
-  return t * MAX_VALUE; // Can go up to ~3.6
+  return t * MAX_VALUE;
 }
 
 // Which sector (0-6) is this angle in?
@@ -47,15 +46,62 @@ function angleToSector(angle) {
   return Math.round(norm / sector) % NUM_STATS;
 }
 
-// Smooth lerp
-const LERP_SPEED = 0.4;
-function lerp(current, target, t) {
-  return current + (target - current) * t;
-}
+// Animation speeds
+const FOLLOW_SPEED = 0.4; // How fast active sector follows finger
+const BASE_RECEDE_SPEED = 0.015; // Base speed for receding to floor
+const MAX_RECEDE_SPEED = 0.06; // Max recede speed under tension pressure
 
 export default function StandStatsPickerTestScreen() {
   const [values, setValues] = useState([0, 0, 0, 0, 0, 0, 0]);
-  const currentSector = useRef(-1);
+  const activeSector = useRef(-1);
+  const isDragging = useRef(false);
+  const animationRef = useRef(null);
+
+  // Animation loop - runs continuously to handle receding
+  useEffect(() => {
+    const animate = () => {
+      setValues((prev) => {
+        const next = [...prev];
+        let changed = false;
+
+        // Calculate total "overshoot" (surface tension pressure)
+        let totalOvershoot = 0;
+        for (let i = 0; i < NUM_STATS; i++) {
+          const overshoot = next[i] - Math.floor(next[i]);
+          totalOvershoot += overshoot;
+        }
+
+        // Higher tension = faster recede for non-active sectors
+        const tensionPressure = Math.min(1, totalOvershoot / 2); // Normalize
+        const recedeSpeed = BASE_RECEDE_SPEED + tensionPressure * (MAX_RECEDE_SPEED - BASE_RECEDE_SPEED);
+
+        for (let i = 0; i < NUM_STATS; i++) {
+          // Skip the actively dragged sector
+          if (isDragging.current && i === activeSector.current) continue;
+
+          const floor = Math.floor(next[i]);
+          const overshoot = next[i] - floor;
+
+          // If above the floor, recede toward it
+          if (overshoot > 0.001) {
+            next[i] = Math.max(floor, next[i] - recedeSpeed);
+            changed = true;
+          }
+        }
+
+        return changed ? next : prev;
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
 
   const pan = Gesture.Pan()
     .runOnJS(true)
@@ -63,7 +109,8 @@ export default function StandStatsPickerTestScreen() {
       const dx = e.x - CENTER;
       const dy = e.y - CENTER;
       const angle = Math.atan2(dy, dx);
-      currentSector.current = angleToSector(angle);
+      activeSector.current = angleToSector(angle);
+      isDragging.current = true;
     })
     .onUpdate((e) => {
       const dx = e.x - CENTER;
@@ -78,23 +125,20 @@ export default function StandStatsPickerTestScreen() {
       setValues((prev) => {
         const next = [...prev];
 
-        // If sector changed, snap the OLD sector to floor
-        if (sector !== currentSector.current && currentSector.current >= 0) {
-          const oldSector = currentSector.current;
-          next[oldSector] = Math.min(MAX_VALUE, Math.floor(next[oldSector]));
-        }
+        // Update active sector
+        activeSector.current = sector;
 
         // Smoothly follow finger in current sector
-        next[sector] = lerp(next[sector], fingerValue, LERP_SPEED);
+        const current = next[sector];
+        next[sector] = current + (fingerValue - current) * FOLLOW_SPEED;
 
-        currentSector.current = sector;
         return next;
       });
     })
     .onEnd(() => {
-      // Snap all to floor (the thresholds you exceeded), clamped to valid range
-      setValues((prev) => prev.map((v) => Math.min(MAX_VALUE, Math.floor(v))));
-      currentSector.current = -1;
+      isDragging.current = false;
+      activeSector.current = -1;
+      // Don't snap - let the animation loop handle receding
     });
 
   const pointsStr = buildPoints(values);
