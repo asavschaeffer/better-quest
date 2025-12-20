@@ -11,6 +11,15 @@ const MIN_RADIUS = MAX_RADIUS * 0.08;
 const NUM_STATS = 7;
 const MAX_VALUE = 3;
 
+// Budget constraint
+const BUDGET = 8;
+
+// Animation speeds
+const FOLLOW_SPEED = 0.4;
+const BASE_RECEDE_SPEED = 0.004; // Very slow passive recede - decimals persist
+const MAX_RECEDE_SPEED = 0.02; // Faster under pressure but still visible
+const THRESHOLD_BREAK_SPEED = 0.012; // ~0.5-1 sec of sustained pull to break a threshold
+
 // Convert stat value (0-3) to visual radius
 function valueToRadius(value) {
   const t = Math.min(MAX_VALUE, value) / MAX_VALUE;
@@ -46,43 +55,82 @@ function angleToSector(angle) {
   return Math.round(norm / sector) % NUM_STATS;
 }
 
-// Animation speeds
-const FOLLOW_SPEED = 0.4; // How fast active sector follows finger
-const BASE_RECEDE_SPEED = 0.015; // Base speed for receding to floor
-const MAX_RECEDE_SPEED = 0.06; // Max recede speed under tension pressure
-
 export default function StandStatsPickerTestScreen() {
-  const [values, setValues] = useState([0, 0, 0, 0, 0, 0, 0]);
+  const [values, setValues] = useState([1, 1, 1, 1, 1, 1, 1]); // Start with 7 total
   const activeSector = useRef(-1);
   const isDragging = useRef(false);
   const animationRef = useRef(null);
 
-  // Animation loop - runs continuously to handle receding
+  // Animation loop - handles receding AND budget enforcement
   useEffect(() => {
     const animate = () => {
       setValues((prev) => {
         const next = [...prev];
         let changed = false;
 
-        // Calculate total "overshoot" (surface tension pressure)
-        let totalOvershoot = 0;
-        for (let i = 0; i < NUM_STATS; i++) {
-          const overshoot = next[i] - Math.floor(next[i]);
-          totalOvershoot += overshoot;
+        // === BUDGET ENFORCEMENT ===
+        let total = next.reduce((sum, v) => sum + v, 0);
+
+        if (total > BUDGET) {
+          let overage = total - BUDGET;
+
+          // PHASE 1: Harvest from decimals (non-active sectors first)
+          // Sort by decimal portion descending (take from largest decimals first)
+          const decimalContributors = [];
+          for (let i = 0; i < NUM_STATS; i++) {
+            if (isDragging.current && i === activeSector.current) continue;
+            const decimal = next[i] - Math.floor(next[i]);
+            if (decimal > 0.001) {
+              decimalContributors.push({ idx: i, decimal });
+            }
+          }
+          decimalContributors.sort((a, b) => b.decimal - a.decimal);
+
+          for (const { idx, decimal } of decimalContributors) {
+            if (overage <= 0) break;
+            const take = Math.min(decimal, overage);
+            next[idx] -= take;
+            overage -= take;
+            changed = true;
+          }
+
+          // PHASE 2: Break thresholds (lowest first, with resistance)
+          if (overage > 0.001) {
+            // Find the lowest non-zero floored value (excluding active sector)
+            let lowestIdx = -1;
+            let lowestFloor = Infinity;
+
+            for (let i = 0; i < NUM_STATS; i++) {
+              if (isDragging.current && i === activeSector.current) continue;
+              const floor = Math.floor(next[i]);
+              if (floor > 0 && floor < lowestFloor) {
+                lowestFloor = floor;
+                lowestIdx = i;
+              }
+            }
+
+            // Apply resistance - only break threshold slowly
+            if (lowestIdx >= 0) {
+              const take = Math.min(overage, THRESHOLD_BREAK_SPEED);
+              next[lowestIdx] -= take;
+              changed = true;
+            }
+          }
         }
 
-        // Higher tension = faster recede for non-active sectors
-        const tensionPressure = Math.min(1, totalOvershoot / 2); // Normalize
-        const recedeSpeed = BASE_RECEDE_SPEED + tensionPressure * (MAX_RECEDE_SPEED - BASE_RECEDE_SPEED);
+        // === NATURAL RECEDE ===
+        // Non-active sectors flow back toward their floor
+        // Speed influenced by how close we are to budget
+        total = next.reduce((sum, v) => sum + v, 0);
+        const budgetPressure = Math.min(1, Math.max(0, total / BUDGET));
+        const recedeSpeed = BASE_RECEDE_SPEED + budgetPressure * (MAX_RECEDE_SPEED - BASE_RECEDE_SPEED);
 
         for (let i = 0; i < NUM_STATS; i++) {
-          // Skip the actively dragged sector
           if (isDragging.current && i === activeSector.current) continue;
 
           const floor = Math.floor(next[i]);
           const overshoot = next[i] - floor;
 
-          // If above the floor, recede toward it
           if (overshoot > 0.001) {
             next[i] = Math.max(floor, next[i] - recedeSpeed);
             changed = true;
@@ -119,16 +167,13 @@ export default function StandStatsPickerTestScreen() {
       const angle = Math.atan2(dy, dx);
       const sector = angleToSector(angle);
 
-      // Target value from finger distance
       const fingerValue = distanceToValue(dist);
 
       setValues((prev) => {
         const next = [...prev];
-
-        // Update active sector
         activeSector.current = sector;
 
-        // Smoothly follow finger in current sector
+        // Follow finger (budget enforcement happens in animation loop)
         const current = next[sector];
         next[sector] = current + (fingerValue - current) * FOLLOW_SPEED;
 
@@ -138,10 +183,10 @@ export default function StandStatsPickerTestScreen() {
     .onEnd(() => {
       isDragging.current = false;
       activeSector.current = -1;
-      // Don't snap - let the animation loop handle receding
     });
 
   const pointsStr = buildPoints(values);
+  const total = values.reduce((sum, v) => sum + v, 0);
 
   return (
     <View style={styles.container}>
