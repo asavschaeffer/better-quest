@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Circle, Line, Polygon } from "react-native-svg";
@@ -7,22 +7,22 @@ const { width, height } = Dimensions.get("window");
 const SIZE = Math.min(width, height) * 0.95;
 const CENTER = SIZE / 2;
 const MAX_RADIUS = SIZE * 0.42;
-const MIN_RADIUS = MAX_RADIUS * 0.08; // Never truly zero visually
+const MIN_RADIUS = MAX_RADIUS * 0.08;
 const NUM_STATS = 7;
-const MAX_VALUE = 3; // Stats go 0-3
+const MAX_VALUE = 3;
 
 // Convert stat value (0-3) to visual radius
 function valueToRadius(value) {
-  const t = value / MAX_VALUE; // 0-1
+  const t = value / MAX_VALUE;
   return MIN_RADIUS + t * (MAX_RADIUS - MIN_RADIUS);
 }
 
-// Calculate polygon points from radii array
-function buildPoints(radii) {
+// Calculate polygon points from values array
+function buildPoints(values) {
   let pts = "";
   for (let i = 0; i < NUM_STATS; i++) {
     const angle = (i * Math.PI * 2) / NUM_STATS - Math.PI / 2;
-    const r = valueToRadius(radii[i]);
+    const r = valueToRadius(values[i]);
     const x = CENTER + r * Math.cos(angle);
     const y = CENTER + r * Math.sin(angle);
     pts += `${x},${y} `;
@@ -30,46 +30,74 @@ function buildPoints(radii) {
   return pts.trim();
 }
 
-// Convert visual distance to stat value (0-3)
+// Convert finger distance to value (0 to ~3.5)
+// Allow going slightly past MAX_RADIUS so floor(3.x) = 3
+const OUTER_MARGIN = MAX_RADIUS * 0.2; // Extra drag zone beyond outer ring
+
 function distanceToValue(dist) {
-  // Clamp to valid range
-  const clamped = Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, dist));
-  const t = (clamped - MIN_RADIUS) / (MAX_RADIUS - MIN_RADIUS);
-  return t * MAX_VALUE;
+  const clamped = Math.min(MAX_RADIUS + OUTER_MARGIN, Math.max(0, dist));
+  const t = clamped / MAX_RADIUS;
+  return t * MAX_VALUE; // Can go up to ~3.6
+}
+
+// Which sector (0-6) is this angle in?
+function angleToSector(angle) {
+  const sector = (Math.PI * 2) / NUM_STATS;
+  const norm = ((angle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  return Math.round(norm / sector) % NUM_STATS;
+}
+
+// Smooth lerp
+const LERP_SPEED = 0.4;
+function lerp(current, target, t) {
+  return current + (target - current) * t;
 }
 
 export default function StandStatsPickerTestScreen() {
-  const [radii, setRadii] = useState([1, 1, 1, 1, 1, 1, 1]); // Start at level 1
+  const [values, setValues] = useState([0, 0, 0, 0, 0, 0, 0]);
+  const currentSector = useRef(-1);
 
   const pan = Gesture.Pan()
     .runOnJS(true)
+    .onBegin((e) => {
+      const dx = e.x - CENTER;
+      const dy = e.y - CENTER;
+      const angle = Math.atan2(dy, dx);
+      currentSector.current = angleToSector(angle);
+    })
     .onUpdate((e) => {
       const dx = e.x - CENTER;
       const dy = e.y - CENTER;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const angle = Math.atan2(dy, dx);
+      const sector = angleToSector(angle);
 
-      // Which axis?
-      const sector = (Math.PI * 2) / NUM_STATS;
-      const norm = ((angle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-      const axis = Math.round(norm / sector) % NUM_STATS;
+      // Target value from finger distance
+      const fingerValue = distanceToValue(dist);
 
-      // Target value (0-3)
-      const target = distanceToValue(dist);
-
-      // Update just that axis
-      setRadii((prev) => {
+      setValues((prev) => {
         const next = [...prev];
-        next[axis] = target;
+
+        // If sector changed, snap the OLD sector to floor
+        if (sector !== currentSector.current && currentSector.current >= 0) {
+          const oldSector = currentSector.current;
+          next[oldSector] = Math.min(MAX_VALUE, Math.floor(next[oldSector]));
+        }
+
+        // Smoothly follow finger in current sector
+        next[sector] = lerp(next[sector], fingerValue, LERP_SPEED);
+
+        currentSector.current = sector;
         return next;
       });
     })
     .onEnd(() => {
-      // Snap to nearest integer (0, 1, 2, or 3)
-      setRadii((prev) => prev.map((v) => Math.round(v)));
+      // Snap all to floor (the thresholds you exceeded), clamped to valid range
+      setValues((prev) => prev.map((v) => Math.min(MAX_VALUE, Math.floor(v))));
+      currentSector.current = -1;
     });
 
-  const pointsStr = buildPoints(radii);
+  const pointsStr = buildPoints(values);
 
   return (
     <View style={styles.container}>
