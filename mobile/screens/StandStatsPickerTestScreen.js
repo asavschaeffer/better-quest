@@ -14,6 +14,13 @@ const MAX_VALUE = 3;
 // Budget constraint
 const BUDGET = 8;
 
+// Calculate dynamic buffer - excess budget distributed across all stats
+function calculateBuffer(values) {
+  const totalFloors = values.reduce((sum, v) => sum + Math.floor(v), 0);
+  const excess = Math.max(0, BUDGET - totalFloors);
+  return excess / NUM_STATS;
+}
+
 // Animation speeds
 const FOLLOW_SPEED = 0.4;
 const BASE_RECEDE_SPEED = 0.004; // Very slow passive recede - decimals persist
@@ -27,6 +34,7 @@ function valueToRadius(value) {
 }
 
 // Calculate polygon points from values array
+// Values now include the buffer, so visual = value directly
 function buildPoints(values) {
   let pts = "";
   for (let i = 0; i < NUM_STATS; i++) {
@@ -56,7 +64,8 @@ function angleToSector(angle) {
 }
 
 export default function StandStatsPickerTestScreen() {
-  const [values, setValues] = useState([1, 1, 1, 1, 1, 1, 1]); // Start with 7 total
+  // Start at level 1 each - regeneration will bring up to floor + buffer
+  const [values, setValues] = useState([1, 1, 1, 1, 1, 1, 1]);
   const activeSector = useRef(-1);
   const isDragging = useRef(false);
   const animationRef = useRef(null);
@@ -125,15 +134,40 @@ export default function StandStatsPickerTestScreen() {
         const budgetPressure = Math.min(1, Math.max(0, total / BUDGET));
         const recedeSpeed = BASE_RECEDE_SPEED + budgetPressure * (MAX_RECEDE_SPEED - BASE_RECEDE_SPEED);
 
+        // Calculate dynamic buffer once for this frame
+        const buffer = calculateBuffer(next);
+
         for (let i = 0; i < NUM_STATS; i++) {
           if (isDragging.current && i === activeSector.current) continue;
 
           const floor = Math.floor(next[i]);
-          const overshoot = next[i] - floor;
+          const target = floor + buffer; // Rest at floor + dynamic buffer
+          const overshoot = next[i] - target;
 
           if (overshoot > 0.001) {
-            next[i] = Math.max(floor, next[i] - recedeSpeed);
+            next[i] = Math.max(target, next[i] - recedeSpeed);
             changed = true;
+          }
+        }
+
+        // === BUFFER REGENERATION ===
+        // When under budget, regenerate toward floor + buffer
+        total = next.reduce((sum, v) => sum + v, 0);
+        if (total < BUDGET) {
+          for (let i = 0; i < NUM_STATS; i++) {
+            if (isDragging.current && i === activeSector.current) continue;
+
+            const floor = Math.floor(next[i]);
+            const target = floor + buffer;
+            const deficit = target - next[i];
+
+            if (deficit > 0.001) {
+              const roomToGrow = BUDGET - total;
+              const grow = Math.min(deficit, recedeSpeed, roomToGrow);
+              next[i] += grow;
+              total += grow;
+              changed = true;
+            }
           }
         }
 
