@@ -13,7 +13,8 @@ const NUM_STATS = 7;
 const MAX_VALUE = 3; // Integer thresholds: 0, 1, 2, 3
 
 // Animation
-const RECEDE_SPEED = 0.03; // Speed at which decimals recede to floor
+const RECEDE_SPEED = 0.03; // Speed at which values recede to resting point
+const VISUAL_BUFFER = 0.1; // Resting point is slightly past the threshold (1 -> 1.1)
 
 // Convert stat value (0-3) to visual radius
 function valueToRadius(value) {
@@ -54,7 +55,7 @@ export default function StandStatsPickerTestScreen() {
   const lastFloors = useRef([0, 0, 0, 0, 0, 0, 0]); // Track floors for haptic triggers
   const animationRef = useRef(null);
 
-  // Animation loop - recede decimals to floor when not dragging
+  // Animation loop - recede to resting point (floor + buffer) when not dragging
   useEffect(() => {
     const animate = () => {
       setValues((prev) => {
@@ -64,11 +65,18 @@ export default function StandStatsPickerTestScreen() {
           if (isDragging.current && i === activeSector.current) return val;
 
           const floor = Math.floor(val);
-          const decimal = val - floor;
+          // Resting point: floor + buffer for allocated stats, 0 for unallocated
+          const restingPoint = floor > 0 ? floor + VISUAL_BUFFER : 0;
+          const diff = val - restingPoint;
 
-          if (decimal > 0.001) {
+          if (Math.abs(diff) > 0.001) {
             changed = true;
-            return Math.max(floor, val - RECEDE_SPEED);
+            // Recede toward resting point (down if above, up if below)
+            if (diff > 0) {
+              return Math.max(restingPoint, val - RECEDE_SPEED);
+            } else {
+              return Math.min(restingPoint, val + RECEDE_SPEED);
+            }
           }
           return val;
         });

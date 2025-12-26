@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Alert, Image, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Alert, Image, StyleSheet, KeyboardAvoidingView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import styles from "../../style";
@@ -244,8 +244,17 @@ export default function NewQuestScreen({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Title/subtitle moved into native header to match iOS patterns */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Title/subtitle moved into native header to match iOS patterns */}
 
       {/* Title */}
       <View style={styles.block}>
@@ -456,10 +465,11 @@ export default function NewQuestScreen({
         </View>
       ) : null}
 
-      {/* Error */}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        {/* Error */}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
