@@ -269,7 +269,7 @@ export default function LibraryScreen({
           <Ionicons name="library-outline" size={48} color="#374151" />
           <Text style={localStyles.emptyText}>
             {activeTab === "my"
-              ? "No saved quests yet.\nExplore Discover to find quests!"
+              ? "No quests yet.\nCreate one (+) or explore Discover."
               : "No matching quests found."}
           </Text>
         </View>
