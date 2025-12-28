@@ -158,7 +158,7 @@ export function validateQuestStats(stats) {
   STAT_KEYS.forEach(key => {
     const raw = stats?.[key];
     if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
-      // Cap per stat at 3
+      // Cap per stat at QUEST_STAT_MAX_PER_STAT
       const clamped = Math.min(QUEST_STAT_MAX_PER_STAT, Math.max(0, Math.floor(raw)));
       result[key] = clamped;
     }
@@ -250,15 +250,15 @@ export function suggestStatsForLabel(label) {
     // Health & Routine - VIT
     { keywords: ["cleaning", "clean", "organize", "tidy", "chore"], stats: { VIT: 2, STA: 1, SPI: 1 } },
     { keywords: ["walking", "walk", "hike", "stroll"], stats: { VIT: 2, STA: 1, SPI: 1 } },
-    { keywords: ["sleep", "nap", "rest"], stats: { VIT: 3, SPI: 1 } },
+    { keywords: ["sleep", "nap", "rest"], stats: { VIT: 2, SPI: 1 } },
     // Mental - INT (logic & learning)
-    { keywords: ["math", "calculus", "algebra", "geometry", "statistics"], stats: { INT: 3, VIT: 1 } },
+    { keywords: ["math", "calculus", "algebra", "geometry", "statistics"], stats: { INT: 2, VIT: 1 } },
     { keywords: ["science", "physics", "chemistry", "biology", "research"], stats: { INT: 2, DEX: 1, VIT: 1 } },
     { keywords: ["reading", "book", "novel", "study"], stats: { INT: 2, SPI: 1, VIT: 1 } },
     { keywords: ["code", "coding", "programming", "develop", "software"], stats: { INT: 2, DEX: 1, VIT: 1 } },
     { keywords: ["language", "spanish", "french", "japanese", "duolingo"], stats: { INT: 2, CHA: 1, VIT: 1 } },
     // Spiritual - SPI (inner world)
-    { keywords: ["prayer", "meditation", "spiritual", "faith", "mindfulness"], stats: { SPI: 3, VIT: 1 } },
+    { keywords: ["prayer", "meditation", "spiritual", "faith", "mindfulness"], stats: { SPI: 2, VIT: 1 } },
     { keywords: ["writing", "essay", "journal", "blog", "article"], stats: { SPI: 2, INT: 1, VIT: 1 } },
     { keywords: ["philosophy", "reflect", "contemplate"], stats: { SPI: 2, INT: 1, VIT: 1 } },
     // Social - CHA (outer world)
