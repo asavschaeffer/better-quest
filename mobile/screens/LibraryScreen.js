@@ -95,6 +95,9 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
     );
   }, [isBuiltIn, quest, onEdit, onDelete]);
 
+  const author = quest.authorName || (isBuiltIn ? "Better Quest" : "You");
+  const builtInSuffix = isBuiltIn ? (isSaved ? " • Saved" : " • Template") : "";
+
   const content = (
     <View style={localStyles.questRow}>
       {/* Icon */}
@@ -119,7 +122,8 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
             {quest.label}
           </Text>
           <Text style={localStyles.questMeta} numberOfLines={1}>
-            {formatStatRewards(quest.stats)} • {quest.authorName || (isBuiltIn ? "Better Quest" : "You")}
+            {formatStatRewards(quest.stats)} • {author}
+            {builtInSuffix}
           </Text>
         </View>
       </TouchableOpacity>
