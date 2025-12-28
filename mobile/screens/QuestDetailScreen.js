@@ -28,6 +28,7 @@ export default function QuestDetailScreen({
   quest,
   isBuiltIn = false,
   onEdit,
+  onFork,
   onStart,
   onOpenAction,
 }) {
@@ -176,7 +177,15 @@ export default function QuestDetailScreen({
           <Text style={localStyles.startBtnText}>Start Quest</Text>
         </TouchableOpacity>
 
-        {!isBuiltIn && (
+        {isBuiltIn ? (
+          <TouchableOpacity
+            style={localStyles.editBtn}
+            onPress={() => onFork?.(quest)}
+          >
+            <Ionicons name="duplicate-outline" size={18} color="#a5b4fc" />
+            <Text style={localStyles.editBtnText}>Fork & Edit</Text>
+          </TouchableOpacity>
+        ) : (
           <TouchableOpacity
             style={localStyles.editBtn}
             onPress={() => onEdit?.(quest)}
