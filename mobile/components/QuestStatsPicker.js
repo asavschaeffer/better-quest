@@ -100,7 +100,7 @@ export function QuestStatsPicker({
 
   // Duration constraints
   const durationMin = 1;
-  const durationMax = 120;
+  const durationMax = 240;
   const TWO_PI = Math.PI * 2;
   const startAngle = -Math.PI / 2; // 12 o'clock
 
