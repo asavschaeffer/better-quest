@@ -37,7 +37,7 @@ Quest creation/validation is in `mobile/core/models.js:createQuest`.
 - **Optional**: `description`, `keywords`, `action`, `defaultDurationMinutes`, `stats`
 - **Duration clamp**: `defaultDurationMinutes` is clamped to `1..240` (integer).
 - **Stats allocation constraints**:
-  - Per-stat cap: `0..3`
+  - Per-stat cap: `0..2`
   - **Total cap**: `sum(stats) <= 9` (enforced; throws on create/edit — no silent clamping)
 - **Action**: `{ type: "url"|"app"|"file", value: string }` (validated; `url` auto-adds `https://`).
 
@@ -197,7 +197,7 @@ File: `mobile/core/stats.js:playerStatsToChartValues`
 
 File: `mobile/core/questStorage.js:questStatsToChartStats`
 
-- Input quest allocation `0..3`
+- Input quest allocation `0..2`
 - Output chart value `1..6`
 - If allocation is 0 → 1
 - Else:

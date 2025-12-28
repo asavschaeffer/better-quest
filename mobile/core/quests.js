@@ -156,7 +156,7 @@ export function computeAggregateConsistency(sessions = []) {
  * @param {Array} params.quests - All quest templates (user + built-in)
  * @param {object} params.budgets - Per-stat daily budgets (EXP)
  * @param {object} params.spentToday - Per-stat EXP spent today
- * @param {object} params.selectedAllocation - Per-stat allocation (0–3) from chart selection
+ * @param {object} params.selectedAllocation - Per-stat allocation (0–2) from chart selection
  * @param {string} params.query - Text search query
  * @param {number} params.limit - Max results (default 7, clamped 5–9)
  * @returns {Array} Top quest suggestions
@@ -202,7 +202,7 @@ export function suggestQuests({
     needWeight[k] = 0.7 * normFrac[k] + 0.3 * normAbs[k];
   });
 
-  // chartWeight from selectedAllocation (normalize 0–3 to 0–1)
+  // chartWeight from selectedAllocation (normalize 0–2 to 0–1)
   const chartWeight = {};
   STAT_KEYS.forEach((k) => {
     const alloc = selectedAllocation?.[k] ?? 0;

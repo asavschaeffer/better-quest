@@ -78,7 +78,7 @@ export function calculateExpForSession(session) {
 
   const totalExp = durationMinutes * EXP_PER_MINUTE;
 
-  // Mechanical intent: use allocation points (0–3 per stat) as weights.
+  // Mechanical intent: use allocation points (0–2 per stat) as weights.
   // If allocation is missing (older sessions), fall back to standStats snapshot.
   const standExp = splitTotalExp(totalExp, session.allocation ?? null, session.standStats ?? null);
   return {
@@ -112,7 +112,7 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
   const total = typeof totalExp === "number" && Number.isFinite(totalExp) ? Math.max(0, Math.round(totalExp)) : 0;
   if (total <= 0) return zeroExpResult().standExp;
 
-  // Prefer allocation points (0–3). These are the authoritative weights.
+  // Prefer allocation points (0–2). These are the authoritative weights.
   const points = {};
   let sumPoints = 0;
   STAND_KEYS.forEach((key) => {

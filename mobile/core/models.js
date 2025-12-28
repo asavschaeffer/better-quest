@@ -56,7 +56,7 @@ export function createTaskSession({
     startTime: startTime ?? new Date().toISOString(),
     endTime: null,
     endTimeMs: typeof endTimeMs === "number" ? endTimeMs : null,
-    // Mechanical intent snapshot (0–3 points per stat). This is authoritative for EXP splitting.
+    // Mechanical intent snapshot (0–2 points per stat). This is authoritative for EXP splitting.
     allocation: allocation ?? null,
     // Display-only chart values (derived from allocation/duration elsewhere).
     standStats: standStats ?? null,
