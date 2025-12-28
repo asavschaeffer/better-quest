@@ -96,36 +96,39 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
   }, [isBuiltIn, quest, onEdit, onDelete]);
 
   const content = (
-    <TouchableOpacity
-      style={localStyles.questRow}
-      onPress={() => onPress?.(quest)}
-      activeOpacity={0.7}
-    >
+    <View style={localStyles.questRow}>
       {/* Icon */}
-      <View style={localStyles.questIconWrap}>
-        <Ionicons
-          name={quest.icon || "help-circle-outline"}
-          size={22}
-          color={isBuiltIn ? "#6b7280" : "#a5b4fc"}
-        />
-      </View>
+      <TouchableOpacity
+        style={localStyles.questMainPress}
+        onPress={() => onPress?.(quest)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${quest.label}`}
+      >
+        <View style={localStyles.questIconWrap}>
+          <Ionicons
+            name={quest.icon || "help-circle-outline"}
+            size={22}
+            color={isBuiltIn ? "#6b7280" : "#a5b4fc"}
+          />
+        </View>
 
-      {/* Info */}
-      <View style={localStyles.questInfo}>
-        <Text style={localStyles.questLabel} numberOfLines={1}>
-          {quest.label}
-        </Text>
-        <Text style={localStyles.questMeta} numberOfLines={1}>
-          {formatStatRewards(quest.stats)} • {quest.authorName || (isBuiltIn ? "Better Quest" : "You")}
-        </Text>
-      </View>
+        {/* Info */}
+        <View style={localStyles.questInfo}>
+          <Text style={localStyles.questLabel} numberOfLines={1}>
+            {quest.label}
+          </Text>
+          <Text style={localStyles.questMeta} numberOfLines={1}>
+            {formatStatRewards(quest.stats)} • {quest.authorName || (isBuiltIn ? "Better Quest" : "You")}
+          </Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Right: Save button for built-ins in Discover, or chevron */}
       {isBuiltIn ? (
         <TouchableOpacity
           style={[localStyles.saveBtn, isSaved && localStyles.saveBtnActive]}
-          onPress={(e) => {
-            e.stopPropagation?.();
+          onPress={() => {
             if (isSaved) {
               onUnsave?.(quest.id);
             } else {
@@ -133,6 +136,8 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
             }
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={isSaved ? "Remove saved quest" : "Save quest"}
         >
           <Ionicons
             name={isSaved ? "bookmark" : "bookmark-outline"}
@@ -143,7 +148,7 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
       ) : (
         <Ionicons name="chevron-forward" size={18} color="#64748b" />
       )}
-    </TouchableOpacity>
+    </View>
   );
 
   // Built-in quests don't have swipe actions
@@ -395,6 +400,12 @@ const localStyles = StyleSheet.create({
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
+  },
+  questMainPress: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 8,
   },
   questIconWrap: {
     width: 40,
