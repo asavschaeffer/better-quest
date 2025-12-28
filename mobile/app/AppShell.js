@@ -380,7 +380,7 @@ function LibraryTab() {
         description: quest.label,
         durationMinutes: quest.defaultDurationMinutes || 25,
         allocation: quest.stats || {},
-        questKey: quest.label,
+        questKey: quest.id || quest.label,
       });
     },
     [ctx],
