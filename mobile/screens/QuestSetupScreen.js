@@ -9,6 +9,7 @@ import {
   Keyboard,
   Pressable,
   useWindowDimensions,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -259,8 +260,11 @@ export default function QuestSetupScreen({
                     isUserQuest
                       ? () => {
                           // Long press to delete user quest
+                          const label = q?.label || "this quest";
+                          const message = `Delete "${label}"? This can't be undone.`;
                           if (Platform.OS === "web") {
-                            if (window.confirm(`Delete "${q.label}"?`)) {
+                            // eslint-disable-next-line no-alert
+                            if (window.confirm(message)) {
                               onDeleteQuest?.(q.id);
                               if (selectedQuestId === q.id) {
                                 setSelectedQuestId(null);
@@ -268,12 +272,20 @@ export default function QuestSetupScreen({
                               }
                             }
                           } else {
-                            // On native, just delete (could add Alert later)
-                            onDeleteQuest?.(q.id);
-                            if (selectedQuestId === q.id) {
-                              setSelectedQuestId(null);
-                              setSelectedQuestAction(null);
-                            }
+                            Alert.alert("Delete Quest", message, [
+                              { text: "Cancel", style: "cancel" },
+                              {
+                                text: "Delete",
+                                style: "destructive",
+                                onPress: () => {
+                                  onDeleteQuest?.(q.id);
+                                  if (selectedQuestId === q.id) {
+                                    setSelectedQuestId(null);
+                                    setSelectedQuestAction(null);
+                                  }
+                                },
+                              },
+                            ]);
                           }
                         }
                       : undefined
