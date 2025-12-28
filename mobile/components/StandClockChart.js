@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform } from "react-native";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { RadarChartCore, STAT_ATTRS } from "./RadarChartCore";
+import { questStatsToChartStats } from "../core/questStorage";
 
 /**
  * StandClockChart
@@ -17,11 +18,17 @@ import { RadarChartCore, STAT_ATTRS } from "./RadarChartCore";
 export function StandClockChart({
   value,
   targetValue,
+  // Total duration of the session (may change when user extends time mid-session)
   durationMinutes = 25,
+  // Remaining duration (minutes). If provided, we use this for the ring directly.
+  remainingMinutes = null,
+  // Quest allocation (0..2) so we can recompute target stats locally during drag.
+  allocation = null,
   progress = 0,
   size = 320,
   countdownText = null,
-  onDurationChange = null,
+  // Commit-only callback: called once on drag release (prevents lag from high-frequency global updates).
+  onDurationCommit = null,
 }) {
   const TWO_PI = Math.PI * 2;
   const startAngle = -Math.PI / 2; // 12 o'clock
@@ -29,7 +36,44 @@ export function StandClockChart({
   const durationMax = 120;
 
   const clampedProgress = Math.max(0, Math.min(1, progress));
-  const remainingDuration = Math.max(0, durationMinutes * (1 - clampedProgress));
+
+  // Drag state for duration adjustment (declare early so we can safely reference it during render/effects)
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const lastHapticMinute = useRef(null);
+
+  // The ring drag represents *remaining minutes* (1..120).
+  const resolvedRemainingMinutes =
+    typeof remainingMinutes === "number" && Number.isFinite(remainingMinutes) ? remainingMinutes : null;
+
+  // Local preview of remaining minutes while dragging (keeps ring+chart smooth without re-rendering AppShell every tick).
+  const [previewRemaining, setPreviewRemaining] = useState(
+    typeof resolvedRemainingMinutes === "number" ? resolvedRemainingMinutes : Math.max(0, durationMinutes * (1 - clampedProgress)),
+  );
+  useEffect(() => {
+    if (isDragging) return;
+    // Sync preview to actual remaining whenever the parent updates it.
+    if (typeof resolvedRemainingMinutes === "number") {
+      setPreviewRemaining(resolvedRemainingMinutes);
+    } else {
+      setPreviewRemaining(Math.max(0, durationMinutes * (1 - clampedProgress)));
+    }
+  }, [durationMinutes, resolvedRemainingMinutes, clampedProgress, isDragging]);
+
+  const effectiveRemaining = Math.max(
+    0,
+    isDragging ? previewRemaining : (resolvedRemainingMinutes ?? durationMinutes * (1 - clampedProgress)),
+  );
+
+  const displayCountdownText = useMemo(() => {
+    // While dragging, show the preview remaining time immediately (minute-resolution → ":00").
+    if (isDragging) {
+      const mins = Math.max(0, Math.round(effectiveRemaining));
+      return `${String(mins).padStart(2, "0")}:00`;
+    }
+    return countdownText;
+  }, [isDragging, effectiveRemaining, countdownText]);
 
   const durationToProgress = (dur) =>
     Math.max(0, Math.min(1, (dur - durationMin) / (durationMax - durationMin)));
@@ -56,14 +100,7 @@ export function StandClockChart({
   const radarMinRadiusMult = 0.08 * radarScaleFactor;
   const radarLabelRadiusMult = 0.45 * radarScaleFactor;
 
-  // Drag state for duration adjustment
-  const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef(null);
-  const isDraggingRef = useRef(false);
-  const lastHapticMinute = useRef(null);
-  const lastSentMinute = useRef(null);
-
-  const isInteractive = typeof onDurationChange === "function";
+  const isInteractive = typeof onDurationCommit === "function";
 
   // Convert angle to duration (1-120 minutes)
   const angleToDuration = (angle) => {
@@ -85,16 +122,12 @@ export function StandClockChart({
       isDraggingRef.current = true;
       setIsDragging(true);
       lastHapticMinute.current = null;
-      lastSentMinute.current = null;
       const angle = Math.atan2(dy, dx);
       const newDuration = angleToDuration(angle);
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      if (lastSentMinute.current !== newDuration) {
-        lastSentMinute.current = newDuration;
-        onDurationChange(newDuration);
-      }
+      setPreviewRemaining(newDuration);
     }
   };
 
@@ -115,15 +148,19 @@ export function StandClockChart({
     }
 
     // Avoid spamming parent state updates if the snapped minute hasn't changed.
-    if (lastSentMinute.current !== newDuration) {
-      lastSentMinute.current = newDuration;
-      onDurationChange(newDuration);
-    }
+    setPreviewRemaining((prev) => (prev === newDuration ? prev : newDuration));
   };
 
   const handleDragEnd = () => {
     isDraggingRef.current = false;
     setIsDragging(false);
+    // Commit once on release.
+    if (isInteractive) {
+      const next = previewRemaining;
+      if (typeof next === "number" && Number.isFinite(next)) {
+        onDurationCommit(next);
+      }
+    }
   };
 
   // Web mouse event handling
@@ -143,7 +180,7 @@ export function StandClockChart({
     };
   }, [isDragging]);
 
-  const ringProgress = durationToProgress(remainingDuration);
+  const ringProgress = durationToProgress(effectiveRemaining);
   const endAngle = startAngle + ringProgress * TWO_PI;
   const isFull = ringProgress >= 0.999;
 
@@ -178,14 +215,34 @@ export function StandClockChart({
       const v = value?.[a.key];
       return typeof v === "number" && Number.isFinite(v) ? v : 1;
     });
+
+    // Recompute target stats locally when allocation is available so the chart responds in real-time
+    // during duration drag, without forcing AppShell re-renders on every tick.
+    let computedTarget = null;
+    if (allocation && typeof allocation === "object") {
+      const total = typeof durationMinutes === "number" && Number.isFinite(durationMinutes) ? durationMinutes : 0;
+      const remaining = typeof resolvedRemainingMinutes === "number" ? resolvedRemainingMinutes : Math.max(0, total * (1 - clampedProgress));
+      const elapsed = Math.max(0, total - remaining);
+      const previewTotal = elapsed + effectiveRemaining;
+      computedTarget = questStatsToChartStats(allocation, previewTotal);
+    }
+
     const target = STAT_ATTRS.map((a, i) => {
-      const v = targetValue?.[a.key];
+      const v = computedTarget ? computedTarget?.[a.key] : targetValue?.[a.key];
       const resolved = typeof v === "number" && Number.isFinite(v) ? v : base[i];
       return resolved;
     });
     const animated = base.map((b, i) => b + (target[i] - b) * clampedProgress);
     return { animatedValues: animated, targetValues: target };
-  }, [value, targetValue, clampedProgress]);
+  }, [
+    value,
+    targetValue,
+    allocation,
+    durationMinutes,
+    resolvedRemainingMinutes,
+    effectiveRemaining,
+    clampedProgress,
+  ]);
 
   const overlays = targetValue
     ? [
@@ -280,7 +337,7 @@ export function StandClockChart({
         minRadiusMult={radarMinRadiusMult}
         labelRadiusMult={radarLabelRadiusMult}
         centerContent={
-          countdownText ? (
+          displayCountdownText ? (
             <SvgText
               x={0}
               y={8}
@@ -289,7 +346,7 @@ export function StandClockChart({
               fill="#e5e7eb"
               fontWeight="bold"
             >
-              {countdownText}
+              {displayCountdownText}
             </SvgText>
           ) : null
         }

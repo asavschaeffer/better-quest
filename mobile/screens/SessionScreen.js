@@ -10,6 +10,7 @@ export default function SessionScreen({ session, remainingMs, avatar, onDuration
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const formatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const remainingMinutes = Math.max(0, remainingMs / 60000);
 
   // Calculate progress: how much of the session is complete
   const totalMs = session.durationMinutes * 60 * 1000;
@@ -92,10 +93,12 @@ export default function SessionScreen({ session, remainingMs, avatar, onDuration
           value={session.standStats}
           targetValue={session.targetStats}
           durationMinutes={session.durationMinutes}
+          remainingMinutes={remainingMinutes}
+          allocation={session.allocation}
           progress={progress}
           size={320}
           countdownText={formatted}
-          onDurationChange={onDurationChange}
+          onDurationCommit={onDurationChange}
         />
         {/* Tooltip hint - fades out after 3 seconds */}
         {showTooltip && (
