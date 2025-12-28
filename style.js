@@ -1567,6 +1567,7 @@ export const styles = StyleSheet.create({
   },
   questSheetActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginTop: "auto",
   },
@@ -1575,6 +1576,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+    flexGrow: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
