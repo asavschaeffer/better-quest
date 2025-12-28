@@ -40,6 +40,31 @@ function compareBySelectedStat(selectedStat) {
   };
 }
 
+function compareBySelectedStats(selectedStatsSet) {
+  const active =
+    selectedStatsSet && typeof selectedStatsSet?.has === "function" ? selectedStatsSet : null;
+  const activeKeys = active ? STAT_KEYS.filter((k) => active.has(k)) : [];
+
+  // If all stats are active (or none are active), behave like "no sorting preference".
+  const treatAsNoPref =
+    !activeKeys.length || activeKeys.length === STAT_KEYS.length;
+
+  if (treatAsNoPref) return compareBySelectedStat(null);
+
+  // Sort by sum of selected stats, then total, then name.
+  return (a, b) => {
+    const aSum = activeKeys.reduce((acc, k) => acc + (a?.stats?.[k] ?? 0), 0);
+    const bSum = activeKeys.reduce((acc, k) => acc + (b?.stats?.[k] ?? 0), 0);
+    if (bSum !== aSum) return bSum - aSum;
+
+    const aTotal = getQuestStatTotal(a?.stats);
+    const bTotal = getQuestStatTotal(b?.stats);
+    if (bTotal !== aTotal) return bTotal - aTotal;
+
+    return (a?.label || "").localeCompare(b?.label || "");
+  };
+}
+
 // Format stat rewards as a compact string: "INT 3 • SPI 2"
 function formatStatRewards(stats) {
   if (!stats) return "";
@@ -235,7 +260,7 @@ export default function LibraryScreen({
   onOpenStatInfo,
 }) {
   const [query, setQuery] = useState("");
-  const [selectedStat, setSelectedStat] = useState(null);
+  const [selectedStats, setSelectedStats] = useState(() => new Set(STAT_KEYS));
   const [activeTab, setActiveTab] = useState("my");
 
   const savedQuestIdsSet = useMemo(() => new Set(savedQuestIds), [savedQuestIds]);
@@ -247,22 +272,32 @@ export default function LibraryScreen({
 
   // Combine user quests and saved built-ins for "My Quests" tab
   const myQuests = useMemo(() => {
-    const sorter = compareBySelectedStat(selectedStat);
+    const sorter = compareBySelectedStats(selectedStats);
     const combined = [...userQuests, ...savedBuiltIns];
+    const activeKeys = STAT_KEYS.filter((k) => selectedStats.has(k));
+    const treatAsAll = activeKeys.length === 0 || activeKeys.length === STAT_KEYS.length;
     return combined
       .filter((q) => questMatchesQuery(q, query))
-      .filter((q) => (selectedStat ? (q?.stats?.[selectedStat] ?? 0) > 0 : true))
+      .filter((q) => {
+        if (treatAsAll) return true;
+        return activeKeys.some((k) => (q?.stats?.[k] ?? 0) > 0);
+      })
       .sort(sorter);
-  }, [userQuests, savedBuiltIns, query, selectedStat]);
+  }, [userQuests, savedBuiltIns, query, selectedStats]);
 
   // All built-in templates for "Discover" tab
   const discoverQuests = useMemo(() => {
-    const sorter = compareBySelectedStat(selectedStat);
+    const sorter = compareBySelectedStats(selectedStats);
+    const activeKeys = STAT_KEYS.filter((k) => selectedStats.has(k));
+    const treatAsAll = activeKeys.length === 0 || activeKeys.length === STAT_KEYS.length;
     return BUILT_IN_QUEST_TEMPLATES
       .filter((q) => questMatchesQuery(q, query))
-      .filter((q) => (selectedStat ? (q?.stats?.[selectedStat] ?? 0) > 0 : true))
+      .filter((q) => {
+        if (treatAsAll) return true;
+        return activeKeys.some((k) => (q?.stats?.[k] ?? 0) > 0);
+      })
       .sort(sorter);
-  }, [query, selectedStat]);
+  }, [query, selectedStats]);
 
   // Build flat list data based on active tab
   const listData = useMemo(() => {
@@ -376,18 +411,21 @@ export default function LibraryScreen({
         </View>
 
         <View style={styles.rowWrap}>
-          <Chip
-            label="All"
-            active={!selectedStat}
-            onPress={() => setSelectedStat(null)}
-            accessibilityHint="Show all quests"
-          />
           {STAT_KEYS.map((k) => (
             <Chip
               key={k}
               label={k}
-              active={selectedStat === k}
-              onPress={() => setSelectedStat((prev) => (prev === k ? null : k))}
+              active={selectedStats.has(k)}
+              onPress={() => {
+                setSelectedStats((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(k)) next.delete(k);
+                  else next.add(k);
+                  // If user turned everything off, snap back to "all on" so there's always a filter state.
+                  if (next.size === 0) return new Set(STAT_KEYS);
+                  return next;
+                });
+              }}
               onLongPress={() => {
                 onOpenStatInfo?.(k);
               }}
