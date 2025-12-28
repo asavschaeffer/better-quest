@@ -112,41 +112,8 @@ export default function NewQuestScreen({
         aspect: [16, 9],
         quality: 0.8,
       });
-      // #region agent log
-      fetch("http://127.0.0.1:7242/ingest/d7add573-3752-4b30-89e0-4c436052ce12", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "mobile/screens/NewQuestScreen.js:pickImage:afterPicker",
-          message: "ImagePicker result",
-          data: {
-            canceled: !!result?.canceled,
-            assetUri: result?.assets?.[0]?.uri ?? null,
-          },
-          timestamp: Date.now(),
-          sessionId: "debug-session",
-          runId: "pre-fix",
-          hypothesisId: "E",
-        }),
-      }).catch(() => {});
-      // #endregion agent log
       if (!result.canceled && result.assets?.[0]?.uri) {
         const persistedUri = await persistQuestImageAsync(result.assets[0].uri);
-        // #region agent log
-        fetch("http://127.0.0.1:7242/ingest/d7add573-3752-4b30-89e0-4c436052ce12", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "mobile/screens/NewQuestScreen.js:pickImage:afterPersist",
-            message: "persistQuestImageAsync return",
-            data: { persistedUri: persistedUri ?? null, prevImageUri: imageUri ?? null },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            runId: "pre-fix",
-            hypothesisId: "D",
-          }),
-        }).catch(() => {});
-        // #endregion agent log
         if (persistedUri) {
           // If we already had a persisted image, remove it to avoid leaking files.
           if (imageUri) {

@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STAT_KEYS } from "./models.js";
 
 const USER_QUESTS_KEY = "better-quest-user-quests-v1";
-const DEBUG_INGEST = "http://127.0.0.1:7242/ingest/d7add573-3752-4b30-89e0-4c436052ce12";
 
 /**
  * NOTE: `expo-file-system` and `expo-file-system/legacy` are Expo-native modules.
@@ -47,60 +46,9 @@ async function ensureQuestImagesDir() {
   const QUEST_IMAGES_DIR = await getQuestImagesDir();
   if (!FileSystem || !QUEST_IMAGES_DIR) return;
 
-  // #region agent log
-  fetch(DEBUG_INGEST, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "mobile/core/questStorage.js:ensureQuestImagesDir:entry",
-      message: "ensureQuestImagesDir entry",
-      data: {
-        QUEST_IMAGES_DIR,
-        documentDirectory: FileSystem?.documentDirectory ?? null,
-        hasGetInfoAsync: typeof FileSystem?.getInfoAsync === "function",
-        hasMakeDirectoryAsync: typeof FileSystem?.makeDirectoryAsync === "function",
-      },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      runId: "pre-fix",
-      hypothesisId: "A",
-    }),
-  }).catch(() => {});
-  // #endregion agent log
-
   const info = await FileSystem.getInfoAsync(QUEST_IMAGES_DIR);
-  // #region agent log
-  fetch(DEBUG_INGEST, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "mobile/core/questStorage.js:ensureQuestImagesDir:afterGetInfo",
-      message: "ensureQuestImagesDir getInfoAsync result",
-      data: { exists: !!info?.exists, isDirectory: info?.isDirectory ?? null, uri: info?.uri ?? null },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      runId: "pre-fix",
-      hypothesisId: "A",
-    }),
-  }).catch(() => {});
-  // #endregion agent log
   if (!info.exists) {
     await FileSystem.makeDirectoryAsync(QUEST_IMAGES_DIR, { intermediates: true });
-    // #region agent log
-    fetch(DEBUG_INGEST, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "mobile/core/questStorage.js:ensureQuestImagesDir:madeDir",
-        message: "ensureQuestImagesDir made directory",
-        data: { QUEST_IMAGES_DIR },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "B",
-      }),
-    }).catch(() => {});
-    // #endregion agent log
   }
 }
 
@@ -116,63 +64,12 @@ export async function persistQuestImageAsync(sourceUri) {
     const QUEST_IMAGES_DIR = await getQuestImagesDir();
     if (!FileSystem || !QUEST_IMAGES_DIR) return null;
 
-    // #region agent log
-    fetch(DEBUG_INGEST, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "mobile/core/questStorage.js:persistQuestImageAsync:entry",
-        message: "persistQuestImageAsync entry",
-        data: {
-          sourceUri,
-          QUEST_IMAGES_DIR,
-          documentDirectory: FileSystem?.documentDirectory ?? null,
-          hasCopyAsync: typeof FileSystem?.copyAsync === "function",
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "C",
-      }),
-    }).catch(() => {});
-    // #endregion agent log
-
     await ensureQuestImagesDir();
     const filename = `quest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
     const destUri = `${QUEST_IMAGES_DIR}${filename}`;
     await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-    // #region agent log
-    fetch(DEBUG_INGEST, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "mobile/core/questStorage.js:persistQuestImageAsync:copied",
-        message: "persistQuestImageAsync copyAsync success",
-        data: { destUri },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "D",
-      }),
-    }).catch(() => {});
-    // #endregion agent log
     return destUri;
   } catch (err) {
-    // #region agent log
-    fetch(DEBUG_INGEST, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "mobile/core/questStorage.js:persistQuestImageAsync:catch",
-        message: "persistQuestImageAsync error",
-        data: { errMessage: err?.message ?? String(err), errName: err?.name ?? null },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        runId: "pre-fix",
-        hypothesisId: "A",
-      }),
-    }).catch(() => {});
-    // #endregion agent log
     console.warn("Failed to persist quest image:", err);
     return null;
   }
