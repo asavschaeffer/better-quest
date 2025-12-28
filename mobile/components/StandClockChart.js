@@ -61,6 +61,7 @@ export function StandClockChart({
   const containerRef = useRef(null);
   const isDraggingRef = useRef(false);
   const lastHapticMinute = useRef(null);
+  const lastSentMinute = useRef(null);
 
   const isInteractive = typeof onDurationChange === "function";
 
@@ -84,12 +85,16 @@ export function StandClockChart({
       isDraggingRef.current = true;
       setIsDragging(true);
       lastHapticMinute.current = null;
+      lastSentMinute.current = null;
       const angle = Math.atan2(dy, dx);
       const newDuration = angleToDuration(angle);
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      onDurationChange(newDuration);
+      if (lastSentMinute.current !== newDuration) {
+        lastSentMinute.current = newDuration;
+        onDurationChange(newDuration);
+      }
     }
   };
 
@@ -109,7 +114,11 @@ export function StandClockChart({
       }
     }
 
-    onDurationChange(newDuration);
+    // Avoid spamming parent state updates if the snapped minute hasn't changed.
+    if (lastSentMinute.current !== newDuration) {
+      lastSentMinute.current = newDuration;
+      onDurationChange(newDuration);
+    }
   };
 
   const handleDragEnd = () => {
