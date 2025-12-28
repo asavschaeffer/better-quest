@@ -47,6 +47,13 @@ const QUEST_ICON_OPTIONS = [
   "megaphone-outline",
   "school-outline",
   "trophy-outline",
+  // Used by built-in templates / other screens
+  "speedometer-outline",
+  "moon-outline",
+  "diamond-outline",
+  "keypad-outline",
+  "call-outline",
+  "create-outline",
 ];
 
 const DURATION_PRESETS = [10, 20, 30, 45, 60];
