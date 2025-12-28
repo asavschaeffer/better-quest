@@ -396,8 +396,9 @@ export default function LibraryScreen({
       <LibraryTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Controls */}
-      <View style={localStyles.controls}>
-        <View style={styles.inputRow}>
+      {/* Match History/Rank control bar styling (same padding + divider) */}
+      <View style={[styles.exportControls, { flexDirection: "column", alignItems: "stretch", gap: 8 }]}>
+        <View style={[styles.inputRow, { marginTop: 0 }]}>
           <Ionicons name="search" size={18} color="#64748b" />
           <TextInput
             style={[styles.input, styles.inputGrow]}
@@ -448,9 +449,6 @@ export default function LibraryScreen({
 }
 
 const localStyles = StyleSheet.create({
-  controls: {
-    marginTop: 4,
-  },
   listContent: {
     paddingBottom: 24,
     flexGrow: 1,
