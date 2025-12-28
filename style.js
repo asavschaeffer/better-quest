@@ -1471,6 +1471,138 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+
+  // Library Tab Bar
+  libraryTabBar: {
+    flexDirection: "row",
+    backgroundColor: "#0f172a",
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 12,
+  },
+  libraryTab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  libraryTabActive: {
+    backgroundColor: "#1e1b4b",
+  },
+  libraryTabText: {
+    color: "#9ca3af",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  libraryTabTextActive: {
+    color: "#a5b4fc",
+  },
+
+  // Bottom Sheet Container
+  sheetBottomContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#0b1220",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    borderBottomWidth: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+
+  // Quest Detail Sheet
+  questSheetHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  questSheetIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  questSheetHeaderInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  questSheetTitle: {
+    color: "#f9fafb",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  questSheetAuthor: {
+    color: "#9ca3af",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  questSheetDescription: {
+    color: "#d1d5db",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  questSheetMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+    marginBottom: 20,
+  },
+  questSheetMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  questSheetMetaText: {
+    color: "#9ca3af",
+    fontSize: 13,
+  },
+  questSheetActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: "auto",
+  },
+  questSheetSecondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#1f2937",
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  questSheetSecondaryBtnText: {
+    color: "#a5b4fc",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  questSheetPrimaryBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#4f46e5",
+  },
+  questSheetPrimaryBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
 });
 
 export default styles;

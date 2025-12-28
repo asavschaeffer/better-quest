@@ -52,6 +52,8 @@ export function AppStateProvider({ children, initialState }) {
         dispatch({ type: "SET_FIELD", key: "includeBuiltInQuotes", value }),
       setInAppAnnouncementsEnabled: (value) =>
         dispatch({ type: "SET_FIELD", key: "inAppAnnouncementsEnabled", value }),
+      setSavedQuestIds: (value) =>
+        dispatch({ type: "SET_FIELD", key: "savedQuestIds", value }),
       merge: (payload) => dispatch({ type: "MERGE", payload }),
     }),
     [],
@@ -113,4 +115,9 @@ export function useQuotes() {
     userQuotes: state.userQuotes ?? [],
     includeBuiltInQuotes: state.includeBuiltInQuotes ?? true,
   };
+}
+
+export function useSavedQuestIds() {
+  const state = useAppState();
+  return state.savedQuestIds ?? [];
 }

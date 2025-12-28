@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "better-quest-mobile-state-v3";
-const CURRENT_VERSION = 8;
+const CURRENT_VERSION = 9;
 
 const migrations = {
   // v1 -> v2: normalize quickstart prefs
@@ -61,6 +61,12 @@ const migrations = {
     if ("homeFooterConfig" in next) delete next.homeFooterConfig;
     return next;
   },
+  // v8 -> v9: add savedQuestIds for library bookmarking
+  8: (state) => {
+    const next = { ...state };
+    next.savedQuestIds = state.savedQuestIds ?? [];
+    return next;
+  },
 };
 
 function defaultState() {
@@ -90,6 +96,8 @@ function defaultState() {
     fatigueAdapt: null,
     fatigueAdaptNext: null,
     fatigueAdaptDay: dayKey,
+    // Saved quest IDs (bookmarked built-in templates)
+    savedQuestIds: [],
   };
 }
 
