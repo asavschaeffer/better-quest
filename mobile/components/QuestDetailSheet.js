@@ -209,7 +209,7 @@ export function QuestDetailSheet({
                 }}
               >
                 <Ionicons name="bookmark" size={18} color="#fbbf24" />
-                <Text style={styles.questSheetSecondaryBtnText}>Saved</Text>
+                <Text style={styles.questSheetSecondaryBtnText}>Remove</Text>
               </TouchableOpacity>
             )}
 
