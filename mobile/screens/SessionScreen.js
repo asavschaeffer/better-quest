@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BackHandler, Platform, Pressable, Text, View } from "react-native";
+import { BackHandler, Platform, Pressable, Text, View, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import styles from "../../style";
-import { StandStatsChart } from "../StandStatsChart";
+import { StandClockChart } from "../components/StandClockChart";
 
-export default function SessionScreen({ session, remainingMs, avatar, onCancel }) {
+export default function SessionScreen({ session, remainingMs, avatar, onDurationChange, onCancel }) {
   const insets = useSafeAreaInsets();
   const totalSeconds = Math.max(0, Math.round(remainingMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -53,6 +53,21 @@ export default function SessionScreen({ session, remainingMs, avatar, onCancel }
     return `${name} • Lv ${lv}`;
   }, [avatar]);
 
+  // Tooltip visibility - show briefly on mount, then fade out
+  const [showTooltip, setShowTooltip] = useState(true);
+  const tooltipOpacity = useMemo(() => new Animated.Value(1), []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.timing(tooltipOpacity, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }).start(() => setShowTooltip(false));
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <View
       style={[
@@ -73,15 +88,35 @@ export default function SessionScreen({ session, remainingMs, avatar, onCancel }
 
       {/* Live stat-growth clock: countdown in center, progress on the outer ring */}
       <View style={styles.sessionFocusClockWrap}>
-        <StandStatsChart
+        <StandClockChart
           value={session.standStats}
           targetValue={session.targetStats}
-          duration={session.durationMinutes}
+          durationMinutes={session.durationMinutes}
           progress={progress}
-          readOnly
           size={320}
           countdownText={formatted}
+          onDurationChange={onDurationChange}
         />
+        {/* Tooltip hint - fades out after 3 seconds */}
+        {showTooltip && (
+          <Animated.View
+            style={{
+              position: "absolute",
+              bottom: -8,
+              alignSelf: "center",
+              backgroundColor: "rgba(99,102,241,0.9)",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              opacity: tooltipOpacity,
+            }}
+            pointerEvents="none"
+          >
+            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "500" }}>
+              Drag ring to adjust time
+            </Text>
+          </Animated.View>
+        )}
       </View>
 
       <View style={styles.sessionFocusFooter}>

@@ -118,7 +118,7 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
   STAND_KEYS.forEach((key) => {
     const raw = allocation?.[key];
     const val =
-      typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(3, Math.floor(raw))) : 0;
+      typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(2, Math.floor(raw))) : 0;
     points[key] = val;
     sumPoints += val;
   });

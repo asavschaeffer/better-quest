@@ -55,7 +55,6 @@ import NewQuestScreen from "../screens/NewQuestScreen.js";
 import SessionScreen from "../screens/SessionScreen.js";
 import CompleteScreen from "../screens/CompleteScreen.js";
 import QuestDetailScreen from "../screens/QuestDetailScreen.js";
-import StandStatsPickerTestScreen from "../screens/StandStatsPickerTestScreen.js";
 
 import Toast from "../components/Toast.js";
 import styles from "../../style.js";
@@ -300,7 +299,6 @@ function HomeTab() {
             avatar={ctx.avatar}
             levelInfo={ctx.levelInfo}
             fatigueOverlayStats={ctx.fatigueOverlayStats}
-            onOpenTesting={() => navigation.navigate("StandStatsPickerTest")}
             onOpenSettings={() => ctx.nav(ROUTES.SETTINGS)}
             onOpenNotifications={ctx.handleOpenNotifications}
             inAppAnnouncementsEnabled={ctx.inAppAnnouncementsEnabled}
@@ -309,14 +307,6 @@ function HomeTab() {
           />
         )}
       </HomeStack.Screen>
-      <HomeStack.Screen
-        name="StandStatsPickerTest"
-        component={StandStatsPickerTestScreen}
-        options={{
-          title: "StandStats Prototype",
-          headerBackTitle: "Home",
-        }}
-      />
     </HomeStack.Navigator>
   );
 }
@@ -932,6 +922,29 @@ export default function AppShell() {
     resetToTabs(TAB_ROUTES.HOME);
   }, [resetToTabs]);
 
+  // Handle duration adjustment during active session
+  // newRemainingMinutes = what the user dragged the ring to (the new remaining time)
+  const handleSessionDurationChange = useCallback((newRemainingMinutes) => {
+    if (!currentSession) return;
+    const now = Date.now();
+    const startTimeMs = Date.parse(currentSession.startTime);
+    const elapsedMs = now - startTimeMs;
+    const elapsedMinutes = elapsedMs / 60000;
+
+    // Total duration = time already elapsed + new remaining time
+    const newTotalDuration = elapsedMinutes + newRemainingMinutes;
+    const newEndTimeMs = now + newRemainingMinutes * 60 * 1000;
+    const newTargetStats = questStatsToChartStats(currentSession.allocation, newTotalDuration);
+
+    setCurrentSession(prev => ({
+      ...prev,
+      durationMinutes: newTotalDuration,
+      endTimeMs: newEndTimeMs,
+      targetStats: newTargetStats,
+    }));
+    setRemainingMs(newRemainingMinutes * 60 * 1000);
+  }, [currentSession]);
+
   function handleContinueQuest() {
     if (sessions[0] && notes.trim()) {
       setSessions((prev) => {
@@ -1268,6 +1281,7 @@ export default function AppShell() {
                         session={currentSession}
                         remainingMs={remainingMs}
                         avatar={avatar}
+                        onDurationChange={handleSessionDurationChange}
                         onCancel={handleCancelSession}
                       />
                     ) : (

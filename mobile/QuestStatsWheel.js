@@ -4,7 +4,7 @@ import Svg, { Circle, Line, Polygon, Text as SvgText, G, Path } from "react-nati
 import { QUEST_STAT_MAX_PER_STAT, getQuestStatTotal } from "./core/models";
 
 // Quest stat allocation wheel with +/- buttons + optional duration ring
-// Stats: 0-3 per stat (no total cap)
+// Stats: 0-2 per stat (no total cap)
 
 const ATTRS = [
   { key: "STR", label: "STR", color: "#ef4444" },
@@ -85,11 +85,11 @@ export function QuestStatsWheel({
     onDurationChange?.(next);
   };
 
-  // Map 0-3 to visual radius
+  // Map 0-2 to visual radius
   const getPointOnAxis = (index, val) => {
     const angle = getAxisAngle(index, totalAxes);
-    const clampedVal = Math.max(0, Math.min(3, val));
-    const radius = minRadius + (clampedVal / 3) * (maxRadius - minRadius);
+    const clampedVal = Math.max(0, Math.min(2, val));
+    const radius = minRadius + (clampedVal / 2) * (maxRadius - minRadius);
     return {
       x: cx + Math.cos(angle) * radius,
       y: cy + Math.sin(angle) * radius,
@@ -131,8 +131,8 @@ export function QuestStatsWheel({
     const dy = y - cy;
     const projectedDistance = dx * Math.cos(angle) + dy * Math.sin(angle);
     const clampedDistance = Math.max(0, Math.min(maxRadius, projectedDistance));
-    const val = Math.round((clampedDistance / maxRadius) * 3);
-    return Math.max(0, Math.min(3, val));
+    const val = Math.round((clampedDistance / maxRadius) * 2);
+    return Math.max(0, Math.min(2, val));
   };
 
   const trySetStat = (key, newVal) => {

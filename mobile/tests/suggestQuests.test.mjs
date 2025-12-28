@@ -11,14 +11,14 @@ const makeQuest = (id, label, stats = {}) => ({
 });
 
 const SAMPLE_QUESTS = [
-  makeQuest("study", "Study math", { INT: 3, SPI: 1 }),
-  makeQuest("run", "Go for a run", { STR: 2, STA: 3, VIT: 2 }),
-  makeQuest("meditate", "Meditate", { SPI: 3, VIT: 1 }),
+  makeQuest("study", "Study math", { INT: 2, SPI: 1 }),
+  makeQuest("run", "Go for a run", { STR: 2, STA: 2, VIT: 2 }),
+  makeQuest("meditate", "Meditate", { SPI: 2, VIT: 1 }),
   makeQuest("code", "Write code", { INT: 2, DEX: 2 }),
-  makeQuest("gym", "Gym workout", { STR: 3, STA: 2, VIT: 1 }),
+  makeQuest("gym", "Gym workout", { STR: 2, STA: 2, VIT: 1 }),
   makeQuest("read", "Read a book", { INT: 2, SPI: 1 }),
-  makeQuest("art", "Create art", { CHA: 3, DEX: 1 }),
-  makeQuest("social", "Social event", { CHA: 3, SPI: 1 }),
+  makeQuest("art", "Create art", { CHA: 2, DEX: 1 }),
+  makeQuest("social", "Social event", { CHA: 2, SPI: 1 }),
   makeQuest("cook", "Cook a meal", { DEX: 2, VIT: 2 }),
   makeQuest("yoga", "Yoga session", { DEX: 2, SPI: 2, VIT: 1 }),
 ];
@@ -59,8 +59,8 @@ test("suggestQuests weights chart selection alongside budget gap", () => {
   const budgets = { STR: 50, DEX: 50, STA: 50, INT: 50, SPI: 50, CHA: 50, VIT: 50 };
   const spentToday = { STR: 25, DEX: 25, STA: 25, INT: 25, SPI: 25, CHA: 25, VIT: 25 };
   
-  // User is selecting CHA on the chart (allocation 0-3)
-  const selectedAllocation = { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 3, VIT: 0 };
+  // User is selecting CHA on the chart (allocation 0-2)
+  const selectedAllocation = { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 2, VIT: 0 };
   
   const result = suggestQuests({
     quests: SAMPLE_QUESTS,

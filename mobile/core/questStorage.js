@@ -475,45 +475,45 @@ export async function getAllQuests() {
 }
 
 /**
- * Normalize stat preferences from chart values (1-5) to quest stats (0-3)
+ * Normalize stat preferences from chart values (1-5) to quest stats (0-2)
  * @param {object} chartStats - { STR: 1-5, ... }
- * @returns {object} - { STR: 0-3, ... }
+ * @returns {object} - { STR: 0-2, ... }
  */
 export function chartStatsToQuestStats(chartStats) {
   const result = {};
   STAT_KEYS.forEach(key => {
     const raw = chartStats?.[key] ?? 1;
     const clamped = Math.max(1, Math.min(5, raw));
-    // Map 1-5 to 0-3 (roughly: 1-2 → 0, 3 → 1, 4 → 2, 5 → 3)
-    const mapped = Math.max(0, Math.min(3, Math.round((clamped - 1) * 3 / 4)));
+    // Map 1-5 to 0-2 (roughly: 1-2 → 0, 3 → 1, 4-5 → 2)
+    const mapped = Math.max(0, Math.min(2, Math.round((clamped - 1) * 2 / 4)));
     result[key] = mapped;
   });
   return result;
 }
 
 /**
- * Convert quest stats (0-3) to chart values (1-6) based on allocation AND duration
+ * Convert quest stats (0-2) to chart values (1-6) based on allocation AND duration
  * Scale: E=1, D=2, C=3, B=4, A=5, S=6
  * 
- * Calibration: Max allocation (3) at 120 min = S (6)
+ * Calibration: Max allocation (2) at 120 min = S (6)
  * - 30 min: C (3), 60 min: B (4), 90 min: A (5), 120 min: S (6)
- * - Formula: chart_value = 1 + (allocation/3) * (1 + duration/30)
+ * - Formula: chart_value = 1 + (allocation/2) * (1 + duration/30)
  * 
- * @param {object} questStats - { STR: 0-3, ... }
+ * @param {object} questStats - { STR: 0-2, ... }
  * @param {number} duration - Duration in minutes (default 0 for base allocation view)
  * @returns {object} - { STR: 1-6, ... }
  */
 export function questStatsToChartStats(questStats, duration = 0) {
   const result = {};
   STAT_KEYS.forEach(key => {
-    const allocation = Math.max(0, Math.min(3, questStats?.[key] ?? 0));
+    const allocation = Math.max(0, Math.min(2, questStats?.[key] ?? 0));
     if (allocation === 0) {
       result[key] = 1; // E tier - no focus
     } else {
-      // Formula: 1 + (allocation/3) * (1 + duration/30)
+      // Formula: 1 + (allocation/2) * (1 + duration/30)
       // At duration=0: base tier proportional to allocation
-      // At duration=120 with allocation=3: reaches S (6)
-      const value = 1 + (allocation / 3) * (1 + duration / 30);
+      // At duration=120 with allocation=2: reaches S (6)
+      const value = 1 + (allocation / 2) * (1 + duration / 30);
       result[key] = Math.min(6, value); // Cap at S
     }
   });
@@ -522,7 +522,7 @@ export function questStatsToChartStats(questStats, duration = 0) {
 
 /**
  * Get the EXP gain distribution ratios for a quest
- * @param {object} questStats - { STR: 0-3, ... }
+ * @param {object} questStats - { STR: 0-2, ... }
  * @returns {object} - { STR: 0-1, ... } ratios that sum to 1
  */
 export function getExpDistribution(questStats) {

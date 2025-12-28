@@ -86,7 +86,7 @@ test("createQuest creates valid quest", async () => {
     id: "test-quest",
     label: "Morning Run",
     defaultDurationMinutes: 30,
-    stats: { STR: 2, STA: 3, VIT: 2 },
+    stats: { STR: 2, STA: 2, VIT: 2 },
   });
   assert.equal(quest.id, "test-quest");
   assert.equal(quest.label, "Morning Run");
@@ -113,7 +113,7 @@ test("STAT_KEYS contains expected stats", async () => {
 
 test("questStatsToChartStats converts quest stats correctly", async () => {
   const { questStatsToChartStats } = await import("../core/questStorage.js");
-  const questStats = { STR: 3, INT: 2, VIT: 1, DEX: 0 };
+  const questStats = { STR: 2, INT: 2, VIT: 1, DEX: 0 };
   
   // At duration=0: base tier
   const baseStats = questStatsToChartStats(questStats, 0);

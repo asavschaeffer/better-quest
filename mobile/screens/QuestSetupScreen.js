@@ -8,24 +8,15 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Pressable,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
-import { StandStatsChart } from "../StandStatsChart";
-import { BUILT_IN_QUEST_TEMPLATES, questStatsToChartStats } from "../core/questStorage";
+import { QuestStatsPicker } from "../components/QuestStatsPicker";
+import { BUILT_IN_QUEST_TEMPLATES } from "../core/questStorage";
 import { suggestQuests } from "../core/quests";
 import { STAT_KEYS } from "../core/models";
-
-// Convert chart values (1–6) to allocation points (0–3)
-function chartValueToAllocation(chartValue) {
-  // E=1 → 0, D=2 → 0, C=3 → 1, B=4 → 2, A=5 → 3, S=6 → 3
-  const clamped = Math.max(1, Math.min(6, chartValue ?? 1));
-  if (clamped <= 2) return 0;
-  if (clamped === 3) return 1;
-  if (clamped === 4) return 2;
-  return 3;
-}
 
 export default function QuestSetupScreen({
   userQuests = [],
@@ -42,16 +33,25 @@ export default function QuestSetupScreen({
   onOpenQuestAction,
 }) {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
   const [error, setError] = useState("");
-  // Store raw allocation (0-3 scale)
+  // Store raw allocation (0-2 scale)
   const [allocation, setAllocation] = useState({
     STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0,
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Chart size: fill available width
+  const chartSize = useMemo(() => {
+    if (Platform.OS === "web") {
+      return Math.min(520, screenWidth);
+    }
+    return screenWidth;
+  }, [screenWidth]);
 
   // Track keyboard visibility to collapse chart on mobile
   useEffect(() => {
@@ -63,10 +63,6 @@ export default function QuestSetupScreen({
       hideSub.remove();
     };
   }, []);
-
-  // Compute chart values from allocation + duration
-  const baseStats = useMemo(() => questStatsToChartStats(allocation, 0), [allocation]);
-  const targetStats = useMemo(() => questStatsToChartStats(allocation, duration), [allocation, duration]);
 
   // Combine user quests with built-in templates
   const allQuests = useMemo(() => {
@@ -86,18 +82,9 @@ export default function QuestSetupScreen({
     [allQuests, dailyBudgets, todayStandExp, allocation, description]
   );
 
-  // Handle chart interaction: convert chart values to allocation points
-  function handleChartChange(newChartStats) {
-    const newAllocation = {};
-    STAT_KEYS.forEach((key) => {
-      newAllocation[key] = chartValueToAllocation(newChartStats[key]);
-    });
+  // Handle chart interaction: update allocation (independent of selection)
+  function handleAllocationChange(newAllocation) {
     setAllocation(newAllocation);
-    // Clear quest selection when user manually adjusts chart
-    if (selectedQuestId) {
-      setSelectedQuestId(null);
-      setSelectedQuestAction(null);
-    }
   }
 
   const hasDirectNameMatch = useMemo(() => {
@@ -151,7 +138,7 @@ export default function QuestSetupScreen({
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
     }
-    // Store raw allocation (0-3 scale)
+    // Store raw allocation (0-2 scale)
     const rawStats = {};
     STAT_KEYS.forEach(key => {
       rawStats[key] = template.stats?.[key] ?? 0;
@@ -310,16 +297,18 @@ export default function QuestSetupScreen({
         </View>
         </View>
 
-        {/* Chart - collapsed when keyboard is visible on mobile */}
+        {/* Chart - hidden when keyboard is visible on mobile */}
         {!isKeyboardVisible && (
-          <StandStatsChart
-            value={baseStats}
-            targetValue={targetStats}
-            duration={duration}
-            onDurationChange={setDuration}
-            onChange={handleChartChange}
-            size={Platform.OS === "web" ? 260 : 220}
-          />
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <QuestStatsPicker
+              allocation={allocation}
+              onAllocationChange={handleAllocationChange}
+              duration={duration}
+              size={chartSize}
+              radarScale={1.21}
+              ringRadiusScaleByValue={{ "1": 1.08, "2": 1.10 }}
+            />
+          </View>
         )}
 
         {/* Action buttons row */}

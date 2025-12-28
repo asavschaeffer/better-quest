@@ -1,0 +1,50 @@
+L4413786831
+
+# issues
+
+lets make the player title dynamic. lets add word for every combo of stats. to keep it simple, lets calculate the average value for all users, and then use that for the user's highest stat or stat pairs. i.e. a user with 20 str, and 5 everything else would be calculated as a strongman(below average) so we can have a qualifier for that on a scale of it's relationship to the average. right now we only have sample leaderboard people but i think the math should still be able to work all the same. we could even make llm calls to come up with cool names based on player stats / global stats and a list of their latest/favorite quests.
+
+## library
+
+library sortable by stats idk if its the wheel or just simply selecting a stat. start with a few basic quests for each stat. users can fork quests to add specifics and their own details. this means the basic quests need to be comprehensive enough to easily serve a wide variety of specific subquests. each stat has a description page with some admirable people who are high rank and a descriptor of what the stat truly means. we can also use this as a quest advancement idea to lead into the journeys described below
+
+### strength
+	that which requires great force to do. included, therefore, is mental strength. that which is genuinely hard to do
+
+### dexterity
+	that which requires great expertise to do. technical, fine skills. attention to detail
+
+### stamina
+	sustained unrelenting struggle over time
+
+### intelligence
+	thinking hard
+
+### spirit
+	not thinking. feeling. the godliness inbetween the moments of suffering
+
+### charisma
+	interpersonal skills
+
+### vitality
+	biohacking in general
+
+## journeys
+
+quest series that could either prescribe longer term daily routines or just enforce/reminders for quotas in certain aspects.
+
+### pit of peril
+	depression escape. can do some research but basics are brush teeth, drink water, go out in the sun. a week of that and maybe clean the room, do a drawing, write a story, read a book. later go out for a long walk or go to a restaurant (funded by the app as a level 50 reward for example)
+
+### de-brainrot
+
+	short form content abuse help. can do research but basics are "raw dog reality" sit still for 5-10-15 minutes. read a short article. read a longer article. read a book. go outside for a walk
+
+### warrior's path
+
+	1 month tai chi, PT, stretching, footwork practice. 3 months bjj & boxing. 3 months wrestling & kickboxing. strength and agility training, running, sprints, 1 year funded trip to Thailand from app
+
+### saitama
+
+	100 pushups, situps, squats, 10km every day for a year. have a bot named "saitama" on the leaderboards doing this from app launch and progressively getting balder
+	

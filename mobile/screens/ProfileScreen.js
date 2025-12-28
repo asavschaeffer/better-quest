@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, ScrollView } from "react-native";
 import styles from "../../style";
-import { StandStatsChart } from "../StandStatsChart";
+import { PlayerStatsChart } from "../components/PlayerStatsChart";
 import { playerStatsToChartValues } from "../core/stats";
 import { Avatar3D } from "../Avatar3D";
 
@@ -63,12 +63,13 @@ export default function ProfileScreen({ player }) {
       {/* Stats chart */}
       <View style={styles.profileStatsSection}>
         <Text style={styles.sectionLabel}>Stats Distribution</Text>
-        <StandStatsChart
-          value={chartStats}
-          size={240}
-          hideOuterRing
-          showTotalExp={totalStats}
-        />
+        <View style={{ alignItems: "center" }}>
+          <PlayerStatsChart
+            value={chartStats}
+            size={240}
+            showTotalExp={totalStats}
+          />
+        </View>
       </View>
 
       {/* Stat breakdown */}

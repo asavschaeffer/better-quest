@@ -14,7 +14,7 @@ const STAT_LABELS = {
 
 /**
  * QuestStatsEditor - Edit quest stats with caps
- * Stats: 0-3 per stat (no total cap)
+ * Stats: 0-2 per stat (no total cap)
  */
 export function QuestStatsEditor({ value, onChange, disabled = false }) {
   const stats = useMemo(() => {

@@ -6,7 +6,7 @@ import { buildLogText } from "../core/logs";
 import { aggregateStandGains } from "../core/stats";
 import { computeStreakDays } from "../core/quests";
 import { playerStatsToChartValues } from "../core/stats";
-import { StandStatsChart } from "../StandStatsChart";
+import { PlayerStatsChart } from "../components/PlayerStatsChart";
 
 const PERIODS = {
   day: { label: "Day", days: 1, color: "#38bdf8", fill: "rgba(56,189,248,0.18)" },
@@ -137,13 +137,13 @@ export default function HistoryScreen({ sessions }) {
       </View>
 
       {/* Stat gains chart for the selected period */}
-      <StandStatsChart
-        value={primary.chart}
-        readOnly
-        hideOuterRing
-        size={260}
-        showTotalExp={primary.exp}
-      />
+      <View style={{ alignItems: "center", marginVertical: 8 }}>
+        <PlayerStatsChart
+          value={primary.chart}
+          size={260}
+          showTotalExp={primary.exp}
+        />
+      </View>
 
       {/* Period summary */}
       <Text style={[styles.historyEchoItem, { color: primary.color, textAlign: "center", marginTop: 8 }]}>

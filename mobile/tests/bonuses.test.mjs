@@ -161,7 +161,7 @@ test("integration: completion pipeline preserves invariants and includes expecte
     id: "s-integration",
     description: "Meditation",
     durationMinutes: 25,
-    allocation: { SPI: 3, VIT: 1 },
+    allocation: { SPI: 2, VIT: 1 },
     questKey: "meditation",
     endTimeMs,
     endTime: completedAt,

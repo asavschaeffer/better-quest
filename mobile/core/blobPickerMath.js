@@ -5,7 +5,7 @@
 
 export const NUM_STATS = 7;
 export const MIN_VAL = 0;
-export const MAX_VAL = 3;
+export const MAX_VAL = 2;
 
 /**
  * Get axis index from angle (radians).
@@ -38,7 +38,7 @@ export function clamp(v) {
 }
 
 /**
- * Convert finger distance (0..1 normalized) to target pull value (0..3).
+ * Convert finger distance (0..1 normalized) to target pull value (0..2).
  * Non-linear: pulling harder near max gets progressively harder.
  */
 export function distanceToTarget(normDist) {

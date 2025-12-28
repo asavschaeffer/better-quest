@@ -3,7 +3,7 @@
 export const STAT_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
 // Quest stat constraints
-export const QUEST_STAT_MAX_PER_STAT = 3;
+export const QUEST_STAT_MAX_PER_STAT = 2;
 // Intended v1: allow "hard" quests but prevent runaway allocations.
 export const QUEST_STAT_MAX_TOTAL = 9;
 
@@ -79,7 +79,7 @@ export function createTaskSession({
  * @param {string} params.label - Display name (required)
  * @param {string} [params.description] - Optional longer description / why
  * @param {number} [params.defaultDurationMinutes] - Default duration (1-240)
- * @param {object} [params.stats] - Stat weights as points: { STR: 0-3, ... } (no total cap)
+ * @param {object} [params.stats] - Stat weights as points: { STR: 0-2, ... } (no total cap)
  * @param {string[]} [params.keywords] - Tags for search/ranking
  * @param {object} [params.action] - Quick launch action { type: "url"|"app", value: string }
  * @param {string} [params.icon] - Ionicons glyph name (e.g. "book-outline") or null
@@ -142,7 +142,7 @@ export function createQuest({
 }
 
 /**
- * Validate and enforce stat caps: 0-3 per stat (no total cap)
+ * Validate and enforce stat caps: 0-2 per stat (no total cap)
  * @param {object} stats - Raw stat object
  * @returns {object} Validated stats
  */
@@ -225,7 +225,7 @@ export function validateQuestAction(action) {
 /**
  * Suggest stats based on quest label keywords
  * @param {string} label
- * @returns {object} Suggested stats { STR: 0-3, ... }
+ * @returns {object} Suggested stats { STR: 0-2, ... }
  */
 export function suggestStatsForLabel(label) {
   const lower = (label || "").toLowerCase();

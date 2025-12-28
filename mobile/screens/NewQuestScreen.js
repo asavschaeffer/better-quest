@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Alert, I
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import styles from "../../style";
-import { QuestStatsWheel } from "../QuestStatsWheel";
+import { QuestStatsPicker } from "../components/QuestStatsPicker";
 import { QuickLaunchEditor } from "../QuickLaunchEditor";
 import {
   createQuest,
@@ -361,14 +361,15 @@ export default function NewQuestScreen({
       </View>
 
       {/* Stats allocation with integrated duration ring */}
-      <QuestStatsWheel
-        value={stats}
-        onChange={setStats}
+      <QuestStatsPicker
+        allocation={stats}
+        onAllocationChange={setStats}
         duration={customDuration ? parseInt(customDuration, 10) || duration : duration}
         onDurationChange={(d) => {
           setDuration(d);
           setCustomDuration("");
         }}
+        size={Platform.OS === "web" ? 340 : 320}
       />
 
       {/* Duration quick-select chips + input */}

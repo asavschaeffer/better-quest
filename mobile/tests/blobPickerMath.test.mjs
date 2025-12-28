@@ -19,12 +19,12 @@ import {
 } from "../core/blobPickerMath.js";
 
 // --- clamp ---
-test("clamp keeps values in [0, 3]", () => {
+test("clamp keeps values in [0, 2]", () => {
   assert.equal(clamp(-1), 0);
   assert.equal(clamp(0), 0);
   assert.equal(clamp(1.5), 1.5);
-  assert.equal(clamp(3), 3);
-  assert.equal(clamp(4), 3);
+  assert.equal(clamp(2), 2);
+  assert.equal(clamp(4), 2);
 });
 
 // --- axisFromAngle ---
@@ -55,12 +55,12 @@ test("circularDistance computes shortest path on ring", () => {
 });
 
 // --- distanceToTarget ---
-test("distanceToTarget maps 0..1 to 0..3 with curve", () => {
+test("distanceToTarget maps 0..1 to 0..2 with curve", () => {
   assert.equal(distanceToTarget(0), 0);
-  assert.ok(distanceToTarget(0.5) > 1.2 && distanceToTarget(0.5) < 1.8);
-  assert.equal(distanceToTarget(1), 3);
+  assert.ok(distanceToTarget(0.5) > 0.7 && distanceToTarget(0.5) < 1.3);
+  assert.equal(distanceToTarget(1), 2);
   // Clamped beyond range
-  assert.equal(distanceToTarget(2), 3);
+  assert.equal(distanceToTarget(2), 2);
   assert.equal(distanceToTarget(-1), 0);
 });
 
@@ -88,7 +88,7 @@ test("snapToInteger rounds and clamps", () => {
   assert.equal(snapToInteger(1.4), 1);
   assert.equal(snapToInteger(1.6), 2);
   assert.equal(snapToInteger(-0.5), 0);
-  assert.equal(snapToInteger(3.9), 3);
+  assert.equal(snapToInteger(3.9), 2);
 });
 
 // --- thinFromLowest ---
@@ -156,7 +156,7 @@ test("snapAll rounds all values to integers in range", () => {
     assert.ok(v >= MIN_VAL && v <= MAX_VAL, `${i} should be in range`);
   });
   
-  assert.deepEqual(result, [0, 2, 2, 3, 0, 2, 3]);
+  assert.deepEqual(result, [0, 2, 2, 2, 0, 2, 2]);
 });
 
 // --- angleForAxis ---
@@ -176,7 +176,7 @@ test("dragUpdate does not mutate input array", () => {
   assert.deepEqual(input, before);
 });
 
-test("dragUpdate output stays finite and clamped in [0, 3]", () => {
+test("dragUpdate output stays finite and clamped in [0, 2]", () => {
   // Deterministic pseudo-random (no Math.random in tests to keep them stable across runs)
   let seed = 1337;
   const rnd = () => {

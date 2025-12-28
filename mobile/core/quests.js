@@ -17,7 +17,7 @@ export function scoreQuest(template, prefs) {
   const stats = template.stats || {};
   STAT_KEYS.forEach((key) => {
     const level = stats[key] ?? 0;
-    const levelNorm = Math.max(0, Math.min(3, level)) / 3;
+    const levelNorm = Math.max(0, Math.min(2, level)) / 2;
     score += prefs[key] * levelNorm;
   });
   return score;
@@ -206,7 +206,7 @@ export function suggestQuests({
   const chartWeight = {};
   STAT_KEYS.forEach((k) => {
     const alloc = selectedAllocation?.[k] ?? 0;
-    chartWeight[k] = Math.max(0, Math.min(3, alloc)) / 3;
+    chartWeight[k] = Math.max(0, Math.min(2, alloc)) / 2;
   });
 
   // Final stat weight: 50% need + 50% chart
@@ -220,7 +220,7 @@ export function suggestQuests({
     const stats = q.stats || {};
     let score = 0;
     STAT_KEYS.forEach((k) => {
-      const questStatNorm = Math.max(0, Math.min(3, stats[k] ?? 0)) / 3;
+      const questStatNorm = Math.max(0, Math.min(2, stats[k] ?? 0)) / 2;
       score += statWeight[k] * questStatNorm;
     });
     return { ...q, suggestionScore: score };

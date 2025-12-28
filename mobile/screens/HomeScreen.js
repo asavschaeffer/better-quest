@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { StandStatsChart } from "../StandStatsChart";
+import { PlayerStatsChart } from "../components/PlayerStatsChart";
 import { Avatar3D } from "../Avatar3D";
 import NotificationsSheet from "../components/NotificationsSheet";
 import {
@@ -32,7 +32,6 @@ export default function HomeScreen({
   avatar,
   levelInfo,
   fatigueOverlayStats,
-  onOpenTesting,
   onOpenSettings,
   onOpenNotifications,
   inAppAnnouncementsEnabled = true,
@@ -164,16 +163,6 @@ export default function HomeScreen({
           <Text style={styles.headerTitle}>{playerTitle}</Text>
         </View>
         <View style={styles.headerIcons}>
-          {onOpenTesting ? (
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={onOpenTesting}
-              accessibilityRole="button"
-              accessibilityLabel="Testing"
-            >
-              <Ionicons name="flask-outline" size={22} color="#e5e7eb" />
-            </TouchableOpacity>
-          ) : null}
           {inAppAnnouncementsEnabled ? (
             <TouchableOpacity
               style={styles.headerIconBtn}
@@ -206,12 +195,10 @@ export default function HomeScreen({
       <View style={[styles.stage, { height: stageHeight }]}>
         {/* Background: Stats Chart in top-right corner */}
         <View style={styles.chartBackground}>
-          <StandStatsChart
+          <PlayerStatsChart
             value={playerStatsToChartValues(avatar.standExp)}
-            readOnly
             size={chartSize}
             showTotalExp={avatar.totalExp}
-            hideOuterRing
             overlays={
               fatigueOverlayStats
                 ? [
@@ -223,7 +210,7 @@ export default function HomeScreen({
                       strokeWidth: 2,
                     },
                   ]
-                : undefined
+                : []
             }
           />
         </View>

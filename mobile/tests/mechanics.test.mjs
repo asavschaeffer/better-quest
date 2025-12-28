@@ -18,11 +18,11 @@ import { playerStatsToChartValues } from "../core/stats.js";
 import { questStatsToChartStats } from "../core/questStorage.js";
 
 test("Quest stats validation enforces per-stat cap", () => {
-  assert.equal(QUEST_STAT_MAX_PER_STAT, 3);
+  assert.equal(QUEST_STAT_MAX_PER_STAT, 2);
 
   const validated = validateQuestStats({ STR: 999, INT: 2, DEX: 2 });
-  // Per-stat capped at 3.
-  assert.ok(validated.STR <= 3);
+  // Per-stat capped at 2.
+  assert.ok(validated.STR <= 2);
 });
 
 test("createQuest clamps duration and validates required fields", () => {
@@ -30,15 +30,15 @@ test("createQuest clamps duration and validates required fields", () => {
     id: "q1",
     label: "Test",
     defaultDurationMinutes: 999,
-    stats: { STR: 3, INT: 3 },
+    stats: { STR: 2, INT: 2 },
   });
   assert.equal(q.defaultDurationMinutes, 240);
-  assert.equal(q.stats.STR, 3);
-  assert.equal(q.stats.INT, 3);
+  assert.equal(q.stats.STR, 2);
+  assert.equal(q.stats.INT, 2);
 });
 
 test("Base EXP is durationMinutes * 1 (clamped 1..240)", () => {
-  const exp = calculateExpForSession({ durationMinutes: 25, allocation: { STA: 3 } });
+  const exp = calculateExpForSession({ durationMinutes: 25, allocation: { STA: 2 } });
   assert.equal(exp.totalExp, 25);
 });
 
@@ -59,9 +59,9 @@ test("createTaskSession persists allocation/targetStats/endTimeMs (intent snapsh
   assert.equal(s.endTimeMs, endTimeMs);
 });
 
-test("Stand EXP distribution uses allocation points (0-3) and conserves total EXP", () => {
-  // STR=3, others 0 -> all exp to STR.
-  const exp = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 3 } });
+test("Stand EXP distribution uses allocation points (0-2) and conserves total EXP", () => {
+  // STR=2, others 0 -> all exp to STR.
+  const exp = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 2 } });
   assert.equal(exp.totalExp, 10);
   assert.equal(exp.standExp.STR, 10);
   // Some axis should be 0 if it had no points.
@@ -109,7 +109,7 @@ test("Intended v1: Quest total allocation is capped at 9 points (rejects > 9)", 
       label: "Too many points",
       defaultDurationMinutes: 25,
       // Total = 10 (should be rejected in Intended v1)
-      stats: { STR: 3, DEX: 3, STA: 3, INT: 1 },
+      stats: { STR: 2, DEX: 2, STA: 2, INT: 2, SPI: 2 },
     });
   });
 });
@@ -117,7 +117,7 @@ test("Intended v1: Quest total allocation is capped at 9 points (rejects > 9)", 
 test("Allocation is authoritative even if standStats disagree (back-compat only)", () => {
   const exp = calculateExpForSession({
     durationMinutes: 10,
-    allocation: { STR: 3 },
+    allocation: { STR: 2 },
     // If used, this would move exp away from STR due to raw-1 weights.
     standStats: { STR: 1, DEX: 6, STA: 6, INT: 6, SPI: 6, CHA: 6, VIT: 6 },
   });
@@ -128,8 +128,8 @@ test("Allocation is authoritative even if standStats disagree (back-compat only)
 });
 
 test("applySessionBonuses multiplies and rounds totals and per-axis gains", () => {
-  const base = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 3, DEX: 1 } });
-  const boosted = applySessionBonuses({ bonusMultiplier: 1.2, allocation: { STR: 3, DEX: 1 } }, base);
+  const base = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 2, DEX: 1 } });
+  const boosted = applySessionBonuses({ bonusMultiplier: 1.2, allocation: { STR: 2, DEX: 1 } }, base);
   assert.equal(boosted.totalExp, Math.round(base.totalExp * 1.2));
   const sum = Object.values(boosted.standExp).reduce((s, v) => s + v, 0);
   assert.equal(sum, boosted.totalExp);
@@ -143,7 +143,7 @@ test("dampingMultiplier returns 1 under budget and decays above budget", () => {
 });
 
 test("applyFatigueDamping returns unchanged exp when there is no overspend today", () => {
-  const base = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 3 } });
+  const base = calculateExpForSession({ durationMinutes: 10, allocation: { STR: 2 } });
   const damped = applyFatigueDamping({
     baseExp: base,
     avatar: { level: 1, standExp: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0 } },
@@ -161,7 +161,7 @@ test("playerStatsToChartValues uses E..S scale (1..6) and max axis maps near 6",
 });
 
 test("questStatsToChartStats maps allocation+duration onto E..S scale (1..6)", () => {
-  const stats = { STR: 3, INT: 0 };
+  const stats = { STR: 2, INT: 0 };
   const base = questStatsToChartStats(stats, 0);
   assert.equal(base.INT, 1);
   const target = questStatsToChartStats(stats, 120);

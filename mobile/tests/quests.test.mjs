@@ -10,8 +10,8 @@ import {
 
 test("rankQuests orders by focus match", () => {
   const templates = [
-    { id: "a", label: "Strength", stats: { STR: 3 } },
-    { id: "b", label: "Mind", stats: { INT: 3 } },
+    { id: "a", label: "Strength", stats: { STR: 2 } },
+    { id: "b", label: "Mind", stats: { INT: 2 } },
   ];
   const ranked = rankQuests(templates, { STR: 5, INT: 1 }, "");
   assert.equal(ranked[0].id, "a");
