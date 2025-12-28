@@ -222,7 +222,7 @@ export function QuestDetailSheet({
                   closeWithAnimation();
                 }}
               >
-                <Ionicons name="duplicate-outline" size={18} color="#a5b4fc" />
+                <Ionicons name="shuffle-outline" size={18} color="#a5b4fc" />
                 <Text style={styles.questSheetSecondaryBtnText}>Fork</Text>
               </TouchableOpacity>
             )}

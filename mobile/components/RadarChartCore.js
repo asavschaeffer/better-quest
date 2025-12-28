@@ -35,6 +35,7 @@ export const STAT_ATTRS = [
  * @param {number} minRadiusMult - Base multiplier for min radius before scaling (default 0.08).
  * @param {number} labelRadiusMult - Multiplier for label radius (default 0.45). Smaller values pull labels inward.
  * @param {Record<string, number>} ringRadiusScaleByValue - Optional per-ring radius scale (e.g. { "1": 1.06, "2": 1.04 })
+ * @param {number} backgroundPad - Extra padding (px) added to the background circle radius beyond maxRadius (default 14)
  * @param {object} style - Additional container styles
  */
 export function RadarChartCore({
@@ -58,6 +59,7 @@ export function RadarChartCore({
   minRadiusMult = 0.08,
   labelRadiusMult = 0.45,
   ringRadiusScaleByValue = null,
+  backgroundPad = 14,
   style,
 }) {
   const safeAttrs = Array.isArray(attrs) && attrs.length ? attrs : STAT_ATTRS;
@@ -89,6 +91,10 @@ export function RadarChartCore({
       ? labelRadiusMult
       : 0.45;
   const labelRadius = size * labelMult * s; // Proportional to fit labels within bounds
+  const bgPad =
+    typeof backgroundPad === "number" && Number.isFinite(backgroundPad) && backgroundPad >= 0
+      ? backgroundPad
+      : 14;
 
   // Convert value to radius (handles minValue for 1-6 scales)
   const valueToRadius = (value) => {
@@ -147,7 +153,7 @@ export function RadarChartCore({
     <View style={[styles.container, { width: size, height: size }, style]}>
       <Svg width={size} height={size}>
         {/* Background */}
-        <Circle cx={cx} cy={cy} r={maxRadius + 14} fill="#0a0f1a" />
+        <Circle cx={cx} cy={cy} r={maxRadius + bgPad} fill="#0a0f1a" />
 
         {/* Guide rings */}
         {ringLevels.map((level, i) => {

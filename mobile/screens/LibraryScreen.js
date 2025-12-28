@@ -7,7 +7,6 @@ import { BUILT_IN_QUEST_TEMPLATES } from "../core/questStorage";
 import { getQuestStatTotal, STAT_KEYS } from "../core/models";
 import Chip from "../components/Chip";
 import LibraryTabBar from "../components/LibraryTabBar";
-import QuestDetailSheet from "../components/QuestDetailSheet";
 
 function questMatchesQuery(quest, query) {
   const q = (query ?? "").trim().toLowerCase();
@@ -54,7 +53,7 @@ function formatStatRewards(stats) {
   return parts.slice(0, 3).join(" • ") || "No stats";
 }
 
-function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave, onUnsave }) {
+function QuestRow({ quest, isBuiltIn, isSaved, onOpen, onEdit, onDelete, onSave, onUnsave }) {
   const swipeableRef = React.useRef(null);
 
   const renderRightActions = useCallback(() => {
@@ -103,7 +102,7 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
       {/* Icon */}
       <TouchableOpacity
         style={localStyles.questMainPress}
-        onPress={() => onPress?.(quest)}
+        onPress={() => onOpen?.(quest, { isBuiltIn, isSaved })}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`Open ${quest.label}`}
@@ -175,7 +174,7 @@ function QuestRow({ quest, isBuiltIn, isSaved, onPress, onEdit, onDelete, onSave
 export default function LibraryScreen({
   userQuests = [],
   savedQuestIds = [],
-  onSelectQuest,
+  onOpenQuestInfo,
   onEditQuest,
   onDeleteQuest,
   onCreateQuest,
@@ -183,12 +182,11 @@ export default function LibraryScreen({
   onSaveQuest,
   onUnsaveQuest,
   onStartQuest,
+  onOpenStatInfo,
 }) {
   const [query, setQuery] = useState("");
   const [selectedStat, setSelectedStat] = useState(null);
   const [activeTab, setActiveTab] = useState("my");
-  const [selectedQuest, setSelectedQuest] = useState(null);
-  const [sheetVisible, setSheetVisible] = useState(false);
 
   const savedQuestIdsSet = useMemo(() => new Set(savedQuestIds), [savedQuestIds]);
 
@@ -244,15 +242,13 @@ export default function LibraryScreen({
     }));
   }, [activeTab, myQuests, discoverQuests, savedQuestIdsSet]);
 
-  const handleQuestPress = useCallback((quest) => {
-    setSelectedQuest(quest);
-    setSheetVisible(true);
-  }, []);
-
-  const handleSheetClose = useCallback(() => {
-    setSheetVisible(false);
-    setSelectedQuest(null);
-  }, []);
+  const handleQuestOpen = useCallback(
+    (quest, meta) => {
+      if (!quest) return;
+      onOpenQuestInfo?.(quest, meta?.isBuiltIn ?? false);
+    },
+    [onOpenQuestInfo],
+  );
 
   const handleStart = useCallback((quest) => {
     onStartQuest?.(quest);
@@ -285,7 +281,7 @@ export default function LibraryScreen({
           quest={item.quest}
           isBuiltIn={item.isBuiltIn}
           isSaved={item.isSaved}
-          onPress={handleQuestPress}
+          onOpen={handleQuestOpen}
           onEdit={onEditQuest}
           onDelete={onDeleteQuest}
           onSave={onSaveQuest}
@@ -294,13 +290,7 @@ export default function LibraryScreen({
       );
     }
     return null;
-  }, [activeTab, handleQuestPress, onEditQuest, onDeleteQuest, onSaveQuest, onUnsaveQuest]);
-
-  // Determine if selected quest is built-in
-  const selectedQuestIsBuiltIn = useMemo(() => {
-    if (!selectedQuest) return false;
-    return BUILT_IN_QUEST_TEMPLATES.some((q) => q.id === selectedQuest.id);
-  }, [selectedQuest]);
+  }, [activeTab, handleQuestOpen, onEditQuest, onDeleteQuest, onSaveQuest, onUnsaveQuest]);
 
   return (
     <View style={styles.screenContainer}>
@@ -339,6 +329,7 @@ export default function LibraryScreen({
             label="All"
             active={!selectedStat}
             onPress={() => setSelectedStat(null)}
+            accessibilityHint="Show all quests"
           />
           {STAT_KEYS.map((k) => (
             <Chip
@@ -346,6 +337,10 @@ export default function LibraryScreen({
               label={k}
               active={selectedStat === k}
               onPress={() => setSelectedStat((prev) => (prev === k ? null : k))}
+              onLongPress={() => {
+                onOpenStatInfo?.(k);
+              }}
+              accessibilityHint="Tap to filter. Long-press for meaning."
             />
           ))}
         </View>
@@ -359,19 +354,6 @@ export default function LibraryScreen({
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Quest Detail Sheet */}
-      <QuestDetailSheet
-        visible={sheetVisible}
-        quest={selectedQuest}
-        isBuiltIn={selectedQuestIsBuiltIn}
-        isSaved={selectedQuest ? savedQuestIdsSet.has(selectedQuest.id) : false}
-        onClose={handleSheetClose}
-        onSave={onSaveQuest}
-        onUnsave={onUnsaveQuest}
-        onFork={handleFork}
-        onEdit={handleEdit}
-        onStart={handleStart}
-      />
     </View>
   );
 }

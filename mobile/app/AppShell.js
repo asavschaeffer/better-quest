@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useContext } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useContext, useLayoutEffect } from "react";
 import { Platform, Text, TouchableOpacity, View, Pressable } from "react-native";
 import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -55,6 +55,7 @@ import NewQuestScreen from "../screens/NewQuestScreen.js";
 import SessionScreen from "../screens/SessionScreen.js";
 import CompleteScreen from "../screens/CompleteScreen.js";
 import QuestDetailScreen from "../screens/QuestDetailScreen.js";
+import StatInfoScreen from "../screens/StatInfoScreen.js";
 
 import Toast from "../components/Toast.js";
 import styles from "../../style.js";
@@ -79,6 +80,8 @@ const ROUTES = {
   TABS: "Tabs",
   SETTINGS: "Settings",
   PROFILE: "Profile",
+  STAT_INFO: "StatInfo",
+  QUEST_INFO: "QuestInfo",
   QUEST_FLOW: "QuestFlow",
   QUEST_SETUP: "QuestSetup",
   QUEST_EDITOR: "QuestEditor",
@@ -288,6 +291,27 @@ function QuestActionStub() {
   return null;
 }
 
+function createForkDraft(template) {
+  if (!template) return null;
+  const templateId = typeof template?.id === "string" && template.id ? template.id : null;
+  const newId = `quest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const forked = createQuest({
+    id: newId,
+    label: template.label,
+    description: template.description || "",
+    defaultDurationMinutes: template.defaultDurationMinutes || 25,
+    stats: template.stats || {},
+    keywords: Array.isArray(template.keywords) ? template.keywords : [],
+    action: template.action || null,
+    icon: template.icon || null,
+    imageUri: null,
+    authorName: "You",
+  });
+  // Lightweight provenance: ignored by older code, useful later.
+  if (templateId) forked.forkedFrom = templateId;
+  return forked;
+}
+
 function HomeTab() {
   const ctx = useContext(AppShellContext);
 
@@ -317,30 +341,19 @@ function LibraryTab() {
   const handleForkQuest = useCallback(
     async (template) => {
       if (!template) return;
-      const already = ctx.userQuests?.some((q) => q?.forkedFrom === template.id);
+      const templateId = typeof template?.id === "string" && template.id ? template.id : null;
+      if (!templateId) {
+        ctx.showToast("Can't fork (missing id)");
+        return;
+      }
+      const already = ctx.userQuests?.some((q) => q?.forkedFrom === templateId);
       if (already) {
         ctx.showToast("Already forked");
         return;
       }
-      const newId = `quest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const forked = createQuest({
-        id: newId,
-        label: template.label,
-        description: template.description || "",
-        defaultDurationMinutes: template.defaultDurationMinutes || 25,
-        stats: template.stats || {},
-        keywords: Array.isArray(template.keywords) ? template.keywords : [],
-        action: template.action || null,
-        icon: template.icon || null,
-        imageUri: null,
-        authorName: "You",
-      });
-      // Lightweight provenance: ignored by older code, useful later.
-      forked.forkedFrom = template.id;
 
-      const updated = await addUserQuest(forked);
-      ctx.setUserQuests(updated);
-      ctx.showToast("Quest forked");
+      // IMPORTANT: Fork is a *draft* until the user taps Save in the editor.
+      const forked = createForkDraft(template);
       ctx.nav(ROUTES.QUEST_FLOW, {
         initialRoute: ROUTES.QUEST_EDITOR,
         editorParams: { editQuest: forked },
@@ -393,6 +406,7 @@ function LibraryTab() {
           <LibraryScreen
             userQuests={ctx.userQuests}
             savedQuestIds={ctx.savedQuestIds}
+            onOpenQuestInfo={(quest, isBuiltIn) => ctx.nav(ROUTES.QUEST_INFO, { quest, isBuiltIn: !!isBuiltIn })}
             onEditQuest={(quest) =>
               ctx.nav(ROUTES.QUEST_FLOW, {
                 initialRoute: ROUTES.QUEST_EDITOR,
@@ -414,6 +428,7 @@ function LibraryTab() {
             onSaveQuest={handleSaveQuest}
             onUnsaveQuest={handleUnsaveQuest}
             onStartQuest={handleStartQuest}
+            onOpenStatInfo={(statKey) => ctx.nav(ROUTES.STAT_INFO, { statKey })}
           />
         )}
       </LibraryStack.Screen>
@@ -585,6 +600,123 @@ function SettingsRootScreen() {
       onToggleBuiltInQuotes={ctx.handleToggleBuiltInQuotes}
       inAppAnnouncementsEnabled={ctx.inAppAnnouncementsEnabled}
       onUpdateInAppAnnouncementsEnabled={ctx.handleToggleInAppAnnouncementsEnabled}
+    />
+  );
+}
+
+function QuestInfoRootScreen({ route, navigation }) {
+  const ctx = useContext(AppShellContext);
+  const quest = route?.params?.quest ?? null;
+  const isBuiltIn = route?.params?.isBuiltIn ?? false;
+
+  const handleEditOrFork = useCallback(async () => {
+    if (!quest) return;
+
+    if (isBuiltIn) {
+      const templateId = typeof quest?.id === "string" && quest.id ? quest.id : null;
+      if (!templateId) {
+        ctx.showToast("Can't fork (missing id)");
+        return;
+      }
+      const already = ctx.userQuests?.some((uq) => uq?.forkedFrom === templateId);
+      if (already) {
+        ctx.showToast("Already forked");
+        return;
+      }
+
+      // IMPORTANT: Fork is a *draft* until the user taps Save in the editor.
+      const forked = createForkDraft(quest);
+      ctx.nav(ROUTES.QUEST_FLOW, {
+        initialRoute: ROUTES.QUEST_EDITOR,
+        editorParams: { editQuest: forked },
+      });
+      return;
+    }
+
+    // User quest: just open editor
+    ctx.nav(ROUTES.QUEST_FLOW, {
+      initialRoute: ROUTES.QUEST_EDITOR,
+      editorParams: { editQuest: quest },
+    });
+  }, [ctx, quest, isBuiltIn]);
+
+  useLayoutEffect(() => {
+    navigation?.setOptions?.({
+      headerRight: () => (
+        <Pressable
+          onPress={handleEditOrFork}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={isBuiltIn ? "Fork and edit quest" : "Edit quest"}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+        >
+          <Ionicons
+            // Use a common icon name that exists across Ionicons sets.
+            name={isBuiltIn ? "shuffle-outline" : "pencil-outline"}
+            size={22}
+            color="#a5b4fc"
+          />
+        </Pressable>
+      ),
+    });
+  }, [navigation, handleEditOrFork, isBuiltIn]);
+
+  return (
+    <QuestDetailScreen
+      quest={quest}
+      isBuiltIn={isBuiltIn}
+      onEdit={(q) =>
+        ctx.nav(ROUTES.QUEST_FLOW, {
+          initialRoute: ROUTES.QUEST_EDITOR,
+          editorParams: { editQuest: q },
+        })
+      }
+      onFork={
+        isBuiltIn
+          ? async (q) => {
+              const templateId = typeof q?.id === "string" && q.id ? q.id : null;
+              if (!templateId) {
+                ctx.showToast("Can't fork (missing id)");
+                return;
+              }
+              const already = ctx.userQuests?.some((uq) => uq?.forkedFrom === templateId);
+              if (already) {
+                ctx.showToast("Already forked");
+                return;
+              }
+
+              // IMPORTANT: Fork is a *draft* until Save in the editor.
+              const forked = createForkDraft(q);
+              ctx.nav(ROUTES.QUEST_FLOW, {
+                initialRoute: ROUTES.QUEST_EDITOR,
+                editorParams: { editQuest: forked },
+              });
+            }
+          : undefined
+      }
+      onStart={(q) => {
+        if (q.action && q.action.openOnStart !== false) {
+          ctx.setPendingQuestAction(q.action);
+        }
+        ctx.handleStartSession({
+          description: q.label,
+          durationMinutes: q.defaultDurationMinutes || 25,
+          allocation: q.stats || {},
+          questKey: q.id || q.label,
+        });
+      }}
+      onOpenAction={(action) => ctx.openQuestAction(action)}
+    />
+  );
+}
+
+function StatInfoRootScreen({ route }) {
+  const ctx = useContext(AppShellContext);
+  const statKey = route?.params?.statKey ?? null;
+  return (
+    <StatInfoScreen
+      statKey={statKey}
+      onOpenQuest={(quest, isBuiltIn) => ctx.nav(ROUTES.QUEST_INFO, { quest, isBuiltIn: !!isBuiltIn })}
     />
   );
 }
@@ -1099,6 +1231,7 @@ export default function AppShell() {
                 setUserQuests,
                 handleOpenNotifications,
                 showToast,
+                openQuestAction,
                 inAppAnnouncementsEnabled: inAppAnnouncementsEnabled ?? true,
                 // Settings
                 quickStartMode,
@@ -1157,6 +1290,7 @@ export default function AppShell() {
                 setUserQuests,
                 handleOpenNotifications,
                 showToast,
+                openQuestAction,
                 inAppAnnouncementsEnabled,
                 quickStartMode,
                 pickerDefaultMode,
@@ -1201,6 +1335,46 @@ export default function AppShell() {
                 options={({ route }) => ({
                   title: route?.params?.player?.name ?? "Profile",
                 })}
+              />
+              <RootStack.Screen
+                name={ROUTES.STAT_INFO}
+                component={StatInfoRootScreen}
+                options={() => {
+                  const rootState = navigationRef.getRootState?.();
+                  const backLabel = getBackLabelFromRootState(rootState);
+                  return {
+                    title: "Stat Info",
+                    headerTitleAlign: "center",
+                    headerLeft: ({ canGoBack }) =>
+                      canGoBack ? (
+                        <HeaderBackButton
+                          label={backLabel}
+                          onPress={() => navigationRef.goBack()}
+                          tintColor="#a5b4fc"
+                        />
+                      ) : null,
+                  };
+                }}
+              />
+              <RootStack.Screen
+                name={ROUTES.QUEST_INFO}
+                component={QuestInfoRootScreen}
+                options={({ route }) => {
+                  const rootState = navigationRef.getRootState?.();
+                  const backLabel = getBackLabelFromRootState(rootState);
+                  return {
+                    title: route?.params?.quest?.label ?? "Quest",
+                    headerTitleAlign: "center",
+                    headerLeft: ({ canGoBack }) =>
+                      canGoBack ? (
+                        <HeaderBackButton
+                          label={backLabel}
+                          onPress={() => navigationRef.goBack()}
+                          tintColor="#a5b4fc"
+                        />
+                      ) : null,
+                  };
+                }}
               />
 
               {/* Quest flow: clock-style full-screen picker, with editor as a pushed screen inside the flow */}
@@ -1326,28 +1500,19 @@ export default function AppShell() {
                                 onEdit={(q) => questNav.navigate(ROUTES.QUEST_EDITOR, { editQuest: q })}
                                 onFork={isBuiltIn ? async (q) => {
                                   // In Quest Details, "Fork & Edit" creates a user quest copy and opens editor.
-                                  const already = userQuests?.some((uq) => uq?.forkedFrom === q?.id);
+                                  const templateId = typeof q?.id === "string" && q.id ? q.id : null;
+                                  if (!templateId) {
+                                    showToast("Can't fork (missing id)");
+                                    return;
+                                  }
+                                  const already = userQuests?.some((uq) => uq?.forkedFrom === templateId);
                                   if (already) {
                                     showToast("Already forked");
                                     return;
                                   }
-                                  const newId = `quest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-                                  const forked = createQuest({
-                                    id: newId,
-                                    label: q.label,
-                                    description: q.description || "",
-                                    defaultDurationMinutes: q.defaultDurationMinutes || 25,
-                                    stats: q.stats || {},
-                                    keywords: Array.isArray(q.keywords) ? q.keywords : [],
-                                    action: q.action || null,
-                                    icon: q.icon || null,
-                                    imageUri: null,
-                                    authorName: "You",
-                                  });
-                                  forked.forkedFrom = q.id;
-                                  const updated = await addUserQuest(forked);
-                                  setUserQuests(updated);
-                                  showToast("Quest forked");
+
+                                  // IMPORTANT: Fork is a *draft* until Save in the editor.
+                                  const forked = createForkDraft(q);
                                   questNav.navigate(ROUTES.QUEST_EDITOR, { editQuest: forked });
                                 } : undefined}
                                 onStart={(q) => {
