@@ -53,11 +53,91 @@ function formatStatRewards(stats) {
   return parts.slice(0, 3).join(" • ") || "No stats";
 }
 
-function QuestRow({ quest, isBuiltIn, isSaved, onOpen, onEdit, onDelete, onSave, onUnsave }) {
+function confirmDestructive({ title, message, confirmText = "Delete", onConfirm }) {
+  if (Platform.OS === "web") {
+    // eslint-disable-next-line no-alert
+    if (window.confirm(message)) onConfirm?.();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: "Cancel", style: "cancel" },
+    { text: confirmText, style: "destructive", onPress: () => onConfirm?.() },
+  ]);
+}
+
+function QuestRow({
+  quest,
+  isBuiltIn,
+  isSaved,
+  listContext, // "my" | "discover"
+  onOpen,
+  onEdit,
+  onDelete,
+  onSave,
+  onUnsave,
+}) {
   const swipeableRef = React.useRef(null);
 
   const renderRightActions = useCallback(() => {
-    if (isBuiltIn) return null;
+    if (isBuiltIn) {
+      const inMy = listContext === "my";
+      return (
+        <View style={localStyles.swipeActionsRight}>
+          {inMy ? (
+            <TouchableOpacity
+              style={[localStyles.swipeAction, localStyles.swipeActionDelete]}
+              onPress={() => {
+                swipeableRef.current?.close();
+                const label = quest.label || "this quest";
+                confirmDestructive({
+                  title: "Remove Quest",
+                  message: `Remove "${label}" from My Quests?`,
+                  confirmText: "Remove",
+                  onConfirm: () => onUnsave?.(quest.id),
+                });
+              }}
+            >
+              <Ionicons name="trash" size={18} color="#fff" />
+              <Text style={localStyles.swipeActionText}>Remove</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[localStyles.swipeAction, localStyles.swipeActionBookmark]}
+              onPress={() => {
+                swipeableRef.current?.close();
+                if (isSaved) {
+                  const label = quest.label || "this quest";
+                  confirmDestructive({
+                    title: "Remove Quest",
+                    message: `Remove "${label}" from My Quests?`,
+                    confirmText: "Remove",
+                    onConfirm: () => onUnsave?.(quest.id),
+                  });
+                } else {
+                  onSave?.(quest.id);
+                }
+              }}
+            >
+              <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={18} color="#fff" />
+              <Text style={localStyles.swipeActionText}>{isSaved ? "Remove" : "Save"}</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[localStyles.swipeAction, localStyles.swipeActionFork]}
+            onPress={() => {
+              swipeableRef.current?.close();
+              // Fork behavior is handled upstream (opens editor draft, only saves on Save).
+              onEdit?.(quest);
+            }}
+          >
+            <Ionicons name="shuffle" size={18} color="#fff" />
+            <Text style={localStyles.swipeActionText}>Fork</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View style={localStyles.swipeActionsRight}>
         <TouchableOpacity
@@ -76,15 +156,12 @@ function QuestRow({ quest, isBuiltIn, isSaved, onOpen, onEdit, onDelete, onSave,
             swipeableRef.current?.close();
             const label = quest.label || "this quest";
             const message = `Delete "${label}"? This can't be undone.`;
-            if (Platform.OS === "web") {
-              // eslint-disable-next-line no-alert
-              if (window.confirm(message)) onDelete?.(quest.id);
-              return;
-            }
-            Alert.alert("Delete Quest", message, [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: () => onDelete?.(quest.id) },
-            ]);
+            confirmDestructive({
+              title: "Delete Quest",
+              message,
+              confirmText: "Delete",
+              onConfirm: () => onDelete?.(quest.id),
+            });
           }}
         >
           <Ionicons name="trash" size={18} color="#fff" />
@@ -92,7 +169,7 @@ function QuestRow({ quest, isBuiltIn, isSaved, onOpen, onEdit, onDelete, onSave,
         </TouchableOpacity>
       </View>
     );
-  }, [isBuiltIn, quest, onEdit, onDelete]);
+  }, [isBuiltIn, listContext, isSaved, quest, onEdit, onDelete, onSave, onUnsave]);
 
   const author = quest.authorName || (isBuiltIn ? "Better Quest" : "You");
   const builtInSuffix = isBuiltIn ? (isSaved ? " • Saved" : " • Template") : "";
@@ -128,36 +205,9 @@ function QuestRow({ quest, isBuiltIn, isSaved, onOpen, onEdit, onDelete, onSave,
       </TouchableOpacity>
 
       {/* Right: Save button for built-ins in Discover, or chevron */}
-      {isBuiltIn ? (
-        <TouchableOpacity
-          style={[localStyles.saveBtn, isSaved && localStyles.saveBtnActive]}
-          onPress={() => {
-            if (isSaved) {
-              onUnsave?.(quest.id);
-            } else {
-              onSave?.(quest.id);
-            }
-          }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={isSaved ? "Remove saved quest" : "Save quest"}
-        >
-          <Ionicons
-            name={isSaved ? "bookmark" : "bookmark-outline"}
-            size={16}
-            color={isSaved ? "#fbbf24" : "#a5b4fc"}
-          />
-        </TouchableOpacity>
-      ) : (
-        <Ionicons name="chevron-forward" size={18} color="#64748b" />
-      )}
+      <Ionicons name="chevron-forward" size={18} color="#64748b" />
     </View>
   );
-
-  // Built-in quests don't have swipe actions
-  if (isBuiltIn) {
-    return content;
-  }
 
   return (
     <Swipeable
@@ -281,8 +331,9 @@ export default function LibraryScreen({
           quest={item.quest}
           isBuiltIn={item.isBuiltIn}
           isSaved={item.isSaved}
+          listContext={activeTab === "my" ? "my" : "discover"}
           onOpen={handleQuestOpen}
-          onEdit={onEditQuest}
+          onEdit={item.isBuiltIn ? handleFork : onEditQuest}
           onDelete={onDeleteQuest}
           onSave={onSaveQuest}
           onUnsave={onUnsaveQuest}
@@ -443,6 +494,14 @@ const localStyles = StyleSheet.create({
     backgroundColor: "#4f46e5",
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
+  },
+  swipeActionBookmark: {
+    backgroundColor: "#a16207",
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  swipeActionFork: {
+    backgroundColor: "#334155",
   },
   swipeActionDelete: {
     backgroundColor: "#dc2626",
