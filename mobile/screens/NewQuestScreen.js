@@ -345,6 +345,11 @@ export default function NewQuestScreen({
         }}
         size={Platform.OS === "web" ? 340 : 320}
       />
+      <View style={[styles.block, { marginTop: 10 }]}>
+        <Text style={[styles.optional, { color: statTotal > 9 ? "#ef4444" : "#9ca3af" }]}>
+          Stat points: {statTotal}/9
+        </Text>
+      </View>
 
       {/* Duration quick-select chips + input */}
       <View style={styles.durationSection}>
