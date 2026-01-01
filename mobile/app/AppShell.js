@@ -46,7 +46,7 @@ import { useOpenQuestAction } from "./hooks/useOpenQuestAction.js";
 // Screen imports
 import HomeScreen from "../screens/HomeScreen.js";
 import LibraryScreen from "../screens/LibraryScreen.js";
-import HistoryScreen from "../screens/HistoryScreen.js";
+import FeedScreen from "../screens/FeedScreen.js";
 import LeaderboardScreen from "../screens/LeaderboardScreen.js";
 import ProfileScreen from "../screens/ProfileScreen.js";
 import SettingsScreen from "../screens/SettingsScreen.js";
@@ -71,7 +71,7 @@ const navigationRef = createNavigationContainerRef();
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const LibraryStack = createNativeStackNavigator();
-const HistoryStack = createNativeStackNavigator();
+const FeedStack = createNativeStackNavigator();
 const RankStack = createNativeStackNavigator();
 const QuestStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -94,7 +94,7 @@ const TAB_ROUTES = {
   HOME: "HomeTab",
   LIBRARY: "LibraryTab",
   QUEST_ACTION: "QuestActionTab",
-  HISTORY: "HistoryTab",
+  FEED: "FeedTab",
   RANK: "RankTab",
 };
 
@@ -127,7 +127,7 @@ const stackScreenOptions = {
 function titleForTabRoute(tabRouteName) {
   if (tabRouteName === TAB_ROUTES.HOME) return "Home";
   if (tabRouteName === TAB_ROUTES.LIBRARY) return "Library";
-  if (tabRouteName === TAB_ROUTES.HISTORY) return "History";
+  if (tabRouteName === TAB_ROUTES.FEED) return "Feed";
   if (tabRouteName === TAB_ROUTES.RANK) return "Rank";
   return "Home";
 }
@@ -436,15 +436,15 @@ function LibraryTab() {
   );
 }
 
-function HistoryTab() {
+function FeedTab() {
   const ctx = useContext(AppShellContext);
 
   return (
-    <HistoryStack.Navigator screenOptions={stackScreenOptions}>
-      <HistoryStack.Screen name="History" options={{ headerShown: false }}>
-        {() => <HistoryScreen sessions={ctx.sessions} />}
-      </HistoryStack.Screen>
-    </HistoryStack.Navigator>
+    <FeedStack.Navigator screenOptions={stackScreenOptions}>
+      <FeedStack.Screen name="Feed" options={{ headerShown: false }}>
+        {() => <FeedScreen sessions={ctx.sessions} />}
+      </FeedStack.Screen>
+    </FeedStack.Navigator>
   );
 }
 
@@ -555,12 +555,12 @@ function TabsNavigator() {
         }}
       />
       <Tab.Screen
-        name={TAB_ROUTES.HISTORY}
-        component={HistoryTab}
+        name={TAB_ROUTES.FEED}
+        component={FeedTab}
         options={{
-          title: "History",
+          title: "Feed",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "time" : "time-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "newspaper" : "newspaper-outline"} size={24} color={color} />
           ),
         }}
       />

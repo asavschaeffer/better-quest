@@ -8,14 +8,26 @@ import styles from "../../../style";
  * @param {object} props
  * @param {object} props.session - The session object
  * @param {string} [props.variant="history"] - Display variant: "history" (full) or "feed" (compact)
+ * @param {boolean} [props.showUserName=false] - Whether to show the user name (for social feeds)
  */
-export function SessionRow({ session, variant = "history" }) {
+export function SessionRow({ session, variant = "history", showUserName = false }) {
   if (!session) return null;
 
   const showNotes = variant === "history" && session.notes;
+  const hasUserInfo = showUserName && session.userName;
 
   return (
     <View style={styles.historySessionItem}>
+      {/* User info for social feeds */}
+      {hasUserInfo && (
+        <View style={localStyles.userRow}>
+          <Text style={localStyles.userName}>{session.userName}</Text>
+          {session.userLevel && (
+            <Text style={localStyles.userLevel}>Lv {session.userLevel}</Text>
+          )}
+        </View>
+      )}
+      
       <Text style={styles.historySessionTitle}>{session.description}</Text>
       <Text style={styles.historySessionMeta}>
         {session.durationMinutes}m • +{session.expResult?.totalExp || 0} EXP
@@ -29,5 +41,22 @@ export function SessionRow({ session, variant = "history" }) {
   );
 }
 
-export default SessionRow;
+const localStyles = {
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  userName: {
+    color: "#a5b4fc",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  userLevel: {
+    color: "#6b7280",
+    fontSize: 11,
+  },
+};
 
+export default SessionRow;

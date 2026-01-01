@@ -13,12 +13,14 @@ import { SessionRow } from "./SessionRow";
  * @param {object[]} props.sessions - Sessions to display
  * @param {string} [props.emptyText] - Text shown when no sessions
  * @param {string} [props.variant="history"] - Passed to SessionRow
+ * @param {boolean} [props.showUserName=false] - Whether to show user names (for social feeds)
  * @param {object} [props.style] - Additional style for the ScrollView
  */
 export function FeedList({
   sessions = [],
   emptyText = "No quests yet. Start your journey!",
   variant = "history",
+  showUserName = false,
   style,
 }) {
   const grouped = useMemo(() => groupSessionsByDay(sessions), [sessions]);
@@ -38,7 +40,12 @@ export function FeedList({
         <View key={date}>
           <Text style={styles.historyDateHeader}>{date}</Text>
           {grouped[date].map((session) => (
-            <SessionRow key={session.id} session={session} variant={variant} />
+            <SessionRow
+              key={session.id}
+              session={session}
+              variant={variant}
+              showUserName={showUserName}
+            />
           ))}
         </View>
       ))}
@@ -47,4 +54,3 @@ export function FeedList({
 }
 
 export default FeedList;
-

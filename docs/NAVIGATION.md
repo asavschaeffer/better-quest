@@ -147,7 +147,7 @@ const TAB_ROUTES = {
   HOME: "HomeTab",
   LIBRARY: "LibraryTab",
   QUEST_ACTION: "QuestActionTab",
-  HISTORY: "HistoryTab",
+  FEED: "FeedTab",
   RANK: "RankTab",
 };
 ```
