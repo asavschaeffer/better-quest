@@ -1,8 +1,9 @@
+import { STAT_KEYS } from "./models.js";
+
 // Intended v1: keep numbers small and legible.
 const EXP_PER_MINUTE = 1;
 const MIN_SESSION_MINUTES = 1;
 const MAX_SESSION_MINUTES = 240;
-const STAND_KEYS = ["STR", "DEX", "STA", "INT", "SPI", "CHA", "VIT"];
 
 // Level curve:
 // - Fast early leveling
@@ -92,7 +93,7 @@ export function applyExpToAvatar(avatar, expResult) {
 
   const standExp = { ...(avatar.standExp ?? {}) };
   const gainedStand = expResult.standExp ?? {};
-  STAND_KEYS.forEach((key) => {
+  STAT_KEYS.forEach((key) => {
     const prev = typeof standExp[key] === "number" ? standExp[key] : 0;
     const add = typeof gainedStand[key] === "number" ? gainedStand[key] : 0;
     standExp[key] = prev + add;
@@ -115,7 +116,7 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
   // Prefer allocation points (0–2). These are the authoritative weights.
   const points = {};
   let sumPoints = 0;
-  STAND_KEYS.forEach((key) => {
+  STAT_KEYS.forEach((key) => {
     const raw = allocation?.[key];
     const val =
       typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(2, Math.floor(raw))) : 0;
@@ -126,7 +127,7 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
   // Back-compat fallback: older sessions stored chart-ish standStats values.
   // Convert 1–6-ish values into non-negative weights using (raw - 1).
   if (sumPoints <= 0 && standStatsFallback) {
-    STAND_KEYS.forEach((key) => {
+    STAT_KEYS.forEach((key) => {
       const raw = standStatsFallback?.[key];
       const val =
         typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, raw - 1) : 0;
@@ -137,10 +138,10 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
 
   // If still zero, split uniformly (prevents "no weights => no XP").
   if (sumPoints <= 0) {
-    const base = Math.floor(total / STAND_KEYS.length);
-    const remainder = total - base * STAND_KEYS.length;
+    const base = Math.floor(total / STAT_KEYS.length);
+    const remainder = total - base * STAT_KEYS.length;
     const standExp = {};
-    STAND_KEYS.forEach((k, idx) => {
+    STAT_KEYS.forEach((k, idx) => {
       standExp[k] = base + (idx < remainder ? 1 : 0);
     });
     return standExp;
@@ -149,7 +150,7 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
   // Conserved split:
   // - allocate floors
   // - distribute remainder by fractional part (ties broken by fixed key order)
-  const rawParts = STAND_KEYS.map((key) => {
+  const rawParts = STAT_KEYS.map((key) => {
     const raw = (total * points[key]) / sumPoints;
     const flo = Math.floor(raw);
     return { key, raw, flo, frac: raw - flo };
@@ -167,7 +168,7 @@ export function splitTotalExp(totalExp, allocation, standStatsFallback) {
     .slice()
     .sort((a, b) => {
       if (b.frac !== a.frac) return b.frac - a.frac;
-      return STAND_KEYS.indexOf(a.key) - STAND_KEYS.indexOf(b.key);
+      return STAT_KEYS.indexOf(a.key) - STAT_KEYS.indexOf(b.key);
     })
     .forEach((p) => {
       if (remainder <= 0) return;
@@ -184,7 +185,7 @@ function clamp(value, min, max) {
 
 function zeroExpResult() {
   const standExp = {};
-  STAND_KEYS.forEach((key) => {
+  STAT_KEYS.forEach((key) => {
     standExp[key] = 0;
   });
   return {
