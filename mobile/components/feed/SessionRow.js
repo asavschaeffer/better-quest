@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
 import styles from "../../../style";
+import { formatStatBadges } from "../../core/stats";
 
 /**
  * SessionRow - Renders a single session in a feed/history list
@@ -16,6 +17,10 @@ export function SessionRow({ session, variant = "history", showUserName = false 
   const showNotes = variant === "history" && session.notes;
   const hasUserInfo = showUserName && session.userName;
 
+  const badges =
+    formatStatBadges(session.allocation, { mode: "allocation", maxParts: 3 }) ||
+    formatStatBadges(session.expResult?.standExp, { mode: "gains", maxParts: 2 });
+
   return (
     <View style={styles.historySessionItem}>
       {/* User info for social feeds */}
@@ -30,6 +35,7 @@ export function SessionRow({ session, variant = "history", showUserName = false 
       
       <Text style={styles.historySessionTitle}>{session.description}</Text>
       <Text style={styles.historySessionMeta}>
+        {badges ? `${badges} • ` : ""}
         {session.durationMinutes}m • +{session.expResult?.totalExp || 0} EXP
         {session.comboBonus ? " 🔥" : ""}
         {session.restBonus ? " 😴" : ""}

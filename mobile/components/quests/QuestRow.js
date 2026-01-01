@@ -4,16 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 
 import styles from "../../../style";
-import { STAT_KEYS } from "../../core/models";
+import { formatStatBadges } from "../../core/stats";
 
-function formatStatRewards(stats) {
-  if (!stats) return "";
-  const parts = [];
-  STAT_KEYS.forEach((key) => {
-    const val = stats[key];
-    if (typeof val === "number" && val > 0) parts.push(`${key} ${val}`);
-  });
-  return parts.slice(0, 3).join(" • ") || "No stats";
+function formatQuestBadges(stats) {
+  const badges = formatStatBadges(stats, { mode: "allocation", maxParts: 3 });
+  return badges || "No stats";
 }
 
 function confirmDestructive({ title, message, confirmText = "Delete", onConfirm }) {
@@ -152,7 +147,7 @@ export function QuestRow({
       ? ""
       : variant === "compact"
         ? author
-        : `${formatStatRewards(quest?.stats)} • ${author}${builtInSuffix}`;
+        : `${formatQuestBadges(quest?.stats)} • ${author}${builtInSuffix}`;
 
   const content = (
     <View style={localStyles.questRow}>

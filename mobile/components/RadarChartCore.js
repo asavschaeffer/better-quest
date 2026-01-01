@@ -1,17 +1,10 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText, G } from "react-native-svg";
+import { STAT_ATTRS as CORE_STAT_ATTRS } from "../core/stats";
 
-// Stat definitions with colors
-export const STAT_ATTRS = [
-  { key: "STR", label: "STR", color: "#ef4444" },
-  { key: "DEX", label: "DEX", color: "#f97316" },
-  { key: "STA", label: "STA", color: "#eab308" },
-  { key: "INT", label: "INT", color: "#3b82f6" },
-  { key: "SPI", label: "SPI", color: "#a855f7" },
-  { key: "CHA", label: "CHA", color: "#ec4899" },
-  { key: "VIT", label: "VIT", color: "#22c55e" },
-];
+// Back-compat export: many components import STAT_ATTRS from RadarChartCore.
+export const STAT_ATTRS = CORE_STAT_ATTRS;
 
 /**
  * RadarChartCore - Pure display renderer for radar/spider charts

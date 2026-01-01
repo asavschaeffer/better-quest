@@ -205,27 +205,105 @@ Key insight:
 
 ## UI primitives (reusable components)
 
-These are the “atoms” we want to reuse across screens.
+These are the "atoms" we want to reuse across screens.
 
-### StatChart
+### STAT_ATTRS (Constants)
 
-Radar chart + sliders (and/or read-only chart) that visualizes or edits stat intent.
+Canonical stat definitions. Single source of truth in `mobile/core/stats.js`:
 
-### QuestCard / QuestRow
+```js
+export const STAT_ATTRS = [
+  { key: "STR", label: "STR", color: "#ef4444" },
+  { key: "DEX", label: "DEX", color: "#f97316" },
+  { key: "STA", label: "STA", color: "#eab308" },
+  { key: "INT", label: "INT", color: "#3b82f6" },
+  { key: "SPI", label: "SPI", color: "#a855f7" },
+  { key: "CHA", label: "CHA", color: "#ec4899" },
+  { key: "VIT", label: "VIT", color: "#22c55e" },
+];
+```
 
-Consistent quest representation (icon, label, stat tags, small hint text).
+### StatBadges (Text format)
 
-### SessionRow
+Compact text representation of stat allocation/gains. Used in list rows.
 
-Consistent session representation (quest, duration, time, earned stats, notes/bonuses).
+**Format:**
+- Allocation 0 → (omit)
+- Allocation 1 → `STR+`
+- Allocation 2 → `STR++`
 
-### EventRow
+**Display:** `STR++ INT+ SPI+` (only non-zero stats, space-separated)
 
-Consistent activity event representation (user, quest, message, timestamp).
+**Usage:** QuestRow, SessionRow, anywhere stats need a quick glance.
+
+**The chart is the visualizer.** Text badges are the summary. No horizontal bar charts.
+
+### StatChart (Radar visualization)
+
+Layered architecture:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  RadarChartCore                                             │
+│  Pure SVG renderer. Takes values array, overlays, rings.    │
+│  No interaction, no domain knowledge.                       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐
+│ PlayerStatsChart│ │ QuestStatsPicker│ │ StandClockChart     │
+│ (display)       │ │ (interactive)   │ │ (session timer)     │
+│ 1-6 scale       │ │ 0-2 scale       │ │ 1-6 scale, animated │
+│ Read-only       │ │ Drag to allocate│ │ Drag ring to extend │
+└─────────────────┘ └─────────────────┘ └─────────────────────┘
+```
+
+**Shared utilities:**
+- `DurationRing` - arc rendering with optional drag interaction
+- `useRadialDrag` - gesture handling + haptic feedback hook
+
+### ActivityRow (Unified list item)
+
+**Replaces:** QuestRow, SessionRow, EventRow
+
+One component with variants for different contexts:
+
+```jsx
+<ActivityRow
+  variant="quest"     // "quest" | "session" | "event"
+  quest={quest}       // always present
+  session={session}   // for variant="session"
+  event={event}       // for variant="event" (milestone, level-up, etc.)
+  showStreak={true}   // quest streak badge
+  showTime={true}     // "2h ago" timestamp
+  showUser={false}    // "@username" for feed items
+  onPress={handlePress}
+/>
+```
+
+**Shared elements:**
+- Quest icon + label
+- StatBadges (allocation or gains)
+- Duration (for sessions)
+- Timestamp (for feed items)
+- User attribution (for global feed)
+
+**Used in:** Library, Feed (all scopes), Quest Profile, User Profile
 
 ### LeaderboardRow
 
 Consistent ranking representation (rank, user, value, context).
+
+```jsx
+<LeaderboardRow
+  rank={1}
+  user={user}
+  metric="exp"        // "exp" | "hours" | "streak"
+  value={12480}
+  onPress={handlePress}
+/>
+```
 
 ---
 
@@ -235,63 +313,64 @@ Consistent ranking representation (rank, user, value, context).
 
 Composes:
 
-- StatChart (steering)
-- Search input (steering)
-- Ranked QuestCards (output)
+- QuestStatsPicker (steering via stat chart)
+- Search input (steering via text)
+- Ranked ActivityRow list (`variant="quest"`)
 
 ### Library
 
 Composes:
 
-- QuestRow list (all quests)
-- Filter/sort controls (user-driven)
+- ActivityRow list (`variant="quest"`, all 21 quests)
+- Filter chips (by stat)
+- Sort controls (activity, streak, popularity)
 
 ### Quest Profile
 
 Composes:
 
-- Quest details + allocation visualization
-- Suggestions
-- Materials
+- Quest header + StatChart (read-only, shows allocation)
+- Suggestions list
+- Materials list
 - Embedded Feed (`scope = quest:@id`, limit)
-- Embedded Leaderboard (`scope = quest:@id`, metric)
+- Embedded LeaderboardRow list (`scope = quest:@id`)
 
 ### Session (Timer) + Complete
 
 Composes:
 
-- Active timer
-- Allocation/intent visualization
-- Completion summary + reflection (notes)
+- StandClockChart (animated radar + draggable duration ring)
+- Countdown display
+- Completion summary + StatBadges for gains
+- Notes input
 
-### History
-
-Composes:
-
-- Feed (`scope = me`) + “reflection” affordances (edit notes, repeat, drilldown)
-- Session Detail drilldown
-
-### Global Feed
+### Feed (unified)
 
 Composes:
 
-- Feed (`scope = all` or `following`) + discovery affordances
+- Scope tabs (You / Friends / All)
+- ActivityRow list (`variant="session"` or `variant="event"`)
+- Period filter (for "You" scope: day/week/month)
+
+Note: "History" is just Feed with `scope = me` + reflection affordances.
 
 ### Leaderboard
 
 Composes:
 
-- Leaderboard view (metric tabs, windows) + drilldowns to user/quest profiles
+- Metric tabs (level, stats, quests, streaks)
+- LeaderboardRow list
+- Drilldowns to User Profile / Quest Profile
 
 ### User Profile
 
 Composes:
 
-- PublicProfile header (bio/title)
-- StatChart (read-only for other users)
-- Top quests summary
+- PublicProfile header (username, level, title, bio)
+- StatChart (read-only, shows their stats)
+- Top quests (ActivityRow list, `variant="quest"`, limit 3)
 - Embedded Feed (`scope = user:@id`, limit)
-- Embedded Leaderboard (their ranks / comparisons)
+- Follow action
 
 ---
 

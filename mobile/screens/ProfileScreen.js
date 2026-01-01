@@ -72,24 +72,6 @@ export default function ProfileScreen({ player }) {
         </View>
       </View>
 
-      {/* Stat breakdown */}
-      <View style={styles.profileStatBreakdown}>
-        {Object.entries(player.standExp || {}).map(([key, val]) => (
-          <View key={key} style={styles.profileStatRow}>
-            <Text style={styles.profileStatLabel}>{statLabels[key] || key}</Text>
-            <View style={styles.profileStatBarBg}>
-              <View 
-                style={[
-                  styles.profileStatBar,
-                  { width: `${Math.min(100, (val / Math.max(...Object.values(player.standExp || {}), 1)) * 100)}%` }
-                ]} 
-              />
-            </View>
-            <Text style={styles.profileStatValue}>{val?.toLocaleString()}</Text>
-          </View>
-        ))}
-      </View>
-
       {/* Recent activity */}
       <View style={styles.profileActivitySection}>
         <Text style={styles.sectionLabel}>Favorite Quests</Text>

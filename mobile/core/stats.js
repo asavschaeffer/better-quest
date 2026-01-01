@@ -1,5 +1,17 @@
 import { STAT_KEYS } from "./models.js";
 
+// Canonical stat axis definitions (order matters).
+// Used by radar charts and compact stat badge formatting across the app.
+export const STAT_ATTRS = [
+  { key: "STR", label: "STR", color: "#ef4444" },
+  { key: "DEX", label: "DEX", color: "#f97316" },
+  { key: "STA", label: "STA", color: "#eab308" },
+  { key: "INT", label: "INT", color: "#3b82f6" },
+  { key: "SPI", label: "SPI", color: "#a855f7" },
+  { key: "CHA", label: "CHA", color: "#ec4899" },
+  { key: "VIT", label: "VIT", color: "#22c55e" },
+];
+
 export function getPlayerTitle(level) {
   if (level >= 50) return "Legendary Hero";
   if (level >= 40) return "Master";
@@ -103,4 +115,63 @@ export function computeTodayStandExp(sessions = []) {
     });
   });
   return totals;
+}
+
+/**
+ * formatStatBadges - Compact stat summary string for list rows.
+ *
+ * Allocation mode (0-2): STR+ / STR++ (omits zeros)
+ * Gains mode (arbitrary numbers): top stats converted into + / ++ based on relative magnitude.
+ */
+export function formatStatBadges(stats, options = {}) {
+  const maxParts =
+    typeof options.maxParts === "number" && Number.isFinite(options.maxParts) && options.maxParts > 0
+      ? Math.floor(options.maxParts)
+      : 3;
+  const mode = options.mode || "auto"; // "auto" | "allocation" | "gains"
+
+  const obj = stats && typeof stats === "object" ? stats : null;
+  if (!obj) return "";
+
+  // Determine mode.
+  let resolvedMode = mode;
+  if (resolvedMode === "auto") {
+    const vals = STAT_KEYS.map((k) => obj[k]);
+    const looksLikeAllocation = vals.every((v) => {
+      if (typeof v !== "number" || !Number.isFinite(v)) return true; // treat missing as 0
+      return v >= 0 && v <= 2;
+    });
+    resolvedMode = looksLikeAllocation ? "allocation" : "gains";
+  }
+
+  if (resolvedMode === "allocation") {
+    const parts = [];
+    STAT_KEYS.forEach((k) => {
+      const raw = obj[k];
+      const v = typeof raw === "number" && Number.isFinite(raw) ? Math.floor(raw) : 0;
+      if (v <= 0) return;
+      if (v >= 2) parts.push(`${k}++`);
+      else parts.push(`${k}+`);
+    });
+    return parts.slice(0, maxParts).join(" ");
+  }
+
+  // Gains: pick top stats and quantize into + / ++ relative to max.
+  const entries = STAT_KEYS.map((k) => {
+    const raw = obj[k];
+    const v = typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
+    return { k, v };
+  }).filter((e) => e.v > 0);
+
+  if (!entries.length) return "";
+
+  entries.sort((a, b) => b.v - a.v);
+  const top = entries.slice(0, maxParts);
+  const max = top[0]?.v ?? 0;
+  if (max <= 0) return "";
+
+  const threshold = max * 0.6; // "biggest gains" show as ++
+  return top
+    .map((e) => (e.v >= threshold ? `${e.k}++` : `${e.k}+`))
+    .join(" ");
 }
