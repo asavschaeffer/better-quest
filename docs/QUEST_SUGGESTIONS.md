@@ -1,5 +1,7 @@
 # Quest Suggestion System - Design Document
 
+> Shared vocabulary: see `docs/PRIMITIVES.md` for the canonical primitives and how screens compose from them.
+
 ## The Problem
 
 The current quest system has two competing failures:
@@ -433,48 +435,66 @@ function matchesSuggestionContext(suggestion, context) {
 
 ## App Surfaces & Separation of Concerns
 
-The app has distinct surfaces, each with a clear purpose and data domain:
+> See `docs/PRIMITIVES.md` for the canonical primitives and `docs/NAVIGATION.md` for the full navigation structure.
 
-| Surface | Question it answers | Data Domain | Primary Action |
-|---------|---------------------|-------------|----------------|
-| **Picker** | "What should I do now?" | Algorithm + user steering | Start session |
-| **Library** | "What quests exist?" | All 21 quests | Go to Quest Profile |
-| **Quest Profile** | "Tell me about this quest" | One quest, deep | Start session |
-| **History** | "What have I done?" | Your sessions | Reflect, revisit |
-| **Global Feed** | "What's everyone doing?" | All users' activity | Discover, follow |
-| **Leaderboard** | "How do I compare?" | Rankings, profiles | Compete, explore |
-
-### Navigation Flow
+### Bottom Tab Bar
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              HOME                                        │
-│                                                                         │
-│    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────────────┐    │
-│    │ Picker  │    │ Library │    │ History │    │ Feed/Leaderboard│    │
-│    └────┬────┘    └────┬────┘    └────┬────┘    └────────┬────────┘    │
-│         │              │              │                   │             │
-│         ▼              ▼              ▼                   ▼             │
-│    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────────────┐    │
-│    │ Session │    │ Quest   │    │ Session │    │  User Profile   │    │
-│    │ (timer) │    │ Profile │    │ Detail  │    │  Quest Profile  │    │
-│    └─────────┘    └─────────┘    └────┬────┘    └─────────────────┘    │
-│                        ▲              │                                 │
-│                        └──────────────┘                                 │
-│                     (tap quest → profile)                               │
-└─────────────────────────────────────────────────────────────────────────┘
+[ Library ]  [ Home ]  [ Feed ]  [ Ranks ]
 ```
+
+| Tab | Question | Primitives Used |
+|-----|----------|-----------------|
+| **Library** | "What quests exist?" | QuestRow list, Filter/Sort controls |
+| **Home** | "Welcome back" | Dashboard, Quick start CTA |
+| **Feed** | "What's happening?" | Feed(scope: me/following/all) |
+| **Ranks** | "Who's winning?" | Leaderboard(metric: level/stat/quest) |
+
+### Feed Sub-tabs
+
+Feed is a single **Feed primitive** with different scopes:
+
+| Sub-tab | Scope | Old Name |
+|---------|-------|----------|
+| **You** | `scope: me` | History |
+| **Friends** | `scope: following` | (new) |
+| **All** | `scope: all` | Global Feed |
+
+### Flows (Modals)
+
+| Flow | Trigger | Primitives |
+|------|---------|------------|
+| **Picker** | "Start Quest" from anywhere | StatChart, Search, QuestCard |
+| **Session** | After picking quest | Timer, Allocation viz |
+| **Complete** | After session ends | EXP breakdown, Notes, Bonuses |
+
+### Detail Screens (Push navigation)
+
+| Screen | Reached from | Primitives |
+|--------|--------------|------------|
+| **Quest Profile** | Library, Feed, Picker, Leaderboard | Quest details, Suggestions, Materials, embedded Feed + Leaderboard |
+| **User Profile** | Feed, Leaderboard | PublicProfile, StatChart, Top quests, embedded Feed + Leaderboard |
+| **Session Detail** | Feed (You tab) | Session data, Notes editor, Bonuses |
+
+### Header (Top Right)
+
+```
+[ 🔔 Notifications ]  [ 👤 Profile ]  [ ⚙️ Settings ]
+```
+
+---
 
 ### Key Distinctions
 
 **Picker vs Library:**
-- **Picker** = Algorithm suggests + user steers (text search, stat chart)
-- **Library** = User browses all 21 quests freely
+- **Picker** = Algorithm suggests + user steers (text search, stat chart) → modal flow
+- **Library** = User browses all 21 quests freely → tab
 - Both lead to starting a quest, but intent differs (quick-start vs explore)
 
-**History vs Global Feed:**
-- **History** = YOUR sessions, YOUR patterns
-- **Global Feed** = EVERYONE's sessions, discovery
+**Feed scopes (unified primitive):**
+- **You** = YOUR sessions, YOUR patterns (reflection mode)
+- **Friends** = People you follow (social proof)
+- **All** = EVERYONE's sessions (discovery mode)
 
 **Quest Profile vs Session Detail:**
 - **Quest Profile** = The quest itself (suggestions, materials, community)
@@ -715,15 +735,17 @@ The Picker is **algorithm-assisted but user-steerable**. It's not purely automat
 
 ---
 
-## History Design
+## Feed Design (Unified)
 
-History is **your personal log** - what you've done, when, and how. It's about reflection and pattern recognition.
+Feed is a single primitive with different scopes. The "You" tab is your personal history, "Friends" shows people you follow, "All" is global discovery.
 
-### History Layout
+### Feed Layout (You tab = History)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  History                                   [Day] [Week] [Mo]│
+│  Feed                             [You ●] [Friends] [All]   │
+├─────────────────────────────────────────────────────────────┤
+│                                   [Day] [Week] [Mo]         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  TODAY                                          3 sessions  │
@@ -825,15 +847,13 @@ Each session row shows:
 
 ---
 
-## Global Feed Design
+### Feed Layout (All tab = Global)
 
-The Global Feed is **everyone's activity** - a real-time stream of sessions completed worldwide. It's about discovery, social proof, and inspiration.
-
-### Global Feed Layout
+The All tab is **everyone's activity** - a real-time stream of sessions completed worldwide. Discovery, social proof, and inspiration.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Global Feed                              [All] [Following] │
+│  Feed                              [You] [Friends] [All ●]  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  LIVE                                                       │
@@ -883,10 +903,18 @@ The Global Feed is **everyone's activity** - a real-time stream of sessions comp
 
 ### Feed Filters
 
+**Scope tabs:**
+
 | Tab | Shows |
 |-----|-------|
+| **You** | Your sessions only (history mode) |
+| **Friends** | Users you follow |
 | **All** | Everyone's activity (discovery mode) |
-| **Following** | Only users you follow |
+
+**Additional filters (available in all scopes):**
+
+| Filter | Effect |
+|--------|--------|
 | **Quest** | Filter by specific quest (e.g., only Train activity) |
 | **Stat** | Filter by stat (e.g., only STR-focused sessions) |
 
@@ -897,15 +925,14 @@ The Global Feed is **everyone's activity** - a real-time stream of sessions comp
 - **Tap event** → Contextual (session detail, streak info, etc.)
 - **Follow user** → Add to "Following" feed
 
-### Global Feed vs History
+### Feed Scope Comparison
 
-| Aspect | History | Global Feed |
-|--------|---------|-------------|
-| Whose data | Yours only | Everyone |
-| Purpose | Reflection | Discovery |
-| Time scope | All your sessions ever | Recent activity (live-ish) |
-| Detail level | Full session breakdown | Summary only |
-| Actions | Edit notes, repeat | Follow, explore profiles |
+| Aspect | You | Friends | All |
+|--------|-----|---------|-----|
+| Whose data | Yours only | Following | Everyone |
+| Purpose | Reflection | Social proof | Discovery |
+| Unique features | Edit notes, repeat, day/week/month views | (same as All) | Follow users |
+| Detail level | Full breakdown | Summary | Summary |
 
 ---
 

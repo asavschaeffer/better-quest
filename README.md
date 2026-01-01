@@ -30,4 +30,5 @@ This repo is currently **JavaScript-first** (no `.ts/.tsx` yet). We still keep a
 ### Docs
 
 - `START_HERE.md`
+- `docs/PRIMITIVES.md` (shared vocabulary: entities, projections, surfaces)
 - `docs/` (testing guides, roadmap, and design notes)

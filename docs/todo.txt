@@ -47,4 +47,3 @@ quest series that could either prescribe longer term daily routines or just enfo
 ### saitama
 
 	100 pushups, situps, squats, 10km every day for a year. have a bot named "saitama" on the leaderboards doing this from app launch and progressively getting balder
-	

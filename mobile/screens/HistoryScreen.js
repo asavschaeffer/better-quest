@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import styles from "../../style";
 import { buildLogText } from "../core/logs";
 import { aggregateStandGains } from "../core/stats";
 import { computeStreakDays } from "../core/quests";
 import { playerStatsToChartValues } from "../core/stats";
+import { filterSessionsByPeriod } from "../core/feed";
 import { PlayerStatsChart } from "../components/PlayerStatsChart";
+import { FeedList } from "../components/feed";
 
 const PERIODS = {
   day: { label: "Day", days: 1, color: "#38bdf8", fill: "rgba(56,189,248,0.18)" },
@@ -55,15 +57,7 @@ export default function HistoryScreen({ sessions }) {
     const def = PERIODS[selectedPeriod];
     if (!def) return null;
 
-    let filtered = sessions;
-    if (def.days) {
-      const start = new Date(now);
-      start.setDate(start.getDate() - def.days);
-      filtered = sessions.filter((s) => {
-        const d = new Date(s.completedAt || s.endTime || s.startTime);
-        return d >= start;
-      });
-    }
+    const filtered = filterSessionsByPeriod(sessions, def.days, now);
 
     const exp = filtered.reduce((sum, s) => sum + (s.expResult?.totalExp || 0), 0);
     const minutes = filtered.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
@@ -97,17 +91,6 @@ export default function HistoryScreen({ sessions }) {
 
   // Sessions for the selected period
   const filteredSessions = primary.sessions;
-
-  const groupedSessions = useMemo(() => {
-    const groups = {};
-    filteredSessions.forEach((session) => {
-      const date = new Date(session.completedAt || session.endTime || session.startTime).toLocaleDateString();
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(session);
-    });
-    return groups;
-  }, [filteredSessions]);
-
   const streakDays = computeStreakDays(sessions);
 
   return (
@@ -170,31 +153,12 @@ export default function HistoryScreen({ sessions }) {
         </View>
       </View>
 
-      {/* Session list */}
-      <ScrollView style={styles.historyList}>
-        {filteredSessions.length === 0 ? (
-          <Text style={styles.emptyText}>No quests in this period. Start your journey!</Text>
-        ) : (
-          Object.entries(groupedSessions).map(([date, dateSessions]) => (
-            <View key={date}>
-              <Text style={styles.historyDateHeader}>{date}</Text>
-              {dateSessions.map((session) => (
-                <View key={session.id} style={styles.historySessionItem}>
-                  <Text style={styles.historySessionTitle}>{session.description}</Text>
-                  <Text style={styles.historySessionMeta}>
-                    {session.durationMinutes}m • +{session.expResult?.totalExp || 0} EXP
-                    {session.comboBonus ? " 🔥" : ""}
-                    {session.restBonus ? " 😴" : ""}
-                  </Text>
-                  {session.notes && (
-                    <Text style={styles.historySessionNotes}>{session.notes}</Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          ))
-        )}
-      </ScrollView>
+      {/* Session list - now using the shared FeedList primitive */}
+      <FeedList
+        sessions={filteredSessions}
+        emptyText="No quests in this period. Start your journey!"
+        variant="history"
+      />
     </View>
   );
 }
