@@ -166,7 +166,7 @@ function ScopeChip({ label, active, onPress }) {
 function PeriodChip({ label, active, onPress }) {
   return (
     <TouchableOpacity
-      style={[styles.chip, active && styles.chipActive, styles.chipHighlighted]}
+      style={[styles.chip, styles.chipHighlighted, active && styles.chipActive]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}

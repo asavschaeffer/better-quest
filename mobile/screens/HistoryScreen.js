@@ -21,8 +21,8 @@ const PERIODS = {
 function Chip({ label, onPress, active, highlighted }) {
   const chipStyles = [
     styles.chip,
-    active && styles.chipActive,
     highlighted && styles.chipHighlighted,
+    active && styles.chipActive,
   ].filter(Boolean);
   return (
     <TouchableOpacity style={chipStyles} onPress={onPress}>
