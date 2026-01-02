@@ -2,7 +2,9 @@ import React, { useMemo } from "react";
 import { View, Text, ScrollView } from "react-native";
 import styles from "../../../style";
 import { groupSessionsByDay, getOrderedDayKeys } from "../../core/feed";
+import { getActivityEventTimestamp } from "../../core/activityEvents";
 import { SessionRow } from "./SessionRow";
+import { ActivityRow } from "./ActivityRow";
 
 /**
  * FeedList - Renders a grouped list of sessions (by day)
@@ -18,15 +20,29 @@ import { SessionRow } from "./SessionRow";
  */
 export function FeedList({
   sessions = [],
+  items = null,
   emptyText = "No quests yet. Start your journey!",
   variant = "history",
   showUserName = false,
   style,
 }) {
-  const grouped = useMemo(() => groupSessionsByDay(sessions), [sessions]);
+  const hasItems = Array.isArray(items);
+
+  const grouped = useMemo(() => {
+    if (!hasItems) return groupSessionsByDay(sessions);
+    const groups = {};
+    (items || []).forEach((it) => {
+      const dateKey = getActivityEventTimestamp(it).toLocaleDateString();
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(it);
+    });
+    return groups;
+  }, [hasItems, items, sessions]);
+
   const dayKeys = useMemo(() => getOrderedDayKeys(grouped), [grouped]);
 
-  if (sessions.length === 0) {
+  const empty = hasItems ? (items?.length ?? 0) === 0 : sessions.length === 0;
+  if (empty) {
     return (
       <ScrollView style={[styles.historyList, style]}>
         <Text style={styles.emptyText}>{emptyText}</Text>
@@ -39,14 +55,27 @@ export function FeedList({
       {dayKeys.map((date) => (
         <View key={date}>
           <Text style={styles.historyDateHeader}>{date}</Text>
-          {grouped[date].map((session) => (
-            <SessionRow
-              key={session.id}
-              session={session}
-              variant={variant}
-              showUserName={showUserName}
-            />
-          ))}
+          {grouped[date].map((row) => {
+            // Back-compat: sessions-only lists.
+            if (!hasItems) {
+              return (
+                <SessionRow
+                  key={row.id}
+                  session={row}
+                  variant={variant}
+                  showUserName={showUserName}
+                />
+              );
+            }
+            return (
+              <ActivityRow
+                key={row.id}
+                item={row}
+                variant={variant}
+                showUserName={showUserName}
+              />
+            );
+          })}
         </View>
       ))}
     </ScrollView>
