@@ -12,6 +12,11 @@ function Chip({ label, onPress, active }) {
   );
 }
 
+const SCOPES = [
+  { id: "friends", label: "Friends" },
+  { id: "global", label: "Global" },
+];
+
 // Mock leaderboard players with different stat distributions
 export const MOCK_PLAYERS = [
   {
@@ -62,6 +67,7 @@ export const MOCK_PLAYERS = [
 
 export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile }) {
   const [metric, setMetric] = useState("exp"); // exp | time
+  const [scope, setScope] = useState("friends"); // friends | global
 
   const totalMinutes = sessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
   const mockLeaders = useMemo(() => {
@@ -74,8 +80,18 @@ export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile
       standExp: avatar.standExp || {},
       isPlayer: true,
     };
-    return [...MOCK_PLAYERS, player];
-  }, [avatar, totalMinutes]);
+
+    const friendIds = new Set(["darkslayer", "studymaster", "focusking"]);
+    const friends = MOCK_PLAYERS.filter((p) => friendIds.has(p.id));
+
+    switch (scope) {
+      case "friends":
+        return [...friends, player];
+      case "global":
+      default:
+        return [...MOCK_PLAYERS, player];
+    }
+  }, [avatar, scope, totalMinutes]);
 
   const sorted = useMemo(() => {
     return [...mockLeaders].sort((a, b) =>
@@ -89,6 +105,18 @@ export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile
     <View style={styles.screenContainer}>
       <View style={styles.screenHeader}>
         <Text style={styles.screenTitle}>Leaderboard</Text>
+      </View>
+
+      {/* Scope selector */}
+      <View style={styles.exportControls}>
+        <View style={styles.rowWrap}>
+          {SCOPES.map((s) => (
+            <Chip key={s.id} label={s.label} active={scope === s.id} onPress={() => setScope(s.id)} />
+          ))}
+        </View>
+        <Text style={styles.footerMeta}>
+          {scope === "friends" ? "Friends ladder" : "Global ladder"}
+        </Text>
       </View>
 
       {/* Metric selector */}
@@ -137,7 +165,11 @@ export default function LeaderboardScreen({ avatar, sessions = [], onViewProfile
       </View>
 
       <Text style={styles.leaderboardNote}>
-        Leaderboard will sync with friends soon. Metrics toggle now mirrors your quickstart goals.
+        {scope === "friends"
+          ? "Friends leaderboard will sync for real soon. For now this is a mocked friends set."
+          : scope === "global"
+            ? "Global leaderboard will sync for real soon. For now this is mocked."
+            : null}
       </Text>
     </View>
   );
