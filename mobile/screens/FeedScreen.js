@@ -1,14 +1,23 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
 import { FeedList } from "../components/feed";
+import { deriveActivityEventsFromSessions } from "../core/activityEvents";
+import { filterSessionsByPeriod } from "../core/feed";
+import { aggregateStandGains, playerStatsToChartValues } from "../core/stats";
+import { PlayerStatsChart } from "../components/PlayerStatsChart";
 
 const SCOPES = [
   { id: "you", label: "You" },
   { id: "friends", label: "Friends" },
   { id: "all", label: "All" },
 ];
+
+const INSIGHT_PERIODS = {
+  day: { label: "Day", days: 1, color: "#38bdf8" },
+  week: { label: "Week", days: 7, color: "#a78bfa" },
+  month: { label: "Month", days: 30, color: "#fbbf24" },
+};
 
 // Mock friends feed data - simulates activity from people you follow
 const MOCK_FRIENDS_SESSIONS = [
@@ -154,6 +163,19 @@ function ScopeChip({ label, active, onPress }) {
   );
 }
 
+function PeriodChip({ label, active, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.chip, active && styles.chipActive, styles.chipHighlighted]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={styles.chipText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 /**
  * FeedScreen - Unified activity feed with scope selector (You/Friends/All)
  *
@@ -164,6 +186,8 @@ function ScopeChip({ label, active, onPress }) {
  */
 export default function FeedScreen({ sessions = [] }) {
   const [selectedScope, setSelectedScope] = useState("you");
+  const [selectedPeriod, setSelectedPeriod] = useState("week");
+  const now = useMemo(() => new Date(), []);
 
   // Select sessions based on scope
   const scopedSessions = useMemo(() => {
@@ -179,6 +203,35 @@ export default function FeedScreen({ sessions = [] }) {
     }
   }, [selectedScope, sessions]);
 
+  const items = useMemo(() => {
+    if (selectedScope !== "you") return null;
+    return deriveActivityEventsFromSessions({
+      sessions: scopedSessions,
+      // Keep this lightweight for now: sessions are the canonical primitive;
+      // Feed renders ActivityEvents projected from sessions.
+      includeLevelUps: false,
+      includeStreakMilestones: false,
+    });
+  }, [selectedScope, scopedSessions]);
+
+  const insights = useMemo(() => {
+    if (selectedScope !== "you") return null;
+    const def = INSIGHT_PERIODS[selectedPeriod] || INSIGHT_PERIODS.week;
+    const filtered = filterSessionsByPeriod(scopedSessions, def.days, now);
+    const exp = filtered.reduce((sum, s) => sum + (s.expResult?.totalExp || 0), 0);
+    const minutes = filtered.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+    const gains = aggregateStandGains(filtered);
+    const chart = playerStatsToChartValues(gains);
+    return {
+      label: def.label,
+      color: def.color,
+      exp,
+      minutes,
+      count: filtered.length,
+      chart,
+    };
+  }, [now, scopedSessions, selectedPeriod, selectedScope]);
+
   // Empty state text varies by scope
   const emptyText = useMemo(() => {
     switch (selectedScope) {
@@ -192,6 +245,38 @@ export default function FeedScreen({ sessions = [] }) {
         return "No activity to show.";
     }
   }, [selectedScope]);
+
+  const header = useMemo(() => {
+    if (selectedScope !== "you") return null;
+
+    return (
+      <View style={{ alignItems: "center", marginBottom: 10 }}>
+        <View style={[styles.rowWrap, { justifyContent: "center", marginTop: 8 }]}>
+          {Object.entries(INSIGHT_PERIODS).map(([id, def]) => (
+            <PeriodChip
+              key={id}
+              label={def.label}
+              active={selectedPeriod === id}
+              onPress={() => setSelectedPeriod(id)}
+            />
+          ))}
+        </View>
+
+        {insights?.count > 0 ? (
+          <View style={{ alignItems: "center", marginTop: 6 }}>
+            <PlayerStatsChart value={insights.chart} size={220} showTotalExp={insights.exp} />
+            <Text style={[styles.historyEchoItem, { color: insights.color, textAlign: "center", marginTop: 6 }]}>
+              {insights.label}: {insights.count} quests • {Math.round(insights.minutes / 60)}h • {insights.exp} EXP
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.emptyText, { marginTop: 10 }]}>
+            No quests in this period yet.
+          </Text>
+        )}
+      </View>
+    );
+  }, [insights, selectedPeriod, selectedScope]);
 
   return (
     <View style={styles.screenContainer}>
@@ -212,10 +297,13 @@ export default function FeedScreen({ sessions = [] }) {
 
       {/* Feed list for all scopes */}
       <FeedList
-        sessions={scopedSessions}
+        {...(selectedScope === "you"
+          ? { items }
+          : { sessions: scopedSessions })}
         emptyText={emptyText}
         variant="feed"
         showUserName={selectedScope !== "you"}
+        header={header}
       />
     </View>
   );

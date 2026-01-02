@@ -1,4 +1,3 @@
-import { createDefaultAvatar } from "./models.js";
 import { getSessionTimestamp } from "./feed.js";
 import { applyExpToAvatar } from "./exp.js";
 import { computeStreakDays } from "./quests.js";
@@ -31,7 +30,12 @@ export function getActivityEventTimestamp(event) {
  */
 export function deriveActivityEventsFromSessions({
   sessions = [],
+  // If you want accurate derived "level up" events, pass the avatar state from BEFORE
+  // the first session in this list. If absent, we skip emitting level-up events to
+  // avoid incorrect histories for existing users.
   startingAvatar = null,
+  includeLevelUps = false,
+  includeStreakMilestones = false,
   streakMilestones = DEFAULT_STREAK_MILESTONES,
 } = {}) {
   const input = Array.isArray(sessions) ? sessions.filter(Boolean) : [];
@@ -43,7 +47,7 @@ export function deriveActivityEventsFromSessions({
     .slice()
     .sort((a, b) => getSessionTimestamp(a).getTime() - getSessionTimestamp(b).getTime());
 
-  let avatar = startingAvatar || createDefaultAvatar();
+  let avatar = startingAvatar;
   const processedForStreak = [];
   const events = [];
 
@@ -61,7 +65,8 @@ export function deriveActivityEventsFromSessions({
     });
 
     // Level-up events (derived by replaying EXP).
-    if (s?.expResult) {
+    // Only emit if we have a known correct starting avatar.
+    if (includeLevelUps && avatar && s?.expResult) {
       const next = applyExpToAvatar(avatar, s.expResult);
       const from = avatar?.level ?? 1;
       const to = next?.level ?? from;
@@ -80,17 +85,19 @@ export function deriveActivityEventsFromSessions({
     }
 
     // Streak milestone events (global streak, derived).
-    processedForStreak.unshift({ completedAt: atIso });
-    const streakDays = computeStreakDays(processedForStreak);
-    if (milestones.includes(streakDays) && !emittedStreak.has(streakDays)) {
-      emittedStreak.add(streakDays);
-      events.push({
-        id: `ev:${s.id}:streak:${streakDays}`,
-        type: ActivityEventType.STREAK_MILESTONE,
-        at: atIso,
-        sortOrder: 2,
-        streakDays,
-      });
+    if (includeStreakMilestones) {
+      processedForStreak.unshift({ completedAt: atIso });
+      const streakDays = computeStreakDays(processedForStreak);
+      if (milestones.includes(streakDays) && !emittedStreak.has(streakDays)) {
+        emittedStreak.add(streakDays);
+        events.push({
+          id: `ev:${s.id}:streak:${streakDays}`,
+          type: ActivityEventType.STREAK_MILESTONE,
+          at: atIso,
+          sortOrder: 2,
+          streakDays,
+        });
+      }
     }
   }
 

@@ -24,6 +24,7 @@ export function FeedList({
   emptyText = "No quests yet. Start your journey!",
   variant = "history",
   showUserName = false,
+  header = null,
   style,
 }) {
   const hasItems = Array.isArray(items);
@@ -45,6 +46,7 @@ export function FeedList({
   if (empty) {
     return (
       <ScrollView style={[styles.historyList, style]}>
+        {header}
         <Text style={styles.emptyText}>{emptyText}</Text>
       </ScrollView>
     );
@@ -52,6 +54,7 @@ export function FeedList({
 
   return (
     <ScrollView style={[styles.historyList, style]}>
+      {header}
       {dayKeys.map((date) => (
         <View key={date}>
           <Text style={styles.historyDateHeader}>{date}</Text>

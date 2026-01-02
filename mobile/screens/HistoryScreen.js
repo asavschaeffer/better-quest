@@ -7,6 +7,7 @@ import { aggregateStandGains } from "../core/stats";
 import { computeStreakDays } from "../core/quests";
 import { playerStatsToChartValues } from "../core/stats";
 import { filterSessionsByPeriod } from "../core/feed";
+import { deriveActivityEventsFromSessions } from "../core/activityEvents";
 import { PlayerStatsChart } from "../components/PlayerStatsChart";
 import { FeedList } from "../components/feed";
 
@@ -93,6 +94,14 @@ export default function HistoryScreen({ sessions }) {
   const filteredSessions = primary.sessions;
   const streakDays = computeStreakDays(sessions);
 
+  const items = useMemo(() => {
+    return deriveActivityEventsFromSessions({
+      sessions: filteredSessions,
+      includeLevelUps: false,
+      includeStreakMilestones: false,
+    });
+  }, [filteredSessions]);
+
   return (
     <View style={styles.screenContainer}>
       <View style={styles.screenHeader}>
@@ -155,7 +164,7 @@ export default function HistoryScreen({ sessions }) {
 
       {/* Session list - now using the shared FeedList primitive */}
       <FeedList
-        sessions={filteredSessions}
+        items={items}
         emptyText="No quests in this period. Start your journey!"
         variant="history"
       />
