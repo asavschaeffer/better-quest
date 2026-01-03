@@ -716,13 +716,15 @@ function QuestInfoRootScreen({ route, navigation }) {
   );
 }
 
-function StatInfoRootScreen({ route }) {
+function StatInfoRootScreen({ route, navigation }) {
   const ctx = useContext(AppShellContext);
   const statKey = route?.params?.statKey ?? null;
   return (
     <StatInfoScreen
       statKey={statKey}
+      userQuests={ctx.userQuests}
       onOpenQuest={(quest, isBuiltIn) => ctx.nav(ROUTES.QUEST_INFO, { quest, isBuiltIn: !!isBuiltIn })}
+      onClose={() => navigation.goBack()}
     />
   );
 }
@@ -1351,21 +1353,9 @@ export default function AppShell() {
               <RootStack.Screen
                 name={ROUTES.STAT_INFO}
                 component={StatInfoRootScreen}
-                options={() => {
-                  const rootState = navigationRef.getRootState?.();
-                  const backLabel = getBackLabelFromRootState(rootState);
-                  return {
-                    title: "Stat Info",
-                    headerTitleAlign: "center",
-                    headerLeft: ({ canGoBack }) =>
-                      canGoBack ? (
-                        <HeaderBackButton
-                          label={backLabel}
-                          onPress={() => navigationRef.goBack()}
-                          tintColor="#a5b4fc"
-                        />
-                      ) : null,
-                  };
+                options={{
+                  presentation: "modal",
+                  headerShown: false,
                 }}
               />
               <RootStack.Screen

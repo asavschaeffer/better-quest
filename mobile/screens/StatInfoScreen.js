@@ -1,22 +1,11 @@
 import React, { useMemo } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import styles from "../../style";
 import { BUILT_IN_QUEST_TEMPLATES } from "../core/questStorage";
 import { getQuestStatTotal, STAT_KEYS } from "../core/models";
 import { getStatInfo } from "../core/statInfo";
 
-function formatStatRewards(stats) {
-  if (!stats) return "";
-  const parts = [];
-  STAT_KEYS.forEach((key) => {
-    const val = stats[key];
-    if (typeof val === "number" && val > 0) parts.push(`${key} ${val}`);
-  });
-  return parts.join(" • ") || "No stats";
-}
-
-function computeTopTemplatesForStat(statKey, limit = 7) {
+function computeTopTemplatesForStat(statKey, limit = 5) {
   if (!statKey) return [];
   const list = [...BUILT_IN_QUEST_TEMPLATES];
   list.sort((a, b) => {
@@ -31,165 +20,275 @@ function computeTopTemplatesForStat(statKey, limit = 7) {
   return list.filter((q) => (q?.stats?.[statKey] ?? 0) > 0).slice(0, limit);
 }
 
-export default function StatInfoScreen({ statKey, onOpenQuest }) {
+function filterUserQuestsForStat(userQuests, statKey, limit = 3) {
+  if (!userQuests?.length || !statKey) return [];
+  return userQuests
+    .filter((q) => (q?.stats?.[statKey] ?? 0) > 0)
+    .sort((a, b) => (b?.stats?.[statKey] ?? 0) - (a?.stats?.[statKey] ?? 0))
+    .slice(0, limit);
+}
+
+function QuestRow({ quest, onPress }) {
+  return (
+    <TouchableOpacity
+      style={localStyles.row}
+      onPress={onPress}
+      activeOpacity={0.6}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${quest.label}`}
+    >
+      <View style={localStyles.rowIcon}>
+        <Ionicons name={quest.icon || "flash-outline"} size={18} color="#a5b4fc" />
+      </View>
+      <Text style={localStyles.rowTitle} numberOfLines={1}>
+        {quest.label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+export default function StatInfoScreen({ statKey, onOpenQuest, onClose, userQuests = [] }) {
   const info = useMemo(() => getStatInfo(statKey), [statKey]);
-  const topTemplates = useMemo(() => computeTopTemplatesForStat(statKey, 7), [statKey]);
+  const topTemplates = useMemo(() => computeTopTemplatesForStat(statKey, 5), [statKey]);
+  const yourQuests = useMemo(() => filterUserQuestsForStat(userQuests, statKey, 3), [userQuests, statKey]);
 
   if (!statKey) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+      <View style={[localStyles.modalContainer, { justifyContent: "center", alignItems: "center" }]}>
         <Text style={localStyles.emptyText}>No stat selected</Text>
       </View>
     );
   }
 
+  const statColor = info?.color || "#a5b4fc";
+  const statColorDark = info?.colorDark || "#1e293b";
+
+  // TODO: Replace with actual top player's Stand image for this stat
+  const bannerImageUri = null;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={localStyles.scrollContent}>
-      <View style={localStyles.hero}>
-        <View style={localStyles.heroIcon}>
-          <Ionicons name="sparkles-outline" size={28} color="#a5b4fc" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={localStyles.heroTitle}>
-            {info?.name || statKey} <Text style={localStyles.heroKey}>({statKey})</Text>
-          </Text>
-          <Text style={localStyles.heroSubtitle}>What this stat really means, plus quest examples.</Text>
-        </View>
-      </View>
+    <View style={localStyles.modalContainer}>
+      <ScrollView 
+        style={localStyles.scrollView} 
+        contentContainerStyle={localStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Banner - Top player's Stand for this stat */}
+        <View style={[localStyles.banner, { backgroundColor: statColorDark }]}>
+          {bannerImageUri ? (
+            <Image source={{ uri: bannerImageUri }} style={localStyles.bannerImage} />
+          ) : (
+            <View style={localStyles.bannerPlaceholder}>
+              <Ionicons name={info?.icon || "help-circle-outline"} size={64} color={statColor + "40"} />
+            </View>
+          )}
+          <View style={localStyles.bannerOverlay} />
+          
+          {/* Drag indicator - overlaid on banner */}
+          <View style={localStyles.dragBar}>
+            <View style={localStyles.dragIndicator} />
+          </View>
 
-      <View style={localStyles.section}>
-        <Text style={localStyles.sectionTitle}>Meaning</Text>
-        <Text style={localStyles.bodyText}>{info?.description || "No description yet."}</Text>
-      </View>
+          {/* Champion badge - future: show top player */}
+          <View style={localStyles.championBadge}>
+            <Ionicons name="trophy" size={12} color="#fbbf24" />
+            <Text style={localStyles.championText}>Top Stand TBD</Text>
+          </View>
+        </View>
 
-      <View style={localStyles.section}>
-        <Text style={localStyles.sectionTitle}>Top quests for {statKey}</Text>
-        {topTemplates.length === 0 ? (
-          <Text style={localStyles.muted}>No templates found for this stat yet.</Text>
-        ) : (
-          <View style={localStyles.list}>
-            {topTemplates.map((q) => (
-              <TouchableOpacity
-                key={q.id}
-                style={localStyles.row}
-                onPress={() => onOpenQuest?.(q, true)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${q.label}`}
-              >
-                <View style={localStyles.rowIcon}>
-                  <Ionicons name={q.icon || "help-circle-outline"} size={20} color="#a5b4fc" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={localStyles.rowTitle} numberOfLines={1}>
-                    {q.label}
-                  </Text>
-                  <Text style={localStyles.rowMeta} numberOfLines={1}>
-                    {formatStatRewards(q.stats)} • {q.defaultDurationMinutes || 30} min
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#64748b" />
-              </TouchableOpacity>
-            ))}
+        {/* Hero */}
+        <View style={localStyles.hero}>
+          <Text style={localStyles.statName}>{info?.name || statKey}</Text>
+          <Text style={localStyles.description}>{info?.description}</Text>
+        </View>
+
+        {/* Quote */}
+        {info?.quote && (
+          <View style={localStyles.quoteCard}>
+            <Text style={localStyles.quoteText}>"{info.quote}"</Text>
+            <Text style={localStyles.quoteAuthor}>{info.quoteAuthor}</Text>
           </View>
         )}
-      </View>
-    </ScrollView>
+
+        {/* Your Quests */}
+        {yourQuests.length > 0 && (
+          <View style={localStyles.section}>
+            <Text style={localStyles.sectionTitle}>Your Quests</Text>
+            <View style={localStyles.list}>
+              {yourQuests.map((q) => (
+                <QuestRow
+                  key={q.id}
+                  quest={q}
+                  onPress={() => onOpenQuest?.(q, false)}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Popular Quests */}
+        {topTemplates.length > 0 && (
+          <View style={localStyles.section}>
+            <Text style={localStyles.sectionTitle}>Popular Quests</Text>
+            <View style={localStyles.list}>
+              {topTemplates.map((q) => (
+                <QuestRow
+                  key={q.id}
+                  quest={q}
+                  onPress={() => onOpenQuest?.(q, true)}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const localStyles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#020617",
+  },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 48,
   },
-  emptyText: {
-    color: "#6b7280",
-    fontSize: 14,
-  },
-  hero: {
-    flexDirection: "row",
+  banner: {
+    height: 180,
+    position: "relative",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1f2937",
-    marginBottom: 8,
   },
-  heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: "#111827",
+  bannerImage: {
+    ...StyleSheet.absoluteFillObject,
+    resizeMode: "cover",
+  },
+  bannerPlaceholder: {
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#1f2937",
   },
-  heroTitle: {
+  bannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.3)",
+  },
+  dragBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 10,
+    paddingBottom: 8,
+    alignItems: "center",
+  },
+  dragIndicator: {
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
+  },
+  championBadge: {
+    position: "absolute",
+    bottom: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  championText: {
+    color: "#9ca3af",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  hero: {
+    alignItems: "center",
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingHorizontal: 32,
+  },
+  statName: {
     color: "#f9fafb",
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  heroKey: {
-    color: "#9ca3af",
-    fontSize: 14,
+    fontSize: 32,
     fontWeight: "700",
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
-  heroSubtitle: {
+  description: {
     color: "#9ca3af",
-    fontSize: 12,
-    marginTop: 3,
+    fontSize: 17,
+    lineHeight: 26,
+    textAlign: "center",
+  },
+  quoteCard: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    padding: 20,
+    backgroundColor: "#0f172a",
+    borderRadius: 16,
+  },
+  quoteText: {
+    color: "#d1d5db",
+    fontSize: 15,
+    lineHeight: 24,
+    fontStyle: "italic",
+    marginBottom: 12,
+  },
+  quoteAuthor: {
+    color: "#6b7280",
+    fontSize: 13,
   },
   section: {
-    marginTop: 18,
+    marginTop: 32,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    color: "#9ca3af",
-    fontSize: 12,
+    color: "#6b7280",
+    fontSize: 13,
+    fontWeight: "600",
     textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginBottom: 16,
   },
-  bodyText: {
-    color: "#e5e7eb",
-    fontSize: 15,
-    lineHeight: 22,
+  list: {
+    backgroundColor: "#0f172a",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#1e293b",
+  },
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#1e293b",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  rowTitle: {
+    flex: 1,
+    color: "#f9fafb",
+    fontSize: 16,
   },
   muted: {
     color: "#6b7280",
     fontSize: 14,
   },
-  list: {
-    gap: 10,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#111827",
-  },
-  rowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowTitle: {
-    color: "#f9fafb",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  rowMeta: {
-    color: "#9ca3af",
-    fontSize: 12,
-    marginTop: 2,
+  emptyText: {
+    color: "#6b7280",
+    fontSize: 14,
   },
 });
-
-
