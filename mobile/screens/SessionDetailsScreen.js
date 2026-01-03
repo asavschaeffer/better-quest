@@ -1,25 +1,75 @@
 import React from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { STAT_ATTRS } from "../components/RadarChartCore";
 
-export default function CompleteScreen({
-  session,
-  expResult,
+/**
+ * Format relative time (e.g., "2h ago", "3d ago")
+ */
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
+ * Get initials from username
+ */
+function getInitials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return name.slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+/**
+ * SessionDetailsScreen - Read-only view of a completed session
+ * 
+ * Shows session details when tapping a card in the feed or history.
+ * 
+ * @param {object} session - The session data
+ * @param {boolean} isOwnSession - If true, shows level progress instead of user profile
+ * @param {object} avatar - Avatar data (level) for own sessions
+ * @param {object} levelInfo - Level progress info (current, required, ratio) for own sessions
+ * @param {function} onClose - Called when modal is dismissed
+ * @param {function} onViewProfile - Called when user profile is tapped (other's sessions)
+ */
+export default function SessionDetailsScreen({ 
+  session, 
+  isOwnSession = false,
   avatar,
   levelInfo,
-  notes,
-  onNotesChange,
-  onContinue,
-  onBreak,
-  onEnd,
+  onClose, 
+  onViewProfile,
 }) {
   const insets = useSafeAreaInsets();
+
+  if (!session) {
+    return (
+      <View style={[localStyles.container, { paddingTop: insets.top }]}>
+        <Text style={localStyles.emptyText}>Session not found</Text>
+      </View>
+    );
+  }
+
+  const expResult = session.expResult || { totalExp: 0, standExp: {} };
   const breakdown = Array.isArray(session?.bonusBreakdown) ? session.bonusBreakdown : [];
+  const hasUser = !isOwnSession && session.userName;
+  const timeAgo = formatTimeAgo(session.completedAt);
 
   // Get stat gains sorted by value
-  const statGains = Object.entries(expResult?.standExp || {})
+  const statGains = Object.entries(expResult.standExp || {})
     .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1])
     .map(([key, value]) => {
@@ -29,13 +79,38 @@ export default function CompleteScreen({
 
   return (
     <View style={[localStyles.container, { paddingTop: insets.top }]}>
-      <ScrollView
+      {/* Header with drag indicator */}
+      <View style={localStyles.header}>
+        <View style={localStyles.dragIndicator} />
+        <TouchableOpacity style={localStyles.closeButton} onPress={onClose}>
+          <Text style={localStyles.closeText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
         style={localStyles.scrollView}
         contentContainerStyle={[localStyles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
+        {/* User Info */}
+        {hasUser && (
+          <TouchableOpacity 
+            style={localStyles.userSection}
+            onPress={() => onViewProfile?.({ name: session.userName, level: session.userLevel })}
+            activeOpacity={0.7}
+          >
+            <View style={localStyles.avatar}>
+              <Text style={localStyles.avatarText}>{getInitials(session.userName)}</Text>
+            </View>
+            <View style={localStyles.userInfo}>
+              <Text style={localStyles.userName}>{session.userName}</Text>
+              <Text style={localStyles.userMeta}>Level {session.userLevel || 1} • {timeAgo}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+          </TouchableOpacity>
+        )}
+
+        {/* Quest Title */}
         <Text style={localStyles.title}>Session complete</Text>
         <Text style={localStyles.questName}>{session.description}</Text>
         <Text style={localStyles.duration}>
@@ -43,14 +118,9 @@ export default function CompleteScreen({
         </Text>
 
         {/* Bonuses */}
-        {(breakdown.length > 0 || (session.bonusMultiplier && session.bonusMultiplier > 1) || session.comboBonus || session.restBonus) && (
+        {(breakdown.length > 0 || session.comboBonus || session.restBonus) && (
           <View style={localStyles.block}>
-            <Text style={localStyles.label}>
-              Bonuses
-              {session.bonusMultiplier && session.bonusMultiplier > 1
-                ? ` (×${session.bonusMultiplier.toFixed(2)} EXP)`
-                : ""}
-            </Text>
+            <Text style={localStyles.label}>Bonuses</Text>
             {breakdown.length > 0 ? (
               <Text style={localStyles.muted}>
                 {breakdown
@@ -90,8 +160,8 @@ export default function CompleteScreen({
           </View>
         </View>
 
-        {/* Level Progress */}
-        {avatar && levelInfo && (
+        {/* Level Progress (own sessions only) */}
+        {isOwnSession && avatar && levelInfo && (
           <View style={localStyles.block}>
             <View style={localStyles.levelHeader}>
               <Text style={localStyles.label}>Level {avatar.level}</Text>
@@ -123,33 +193,13 @@ export default function CompleteScreen({
           </View>
         )}
 
-        {/* Notes Input */}
-        <View style={localStyles.block}>
-          <Text style={localStyles.label}>Reflection</Text>
-          <TextInput
-            style={localStyles.textArea}
-            multiline
-            value={notes}
-            onChangeText={onNotesChange}
-            placeholder="What did you accomplish? How did it feel?"
-            placeholderTextColor="#4b5563"
-          />
-        </View>
-
-        {/* Actions */}
-        <View style={localStyles.actions}>
-          <TouchableOpacity style={localStyles.primaryBtn} onPress={onContinue}>
-            <Text style={localStyles.primaryBtnText}>Continue this quest</Text>
-          </TouchableOpacity>
-          <View style={localStyles.secondaryRow}>
-            <TouchableOpacity style={localStyles.secondaryBtn} onPress={onBreak}>
-              <Text style={localStyles.secondaryBtnText}>Take a break</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={localStyles.ghostBtn} onPress={onEnd}>
-              <Text style={localStyles.ghostBtnText}>End for now</Text>
-            </TouchableOpacity>
+        {/* Notes */}
+        {session.notes && (
+          <View style={localStyles.block}>
+            <Text style={localStyles.label}>Notes</Text>
+            <Text style={localStyles.notes}>{session.notes}</Text>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -160,11 +210,74 @@ const localStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#020617",
   },
+  header: {
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#1e293b",
+  },
+  dragIndicator: {
+    width: 36,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#374151",
+  },
+  closeButton: {
+    position: "absolute",
+    right: 16,
+    top: 12,
+  },
+  closeText: {
+    color: "#a5b4fc",
+    fontSize: 17,
+    fontWeight: "500",
+  },
   scrollView: {
     flex: 1,
   },
   content: {
     padding: 20,
+  },
+  emptyText: {
+    color: "#6b7280",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 40,
+  },
+  userSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 24,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#1e293b",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  avatarText: {
+    color: "#a5b4fc",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    color: "#f9fafb",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  userMeta: {
+    color: "#6b7280",
+    fontSize: 13,
+    marginTop: 2,
   },
   title: {
     color: "#6b7280",
@@ -284,55 +397,13 @@ const localStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  textArea: {
+  notes: {
+    color: "#d1d5db",
+    fontSize: 15,
+    fontStyle: "italic",
     backgroundColor: "#0f172a",
     borderRadius: 12,
     padding: 16,
-    color: "#f9fafb",
-    fontSize: 15,
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  actions: {
-    marginTop: 8,
-  },
-  primaryBtn: {
-    backgroundColor: "#4f46e5",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  primaryBtnText: {
-    color: "#ffffff",
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  secondaryRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  secondaryBtn: {
-    flex: 1,
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  secondaryBtnText: {
-    color: "#a5b4fc",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  ghostBtn: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  ghostBtnText: {
-    color: "#6b7280",
-    fontSize: 15,
-    fontWeight: "500",
   },
 });
+

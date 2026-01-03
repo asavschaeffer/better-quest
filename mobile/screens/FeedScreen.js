@@ -184,7 +184,7 @@ function PeriodChip({ label, active, onPress }) {
  * - scope="friends": Shows activity from people you follow (mock data for now)
  * - scope="all": Shows global activity feed (mock data for now)
  */
-export default function FeedScreen({ sessions = [], onOpenStatInfo }) {
+export default function FeedScreen({ sessions = [], onOpenStatInfo, onViewProfile, onViewSession }) {
   const [selectedScope, setSelectedScope] = useState("you");
   const [selectedPeriod, setSelectedPeriod] = useState("week");
   const now = useMemo(() => new Date(), []);
@@ -309,6 +309,8 @@ export default function FeedScreen({ sessions = [], onOpenStatInfo }) {
         variant="feed"
         showUserName={selectedScope !== "you"}
         header={header}
+        onPressUser={onViewProfile}
+        onPressSession={onViewSession}
       />
     </View>
   );
