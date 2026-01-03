@@ -39,17 +39,13 @@ function getInitials(name) {
  * Shows session details when tapping a card in the feed or history.
  * 
  * @param {object} session - The session data
- * @param {boolean} isOwnSession - If true, shows level progress instead of user profile
- * @param {object} avatar - Avatar data (level) for own sessions
- * @param {object} levelInfo - Level progress info (current, required, ratio) for own sessions
+ * @param {boolean} isOwnSession - If true, hides user profile (it's your session)
  * @param {function} onClose - Called when modal is dismissed
  * @param {function} onViewProfile - Called when user profile is tapped (other's sessions)
  */
 export default function SessionDetailsScreen({ 
   session, 
   isOwnSession = false,
-  avatar,
-  levelInfo,
   onClose, 
   onViewProfile,
 }) {
@@ -152,23 +148,6 @@ export default function SessionDetailsScreen({
             size={220}
           />
         </View>
-
-        {/* Level Progress (own sessions only) */}
-        {isOwnSession && avatar && levelInfo && (
-          <View style={localStyles.block}>
-            <View style={localStyles.levelHeader}>
-              <Text style={localStyles.label}>Level {avatar.level}</Text>
-              <Text style={localStyles.levelMeta}>
-                {levelInfo.current} / {levelInfo.required} EXP
-              </Text>
-            </View>
-            <View style={localStyles.progressBar}>
-              <View
-                style={[localStyles.progressFill, { width: `${levelInfo.ratio * 100}%` }]}
-              />
-            </View>
-          </View>
-        )}
 
         {/* Notes */}
         {session.notes && (
@@ -307,27 +286,6 @@ const localStyles = StyleSheet.create({
   chartSection: {
     alignItems: "center",
     marginBottom: 24,
-  },
-  levelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  levelMeta: {
-    color: "#6b7280",
-    fontSize: 13,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: "#1e293b",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#a5b4fc",
-    borderRadius: 4,
   },
   notes: {
     color: "#d1d5db",
