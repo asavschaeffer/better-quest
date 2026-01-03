@@ -26,6 +26,7 @@ const MOCK_FRIENDS_SESSIONS = [
     description: "Morning Run",
     durationMinutes: 35,
     completedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 min ago
+    standStats: { STA: 2, VIT: 1, SPI: 0.5 },
     expResult: { totalExp: 420, standExp: { STA: 260, VIT: 110, SPI: 50 } },
     comboBonus: true,
     userName: "FocusKing",
@@ -36,6 +37,7 @@ const MOCK_FRIENDS_SESSIONS = [
     description: "Deep Study Session",
     durationMinutes: 90,
     completedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+    standStats: { INT: 2, SPI: 1, DEX: 0.5 },
     expResult: { totalExp: 1080, standExp: { INT: 780, SPI: 200, DEX: 100 } },
     restBonus: true,
     userName: "StudyMaster",
@@ -46,6 +48,7 @@ const MOCK_FRIENDS_SESSIONS = [
     description: "Meditation",
     durationMinutes: 20,
     completedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+    standStats: { SPI: 2, VIT: 1 },
     expResult: { totalExp: 240, standExp: { SPI: 180, VIT: 60 } },
     userName: "FocusKing",
     userLevel: 35,
@@ -55,6 +58,7 @@ const MOCK_FRIENDS_SESSIONS = [
     description: "Weightlifting",
     durationMinutes: 60,
     completedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    standStats: { STR: 2, STA: 1, VIT: 0.5 },
     expResult: { totalExp: 720, standExp: { STR: 520, STA: 120, VIT: 80 } },
     comboBonus: true,
     userName: "XxDarkSlayer99xX",
@@ -65,6 +69,7 @@ const MOCK_FRIENDS_SESSIONS = [
     description: "Language Learning",
     durationMinutes: 45,
     completedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), // 1+ day ago
+    standStats: { INT: 2, CHA: 1, VIT: 0.5 },
     expResult: { totalExp: 540, standExp: { INT: 320, CHA: 140, VIT: 80 } },
     userName: "StudyMaster",
     userLevel: 38,
@@ -78,6 +83,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "Yoga Flow",
     durationMinutes: 30,
     completedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 min ago
+    standStats: { DEX: 2, SPI: 1, VIT: 0.5 },
     expResult: { totalExp: 360, standExp: { DEX: 180, SPI: 110, VIT: 70 } },
     userName: "ZenWarrior",
     userLevel: 27,
@@ -87,6 +93,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "Boxing Training",
     durationMinutes: 45,
     completedAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(), // 12 min ago
+    standStats: { STR: 2, STA: 1, VIT: 0.5 },
     expResult: { totalExp: 540, standExp: { STR: 280, STA: 180, VIT: 80 } },
     comboBonus: true,
     userName: "XxDarkSlayer99xX",
@@ -97,6 +104,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "Creative Writing",
     durationMinutes: 60,
     completedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(), // 20 min ago
+    standStats: { SPI: 2, INT: 1, CHA: 0.5 },
     expResult: { totalExp: 720, standExp: { SPI: 420, INT: 210, CHA: 90 } },
     userName: "WordSmith42",
     userLevel: 19,
@@ -106,6 +114,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "Deep Work Sprint",
     durationMinutes: 25,
     completedAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(), // 35 min ago
+    standStats: { INT: 2, VIT: 1, SPI: 0.5 },
     expResult: { totalExp: 300, standExp: { INT: 180, VIT: 80, SPI: 40 } },
     userName: "GrindMode",
     userLevel: 28,
@@ -115,6 +124,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "Morning Run",
     durationMinutes: 35,
     completedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 min ago
+    standStats: { STA: 2, VIT: 1, SPI: 0.5 },
     expResult: { totalExp: 420, standExp: { STA: 260, VIT: 110, SPI: 50 } },
     userName: "FocusKing",
     userLevel: 35,
@@ -123,6 +133,7 @@ const MOCK_GLOBAL_SESSIONS = [
     id: "global-6",
     description: "Guitar Practice",
     durationMinutes: 40,
+    standStats: { DEX: 2, CHA: 1, SPI: 0.5 },
     completedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hour ago
     expResult: { totalExp: 480, standExp: { DEX: 320, SPI: 100, VIT: 60 } },
     restBonus: true,
@@ -134,6 +145,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "Deep Study Session",
     durationMinutes: 90,
     completedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+    standStats: { INT: 2, SPI: 1, DEX: 0.5 },
     expResult: { totalExp: 1080, standExp: { INT: 780, SPI: 200, DEX: 100 } },
     userName: "StudyMaster",
     userLevel: 38,
@@ -143,6 +155,7 @@ const MOCK_GLOBAL_SESSIONS = [
     description: "HIIT Workout",
     durationMinutes: 20,
     completedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
+    standStats: { STA: 2, STR: 1, VIT: 0.5 },
     expResult: { totalExp: 240, standExp: { STA: 120, STR: 80, VIT: 40 } },
     comboBonus: true,
     userName: "BurnMachine",

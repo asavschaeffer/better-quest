@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { STAT_ATTRS } from "../components/RadarChartCore";
+import { SessionGainsChart } from "../components/SessionGainsChart";
 
 /**
  * Format relative time (e.g., "2h ago", "3d ago")
@@ -67,15 +67,6 @@ export default function SessionDetailsScreen({
   const breakdown = Array.isArray(session?.bonusBreakdown) ? session.bonusBreakdown : [];
   const hasUser = !isOwnSession && session.userName;
   const timeAgo = formatTimeAgo(session.completedAt);
-
-  // Get stat gains sorted by value
-  const statGains = Object.entries(expResult.standExp || {})
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, value]) => {
-      const attr = STAT_ATTRS.find((a) => a.key === key);
-      return { key, value, color: attr?.color || "#6b7280" };
-    });
 
   return (
     <View style={[localStyles.container, { paddingTop: insets.top }]}>
@@ -152,12 +143,14 @@ export default function SessionDetailsScreen({
           </View>
         )}
 
-        {/* EXP Earned */}
-        <View style={localStyles.expSection}>
-          <View style={localStyles.expCard}>
-            <Text style={localStyles.expLabel}>Total EXP</Text>
-            <Text style={localStyles.expValue}>+{expResult.totalExp}</Text>
-          </View>
+        {/* Session Gains Chart */}
+        <View style={localStyles.chartSection}>
+          <SessionGainsChart
+            allocation={session?.standStats}
+            durationMinutes={session?.durationMinutes || 0}
+            totalExp={expResult?.totalExp || 0}
+            size={220}
+          />
         </View>
 
         {/* Level Progress (own sessions only) */}
@@ -173,22 +166,6 @@ export default function SessionDetailsScreen({
               <View
                 style={[localStyles.progressFill, { width: `${levelInfo.ratio * 100}%` }]}
               />
-            </View>
-          </View>
-        )}
-
-        {/* Stand Gains */}
-        {statGains.length > 0 && (
-          <View style={localStyles.block}>
-            <Text style={localStyles.label}>Stand Gains</Text>
-            <View style={localStyles.statGains}>
-              {statGains.map((stat) => (
-                <View key={stat.key} style={localStyles.statRow}>
-                  <View style={[localStyles.statDot, { backgroundColor: stat.color }]} />
-                  <Text style={localStyles.statKey}>{stat.key}</Text>
-                  <Text style={localStyles.statValue}>+{stat.value}</Text>
-                </View>
-              ))}
             </View>
           </View>
         )}
@@ -327,27 +304,9 @@ const localStyles = StyleSheet.create({
     color: "#d1d5db",
     fontSize: 14,
   },
-  expSection: {
-    marginBottom: 24,
-  },
-  expCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: 16,
-    padding: 20,
+  chartSection: {
     alignItems: "center",
-  },
-  expLabel: {
-    color: "#9ca3af",
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  expValue: {
-    color: "#fbbf24",
-    fontSize: 36,
-    fontWeight: "800",
+    marginBottom: 24,
   },
   levelHeader: {
     flexDirection: "row",
@@ -369,33 +328,6 @@ const localStyles = StyleSheet.create({
     height: "100%",
     backgroundColor: "#a5b4fc",
     borderRadius: 4,
-  },
-  statGains: {
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    padding: 12,
-  },
-  statRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  statDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 12,
-  },
-  statKey: {
-    color: "#9ca3af",
-    fontSize: 14,
-    fontWeight: "600",
-    width: 40,
-  },
-  statValue: {
-    color: "#f9fafb",
-    fontSize: 16,
-    fontWeight: "600",
   },
   notes: {
     color: "#d1d5db",
