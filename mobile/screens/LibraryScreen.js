@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, TextInput, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import styles from "../../style";
 import { BUILT_IN_QUEST_TEMPLATES } from "../core/questStorage";
@@ -227,6 +227,7 @@ export default function LibraryScreen({
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="search"
+            clearButtonMode={Platform.OS === "ios" ? "while-editing" : "never"}
           />
         </View>
 
