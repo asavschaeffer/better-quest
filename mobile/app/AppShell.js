@@ -325,6 +325,7 @@ function HomeTab() {
             fatigueOverlayStats={ctx.fatigueOverlayStats}
             onOpenSettings={() => ctx.nav(ROUTES.SETTINGS)}
             onOpenNotifications={ctx.handleOpenNotifications}
+            onOpenStatInfo={(statKey) => ctx.nav(ROUTES.STAT_INFO, { statKey })}
             inAppAnnouncementsEnabled={ctx.inAppAnnouncementsEnabled}
             announcements={ctx.announcements}
             quotes={ctx.quotes}
@@ -442,7 +443,12 @@ function FeedTab() {
   return (
     <FeedStack.Navigator screenOptions={stackScreenOptions}>
       <FeedStack.Screen name="Feed" options={{ headerShown: false }}>
-        {() => <FeedScreen sessions={ctx.sessions} />}
+        {() => (
+          <FeedScreen
+            sessions={ctx.sessions}
+            onOpenStatInfo={(statKey) => ctx.nav(ROUTES.STAT_INFO, { statKey })}
+          />
+        )}
       </FeedStack.Screen>
     </FeedStack.Navigator>
   );
@@ -722,7 +728,13 @@ function StatInfoRootScreen({ route }) {
 }
 
 function ProfileRootScreen({ route }) {
-  return <ProfileScreen player={route.params.player} />;
+  const ctx = useContext(AppShellContext);
+  return (
+    <ProfileScreen
+      player={route.params.player}
+      onOpenStatInfo={(statKey) => ctx.nav(ROUTES.STAT_INFO, { statKey })}
+    />
+  );
 }
 
 export default function AppShell() {

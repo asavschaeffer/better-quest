@@ -184,7 +184,7 @@ function PeriodChip({ label, active, onPress }) {
  * - scope="friends": Shows activity from people you follow (mock data for now)
  * - scope="all": Shows global activity feed (mock data for now)
  */
-export default function FeedScreen({ sessions = [] }) {
+export default function FeedScreen({ sessions = [], onOpenStatInfo }) {
   const [selectedScope, setSelectedScope] = useState("you");
   const [selectedPeriod, setSelectedPeriod] = useState("week");
   const now = useMemo(() => new Date(), []);
@@ -264,7 +264,12 @@ export default function FeedScreen({ sessions = [] }) {
 
         {insights?.count > 0 ? (
           <View style={{ alignItems: "center", marginTop: 6 }}>
-            <PlayerStatsChart value={insights.chart} size={220} showTotalExp={insights.exp} />
+            <PlayerStatsChart
+              value={insights.chart}
+              size={220}
+              showTotalExp={insights.exp}
+              onStatPress={onOpenStatInfo}
+            />
             <Text style={[styles.historyEchoItem, { color: insights.color, textAlign: "center", marginTop: 6 }]}>
               {insights.label}: {insights.count} quests • {Math.round(insights.minutes / 60)}h • {insights.exp} EXP
             </Text>
@@ -276,7 +281,7 @@ export default function FeedScreen({ sessions = [] }) {
         )}
       </View>
     );
-  }, [insights, selectedPeriod, selectedScope]);
+  }, [insights, selectedPeriod, selectedScope, onOpenStatInfo]);
 
   return (
     <View style={styles.screenContainer}>

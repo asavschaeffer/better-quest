@@ -34,6 +34,7 @@ export default function HomeScreen({
   fatigueOverlayStats,
   onOpenSettings,
   onOpenNotifications,
+  onOpenStatInfo,
   inAppAnnouncementsEnabled = true,
   quotes = DEFAULT_QUOTES,
   announcements = [],
@@ -212,6 +213,7 @@ export default function HomeScreen({
                   ]
                 : []
             }
+            onStatPress={onOpenStatInfo}
           />
         </View>
 

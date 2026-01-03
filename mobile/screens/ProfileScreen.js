@@ -5,7 +5,7 @@ import { PlayerStatsChart } from "../components/PlayerStatsChart";
 import { playerStatsToChartValues } from "../core/stats";
 import { Avatar3D } from "../Avatar3D";
 
-export default function ProfileScreen({ player }) {
+export default function ProfileScreen({ player, onOpenStatInfo }) {
   // Convert player's standExp to chart values (normalized 1-6 scale)
   const chartStats = useMemo(() => {
     return playerStatsToChartValues(player.standExp || {});
@@ -68,6 +68,7 @@ export default function ProfileScreen({ player }) {
             value={chartStats}
             size={240}
             showTotalExp={totalStats}
+            onStatPress={onOpenStatInfo}
           />
         </View>
       </View>

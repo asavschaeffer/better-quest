@@ -1,6 +1,6 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
-import Svg, { Circle, Line, Polygon, Text as SvgText, G } from "react-native-svg";
+import { View, StyleSheet, Pressable } from "react-native";
+import Svg, { Circle, Line, Polygon, Text as SvgText, G, Rect } from "react-native-svg";
 import { STAT_ATTRS as CORE_STAT_ATTRS } from "../core/stats";
 
 // Back-compat export: many components import STAT_ATTRS from RadarChartCore.
@@ -29,6 +29,7 @@ export const STAT_ATTRS = CORE_STAT_ATTRS;
  * @param {number} labelRadiusMult - Multiplier for label radius (default 0.45). Smaller values pull labels inward.
  * @param {Record<string, number>} ringRadiusScaleByValue - Optional per-ring radius scale (e.g. { "1": 1.06, "2": 1.04 })
  * @param {number} backgroundPad - Extra padding (px) added to the background circle radius beyond maxRadius (default 14)
+ * @param {function} onStatPress - Callback when a stat label is pressed: (statKey: string) => void
  * @param {object} style - Additional container styles
  */
 export function RadarChartCore({
@@ -53,6 +54,7 @@ export function RadarChartCore({
   labelRadiusMult = 0.45,
   ringRadiusScaleByValue = null,
   backgroundPad = 14,
+  onStatPress = null,
   style,
 }) {
   const safeAttrs = Array.isArray(attrs) && attrs.length ? attrs : STAT_ATTRS;
@@ -213,23 +215,44 @@ export function RadarChartCore({
           strokeLinejoin="round"
         />
 
-        {/* Stat labels */}
+        {/* Stat labels with optional touch targets */}
         {showLabels &&
           safeAttrs.map((attr, i) => {
             const pos = getLabelPos(i);
             const isActive = activeAxis === i;
+            const isClickable = typeof onStatPress === "function";
+            const labelColor = isActive ? attr.color : (isClickable ? "#a5b4fc" : "#9ca3af");
+            const touchPadding = 12;
+            const touchWidth = 32;
+            const touchHeight = 20;
+
             return (
-              <SvgText
+              <G
                 key={`label-${i}`}
-                x={pos.x}
-                y={pos.y + 4}
-                textAnchor="middle"
-                fontSize={11}
-                fontWeight="bold"
-                fill={isActive ? attr.color : "#9ca3af"}
+                onPress={isClickable ? () => onStatPress(attr.key) : undefined}
               >
-                {attr.label}
-              </SvgText>
+                {/* Invisible touch target for better hit area */}
+                {isClickable && (
+                  <Rect
+                    x={pos.x - touchWidth / 2}
+                    y={pos.y - touchHeight / 2}
+                    width={touchWidth}
+                    height={touchHeight}
+                    fill="transparent"
+                  />
+                )}
+                <SvgText
+                  x={pos.x}
+                  y={pos.y + 4}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight="bold"
+                  fill={labelColor}
+                  textDecoration={isClickable ? "underline" : "none"}
+                >
+                  {attr.label}
+                </SvgText>
+              </G>
             );
           })}
 

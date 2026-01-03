@@ -17,6 +17,7 @@ const MIN_STAT = 1;
  * @param {number} props.size - Chart size in pixels
  * @param {number} props.showTotalExp - Total EXP to display in center
  * @param {object[]} props.overlays - Overlay polygons [{ value: {...}, stroke, fill, dash }]
+ * @param {function} props.onStatPress - Callback when a stat label is pressed: (statKey: string) => void
  * @param {object} props.style - Container style
  */
 export function PlayerStatsChart({
@@ -24,6 +25,7 @@ export function PlayerStatsChart({
   size = 200,
   showTotalExp = null,
   overlays = [],
+  onStatPress = null,
   style,
 }) {
   // Convert object format to array for RadarChartCore
@@ -82,6 +84,7 @@ export function PlayerStatsChart({
         stroke="rgba(59,130,246,0.9)"
         strokeWidth={2}
         centerContent={centerContent}
+        onStatPress={onStatPress}
       />
     </View>
   );
