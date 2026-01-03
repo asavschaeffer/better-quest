@@ -38,6 +38,6 @@ test("quickstart suggestions favor matching stats", () => {
   // We merge built-in templates too, so the exact top ID can change.
   // The invariant we care about: a STR-focused quest ranks ahead of an INT-focused one here.
   const ids = suggestions.map((s) => s.id);
-  assert.ok(ids.includes("a") || ids.includes("weightlifting"));
-  assert.ok(!ids.includes("b") || ids.indexOf("b") > ids.indexOf("a") || ids.indexOf("b") > ids.indexOf("weightlifting"));
+  assert.ok(ids.includes("a") || ids.includes("lift"));
+  assert.ok(!ids.includes("b") || ids.indexOf("b") > ids.indexOf("a") || ids.indexOf("b") > ids.indexOf("lift"));
 });
