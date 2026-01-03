@@ -27,7 +27,13 @@ export function computeTextScore(template, query) {
   const q = (query ?? "").trim().toLowerCase();
   if (!q) return 0;
 
-  const parts = [template.label, template.description, ...(template.keywords ?? [])]
+  const parts = [
+    template.label,
+    template.description,
+    template.verb,
+    ...(template.keywords ?? []),
+    ...(template.tags ?? []),
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -152,18 +158,19 @@ export function computeAggregateConsistency(sessions = []) {
  * Miller's Law-based quest suggestions (5–9 quests).
  * Combines budget-gap need + chart selection + text scoring.
  *
- * Text and stats cooperate:
+ * Text and stats always blend (soft boost, never hard filter):
  * - Text contributes a bonus score (prefix > word-boundary > substring)
- * - If there are any text matches, we prefer showing only text matches
- * - If there are no text matches, we fall back to stat-ranked suggestions
+ * - Stats from budget gap + chart selection determine the base ranking
+ * - The stat chart can always reshuffle rankings, even with text present
  *
  * @param {object} params
  * @param {Array} params.quests - All quest templates (user + built-in)
  * @param {object} params.budgets - Per-stat daily budgets (EXP)
  * @param {object} params.spentToday - Per-stat EXP spent today
  * @param {object} params.selectedAllocation - Per-stat allocation (0–2) from chart selection
- * @param {string} params.query - Text search query
+ * @param {string} params.query - Text search query (or intent seed from selected quest)
  * @param {number} params.limit - Max results (default 7, clamped 5–9)
+ * @param {number} params.textWeight - Override text influence (default 0.45; use lower for intent seeds)
  * @returns {Array} Top quest suggestions
  */
 export function suggestQuests({
@@ -171,8 +178,11 @@ export function suggestQuests({
   budgets = {},
   spentToday = {},
   selectedAllocation = {},
+  scopeId = "", // optional hierarchy scope (family id). When set, filter to that family (+ itself).
   query = "",
+  textMode = "filter_if_matches", // "filter_if_matches" | "filter_if_confident" | "score_only"
   limit = 7,
+  textWeight = 0.45,
 } = {}) {
   // Miller's Law: limit to 5–9 suggestions
   const effectiveLimit = Math.max(5, Math.min(9, limit));
@@ -220,12 +230,24 @@ export function suggestQuests({
     statWeight[k] = 0.5 * needWeight[k] + 0.5 * chartWeight[k];
   });
 
-  const qText = (query ?? "").trim();
-  const TEXT_WEIGHT = 0.45;
+  // Ignore very short queries (reduces noise while typing)
+  const rawQuery = (query ?? "").trim();
+  const qText = rawQuery.length >= 2 ? rawQuery : "";
+
+  // Optional hierarchy scope: a single canonical parent defines the "zoomed in" set.
+  const scopedQuests = (() => {
+    const s = (scopeId ?? "").trim();
+    if (!s) return Array.isArray(quests) ? quests : [];
+    const filtered = (Array.isArray(quests) ? quests : []).filter(
+      (q) => q?.id === s || q?.parentId === s,
+    );
+    // Robustness: if the caller provided a scopeId that doesn't exist in this quest pool
+    // (e.g., legacy "flat" quests), fall back to the full set instead of returning nothing.
+    return filtered.length ? filtered : (Array.isArray(quests) ? quests : []);
+  })();
 
   // Score each quest by dot product with stat weights + text bonus
-  let anyTextMatch = false;
-  const scoredWithText = quests.map((quest) => {
+  const scoredWithText = scopedQuests.map((quest) => {
     const stats = quest.stats || {};
     let statScore = 0;
     STAT_KEYS.forEach((k) => {
@@ -234,11 +256,10 @@ export function suggestQuests({
     });
 
     const textScore = computeTextScore(quest, qText);
-    if (textScore > 0) anyTextMatch = true;
 
     return {
       ...quest,
-      suggestionScore: statScore + textScore * TEXT_WEIGHT,
+      suggestionScore: statScore + textScore * textWeight,
       __textScore: textScore,
     };
   });
@@ -246,14 +267,35 @@ export function suggestQuests({
   // Sort by score descending
   scoredWithText.sort((a, b) => b.suggestionScore - a.suggestionScore);
 
-  // If the user typed and there are any text matches, prefer showing only those.
-  // Otherwise, fall back to stat-ranked suggestions so chart still works.
-  let filtered = scoredWithText;
-  if (qText && anyTextMatch) {
-    filtered = scoredWithText.filter((t) => (t.__textScore ?? 0) > 0);
+  const stripInternal = (arr) =>
+    arr.map(({ __textScore, ...rest }) => rest);
+
+  // Text modes:
+  // - filter_if_matches: if query is present, return only matches (else empty)
+  // - filter_if_confident: only filter when the text signal is strong (avoids jumpiness for weak queries)
+  // - score_only: never filter; text only boosts ranking
+  if (!qText) {
+    return stripInternal(scoredWithText.slice(0, effectiveLimit));
   }
 
-  return filtered
-    .slice(0, effectiveLimit)
-    .map(({ __textScore, ...rest }) => rest);
+  if (textMode === "score_only") {
+    return stripInternal(scoredWithText.slice(0, effectiveLimit));
+  }
+
+  const matches = scoredWithText.filter((q) => (q.__textScore || 0) > 0);
+  if (!matches.length) {
+    // For strict filtering modes, no matches means no results.
+    return [];
+  }
+
+  if (textMode === "filter_if_confident") {
+    const maxTextScore = Math.max(...matches.map((m) => m.__textScore || 0), 0);
+    const shouldFilter = maxTextScore >= 2 || matches.length <= 12;
+    return stripInternal(
+      (shouldFilter ? matches : scoredWithText).slice(0, effectiveLimit),
+    );
+  }
+
+  // Default: strict filter when query exists and any match exists
+  return stripInternal(matches.slice(0, effectiveLimit));
 }

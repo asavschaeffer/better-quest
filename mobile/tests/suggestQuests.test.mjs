@@ -3,15 +3,18 @@ import assert from "node:assert/strict";
 import { suggestQuests } from "../core/quests.js";
 
 // Sample quest templates for testing
-const makeQuest = (id, label, stats = {}) => ({
+const makeQuest = (id, label, stats = {}, extra = {}) => ({
   id,
   label,
   stats: { STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0, ...stats },
   keywords: [],
+  ...extra,
 });
 
 const SAMPLE_QUESTS = [
-  makeQuest("study", "Study math", { INT: 2, SPI: 1 }),
+  makeQuest("study", "Study", { INT: 2, VIT: 1 }, { isFamily: true, isStartable: true, verb: "study", tags: ["learn", "study"] }),
+  makeQuest("study-math", "Study Math", { INT: 2, SPI: 1 }, { parentId: "study", verb: "study", tags: ["math", "algebra"] }),
+  makeQuest("teach-back", "Teach-back Session", { INT: 2, CHA: 2 }, { parentId: "study", verb: "teach", tags: ["mentor", "explain", "teach"] }),
   makeQuest("run", "Go for a run", { STR: 2, STA: 2, VIT: 2 }),
   makeQuest("meditate", "Meditate", { SPI: 2, VIT: 1 }),
   makeQuest("code", "Write code", { INT: 2, DEX: 2 }),
@@ -94,6 +97,65 @@ test("suggestQuests returns fewer than limit when filter yields few matches", ()
   });
   
   assert.equal(result.length, 0, "Non-matching query should return empty");
+});
+
+test("suggestQuests textMode=score_only does not filter", () => {
+  const result = suggestQuests({
+    quests: SAMPLE_QUESTS,
+    query: "math",
+    textMode: "score_only",
+    limit: 7,
+  });
+
+  assert.equal(result.length, 7, "score_only should keep the normal limit");
+  assert.ok(
+    result.some((q) => q.label.toLowerCase().includes("math")),
+    "score_only should still boost matching quests into the list",
+  );
+});
+
+test("suggestQuests textMode=filter_if_confident falls back to ranking for weak queries", () => {
+  // Weak query: single character gets ignored by qText threshold (length < 2).
+  // We still should get a full list (no filtering).
+  const result = suggestQuests({
+    quests: SAMPLE_QUESTS,
+    query: "a",
+    textMode: "filter_if_confident",
+    limit: 7,
+  });
+
+  assert.equal(result.length, 7, "Weak queries should not hard-filter the list");
+});
+
+test("suggestQuests scopeId filters to a single family (parentId matches) + includes family itself", () => {
+  const result = suggestQuests({
+    quests: SAMPLE_QUESTS,
+    scopeId: "study",
+    query: "",
+    limit: 9,
+  });
+
+  assert.ok(result.length > 0, "Scoped results should not be empty when family has members");
+  assert.ok(
+    result.every((q) => q.id === "study" || q.parentId === "study"),
+    "All results should be either the scoped family or a direct child",
+  );
+  assert.ok(result.some((q) => q.id === "study"), "Scoped results should include the family node");
+});
+
+test("suggestQuests matches tags for search discovery (e.g., query 'mentor')", () => {
+  const result = suggestQuests({
+    quests: SAMPLE_QUESTS,
+    query: "mentor",
+    textMode: "filter_if_matches",
+    limit: 9,
+  });
+
+  assert.ok(result.length > 0, "Tag match should produce results");
+  assert.ok(
+    result.some((q) => q.id === "teach-back"),
+    "Should match quests via tags even if label/description don't contain the term",
+  );
 });
 
 test("suggestQuests handles empty inputs gracefully", () => {

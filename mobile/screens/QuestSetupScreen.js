@@ -44,7 +44,20 @@ export default function QuestSetupScreen({
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
+  const [queryMode, setQueryMode] = useState("user"); // "user" | "selected"
+  const [querySeed, setQuerySeed] = useState("");
   const chartSelectionRef = useRef(false);
+
+  const deriveScopeId = (template) => {
+    if (!template) return "";
+    // Prefer explicit hierarchy (2-level): a single canonical parent defines scope.
+    if (template.isFamily) return template.id || "";
+    if (template.parentId) return template.parentId;
+    // Fallback for older/flat quests: simple seed from first token.
+    const raw = (template.label ?? "").trim();
+    if (!raw) return "";
+    return raw.split(/\s+/)[0].toLowerCase();
+  };
 
   // Chart size: fill available width
   const chartSize = useMemo(() => {
@@ -66,10 +79,14 @@ export default function QuestSetupScreen({
       budgets: dailyBudgets,
       spentToday: todayStandExp,
       selectedAllocation: allocation,
-      query: description,
+      // Scope controls hierarchy zoom; query controls search.
+      scopeId: queryMode === "selected" ? querySeed : "",
+      query: queryMode === "user" ? description : "",
+      // User typing behaves like search; selection behaves like hierarchy scope.
+      textMode: "filter_if_matches",
       limit: 7,
     }),
-    [allQuests, dailyBudgets, todayStandExp, allocation, description]
+    [allQuests, dailyBudgets, todayStandExp, allocation, description, queryMode, querySeed]
   );
 
   // Handle chart interaction: update allocation (independent of selection)
@@ -104,15 +121,18 @@ export default function QuestSetupScreen({
   const hasDirectNameMatch = useMemo(() => {
     const q = description.trim().toLowerCase();
     if (!q) return false;
-    return suggestedQuests.some((tpl) => {
+    // Use the full quest set so this stays stable even when suggestions aren't text-filtered.
+    return allQuests.some((tpl) => {
       const label = (tpl.label ?? "").toLowerCase();
       const desc = (tpl.description ?? "").toLowerCase();
       return label.startsWith(q) || desc.startsWith(q);
     });
-  }, [suggestedQuests, description]);
+  }, [allQuests, description]);
 
   function handleDescriptionChange(text) {
     setDescription(text);
+    setQueryMode("user");
+    setQuerySeed("");
     // Clear selection when user types something different
     if (selectedQuestId) {
       const selected = allQuests.find((q) => q.id === selectedQuestId);
@@ -186,6 +206,8 @@ export default function QuestSetupScreen({
   function applyQuestTemplate(template) {
     if (!template) return;
     setDescription(template.label);
+    setQueryMode("selected");
+    setQuerySeed(deriveScopeId(template));
     if (template.defaultDurationMinutes) {
       setDuration(template.defaultDurationMinutes);
     }

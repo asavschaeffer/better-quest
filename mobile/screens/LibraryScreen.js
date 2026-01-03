@@ -15,6 +15,7 @@ function questMatchesQuery(quest, query) {
     quest?.label,
     quest?.description,
     ...(Array.isArray(quest?.keywords) ? quest.keywords : []),
+    ...(Array.isArray(quest?.tags) ? quest.tags : []),
   ]
     .filter(Boolean)
     .join(" ")
