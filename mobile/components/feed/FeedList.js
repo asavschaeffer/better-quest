@@ -16,6 +16,8 @@ import { ActivityRow } from "./ActivityRow";
  * @param {string} [props.emptyText] - Text shown when no sessions
  * @param {string} [props.variant="history"] - Passed to SessionRow
  * @param {boolean} [props.showUserName=false] - Whether to show user names (for social feeds)
+ * @param {function} [props.onPressUser] - Called when user avatar/name is tapped
+ * @param {function} [props.onPressSession] - Called when session card is tapped
  * @param {object} [props.style] - Additional style for the ScrollView
  */
 export function FeedList({
@@ -24,6 +26,8 @@ export function FeedList({
   emptyText = "No quests yet. Start your journey!",
   variant = "history",
   showUserName = false,
+  onPressUser,
+  onPressSession,
   header = null,
   style,
 }) {
@@ -67,6 +71,8 @@ export function FeedList({
                   session={row}
                   variant={variant}
                   showUserName={showUserName}
+                  onPressUser={onPressUser}
+                  onPressSession={onPressSession}
                 />
               );
             }
@@ -76,6 +82,8 @@ export function FeedList({
                 item={row}
                 variant={variant}
                 showUserName={showUserName}
+                onPressUser={onPressUser}
+                onPressSession={onPressSession}
               />
             );
           })}

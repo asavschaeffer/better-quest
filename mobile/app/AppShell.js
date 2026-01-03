@@ -55,6 +55,7 @@ import NewQuestScreen from "../screens/NewQuestScreen.js";
 import SessionScreen from "../screens/SessionScreen.js";
 import CompleteScreen from "../screens/CompleteScreen.js";
 import QuestDetailScreen from "../screens/QuestDetailScreen.js";
+import SessionDetailsScreen from "../screens/SessionDetailsScreen.js";
 import StatInfoScreen from "../screens/StatInfoScreen.js";
 
 import Toast from "../components/Toast.js";
@@ -88,6 +89,7 @@ const ROUTES = {
   QUEST_DETAILS: "QuestDetails",
   SESSION: "Session",
   COMPLETE: "Complete",
+  SESSION_DETAILS: "SessionDetails",
 };
 
 const TAB_ROUTES = {
@@ -447,6 +449,8 @@ function FeedTab() {
           <FeedScreen
             sessions={ctx.sessions}
             onOpenStatInfo={(statKey) => ctx.nav(ROUTES.STAT_INFO, { statKey })}
+            onViewProfile={(player) => ctx.nav(ROUTES.PROFILE, { player })}
+            onViewSession={(session) => ctx.nav(ROUTES.SESSION_DETAILS, { session })}
           />
         )}
       </FeedStack.Screen>
@@ -725,6 +729,21 @@ function StatInfoRootScreen({ route, navigation }) {
       userQuests={ctx.userQuests}
       onOpenQuest={(quest, isBuiltIn) => ctx.nav(ROUTES.QUEST_INFO, { quest, isBuiltIn: !!isBuiltIn })}
       onClose={() => navigation.goBack()}
+    />
+  );
+}
+
+function SessionDetailsRootScreen({ route, navigation }) {
+  const ctx = useContext(AppShellContext);
+  const session = route?.params?.session ?? null;
+  return (
+    <SessionDetailsScreen
+      session={session}
+      onClose={() => navigation.goBack()}
+      onViewProfile={(player) => {
+        navigation.goBack();
+        ctx.nav(ROUTES.PROFILE, { player });
+      }}
     />
   );
 }
@@ -1353,6 +1372,14 @@ export default function AppShell() {
               <RootStack.Screen
                 name={ROUTES.STAT_INFO}
                 component={StatInfoRootScreen}
+                options={{
+                  presentation: "modal",
+                  headerShown: false,
+                }}
+              />
+              <RootStack.Screen
+                name={ROUTES.SESSION_DETAILS}
+                component={SessionDetailsRootScreen}
                 options={{
                   presentation: "modal",
                   headerShown: false,

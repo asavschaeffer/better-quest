@@ -4,16 +4,38 @@ import styles from "../../../style";
 import { ActivityEventType } from "../../core/activityEvents";
 import { SessionRow } from "./SessionRow";
 
-export function ActivityRow({ item, variant = "history", showUserName = false }) {
+export function ActivityRow({ 
+  item, 
+  variant = "history", 
+  showUserName = false,
+  onPressUser,
+  onPressSession,
+}) {
   if (!item) return null;
 
   // Back-compat: allow passing raw sessions as items.
   if (!item.type && item.description) {
-    return <SessionRow session={item} variant={variant} showUserName={showUserName} />;
+    return (
+      <SessionRow 
+        session={item} 
+        variant={variant} 
+        showUserName={showUserName}
+        onPressUser={onPressUser}
+        onPressSession={onPressSession}
+      />
+    );
   }
 
   if (item.type === ActivityEventType.SESSION_COMPLETED) {
-    return <SessionRow session={item.session} variant={variant} showUserName={showUserName} />;
+    return (
+      <SessionRow 
+        session={item.session} 
+        variant={variant} 
+        showUserName={showUserName}
+        onPressUser={onPressUser}
+        onPressSession={onPressSession}
+      />
+    );
   }
 
   if (item.type === ActivityEventType.LEVEL_UP) {
