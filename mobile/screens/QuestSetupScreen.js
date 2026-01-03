@@ -43,7 +43,6 @@ export default function QuestSetupScreen({
   });
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const chartSelectionRef = useRef(false);
 
   // Chart size: fill available width
@@ -53,17 +52,6 @@ export default function QuestSetupScreen({
     }
     return screenWidth;
   }, [screenWidth]);
-
-  // Track keyboard visibility (we keep the chart mounted; the keyboard may cover it)
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    const showSub = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // Combine user quests with built-in templates
   const allQuests = useMemo(() => {
@@ -121,6 +109,18 @@ export default function QuestSetupScreen({
       return label.startsWith(q) || desc.startsWith(q);
     });
   }, [suggestedQuests, description]);
+
+  function handleDescriptionChange(text) {
+    setDescription(text);
+    // Clear selection when user types something different
+    if (selectedQuestId) {
+      const selected = allQuests.find((q) => q.id === selectedQuestId);
+      if (selected && text.trim().toLowerCase() !== selected.label.toLowerCase()) {
+        setSelectedQuestId(null);
+        setSelectedQuestAction(null);
+      }
+    }
+  }
 
   function start() {
     // If user hasn't typed anything and hasn't explicitly selected,
@@ -275,22 +275,29 @@ export default function QuestSetupScreen({
             <TextInput
               style={[styles.input, styles.inputGrow]}
               value={description}
-            onChangeText={(text) => {
-              setDescription(text);
-              // Clear selection when user types something different
-              if (selectedQuestId) {
-                const selected = allQuests.find((q) => q.id === selectedQuestId);
-                if (selected && text.trim().toLowerCase() !== selected.label.toLowerCase()) {
-                  setSelectedQuestId(null);
-                  setSelectedQuestAction(null);
-                }
-              }
-            }}
+              onChangeText={handleDescriptionChange}
               placeholder="Search quests..."
               autoFocus={Platform.OS === "web"}
               onSubmitEditing={handleSubmitFromInput}
               returnKeyType="done"
+              clearButtonMode={Platform.OS === "ios" ? "while-editing" : "never"}
             />
+            {Platform.OS !== "ios" && !!description && (
+              <TouchableOpacity
+                style={[
+                  styles.iconBtn,
+                  {
+                    borderColor: "transparent",
+                    backgroundColor: "rgba(148,163,184,0.14)",
+                  },
+                ]}
+                onPress={() => handleDescriptionChange("")}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <Ionicons name="close-circle" size={18} color="rgba(229,231,235,0.9)" />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Apple-search-style suggestion grid (5–9 buttons) */}
