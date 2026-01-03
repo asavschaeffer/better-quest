@@ -37,7 +37,6 @@ export default function QuestSetupScreen({
   const { width: screenWidth } = useWindowDimensions();
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(25);
-  const [error, setError] = useState("");
   // Store raw allocation (0-2 scale)
   const [allocation, setAllocation] = useState({
     STR: 0, DEX: 0, STA: 0, INT: 0, SPI: 0, CHA: 0, VIT: 0,
@@ -45,6 +44,7 @@ export default function QuestSetupScreen({
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [selectedQuestAction, setSelectedQuestAction] = useState(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const chartSelectionRef = useRef(false);
 
   // Chart size: fill available width
   const chartSize = useMemo(() => {
@@ -54,7 +54,7 @@ export default function QuestSetupScreen({
     return screenWidth;
   }, [screenWidth]);
 
-  // Track keyboard visibility to collapse chart on mobile
+  // Track keyboard visibility (we keep the chart mounted; the keyboard may cover it)
   useEffect(() => {
     if (Platform.OS === "web") return;
     const showSub = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
@@ -85,8 +85,32 @@ export default function QuestSetupScreen({
 
   // Handle chart interaction: update allocation (independent of selection)
   function handleAllocationChange(newAllocation) {
+    chartSelectionRef.current = true;
     setAllocation(newAllocation);
   }
+
+  function selectTopSuggestedQuest() {
+    const top = suggestedQuests?.[0];
+    if (!top?.id) return;
+    setSelectedQuestId(top.id);
+    setSelectedQuestAction(top?.action || null);
+  }
+
+  function handleChartUserInteraction() {
+    // If the keyboard is up, chart interaction should hide it (mobile UX).
+    if (Platform.OS !== "web") {
+      Keyboard.dismiss();
+    }
+    selectTopSuggestedQuest();
+  }
+
+  // When the chart changes, auto-select the top-ranked quest so "Begin" starts it.
+  useEffect(() => {
+    if (!chartSelectionRef.current) return;
+    if (!suggestedQuests?.length) return;
+    selectTopSuggestedQuest();
+    chartSelectionRef.current = false;
+  }, [suggestedQuests]);
 
   const hasDirectNameMatch = useMemo(() => {
     const q = description.trim().toLowerCase();
@@ -99,21 +123,47 @@ export default function QuestSetupScreen({
   }, [suggestedQuests, description]);
 
   function start() {
-    const trimmed = description.trim();
-    const minutes = duration;
+    // If user hasn't typed anything and hasn't explicitly selected,
+    // treat the current #1 suggestion as the selected quest.
+    const descriptionIsEmpty = !description.trim();
+    const effectiveSelectedQuestId =
+      selectedQuestId || (descriptionIsEmpty ? suggestedQuests?.[0]?.id : null);
+
+    if (!selectedQuestId && effectiveSelectedQuestId) {
+      // Sync UI selection for consistency (highlight, Begin behavior)
+      setSelectedQuestId(effectiveSelectedQuestId);
+      setSelectedQuestAction(suggestedQuests?.[0]?.action || null);
+    }
+
+    const selectedQuest = effectiveSelectedQuestId
+      ? allQuests.find((q) => q.id === effectiveSelectedQuestId) || null
+      : null;
+
+    const trimmed = (selectedQuest?.label ?? description).trim();
+    const minutes = selectedQuest?.defaultDurationMinutes ?? duration;
+
     if (!trimmed) {
-      setError("Please enter what you want to work on.");
       return;
     }
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      setError("Please enter a valid duration in minutes.");
       return;
     }
-    setError("");
+
+    // If a quest is selected, use its stats for the session allocation (chart is a ranking/filter signal).
+    const allocationForSession = selectedQuest
+      ? (() => {
+          const rawStats = {};
+          STAT_KEYS.forEach((key) => {
+            rawStats[key] = selectedQuest?.stats?.[key] ?? 0;
+          });
+          return rawStats;
+        })()
+      : allocation;
+
     onStartSession({
       description: trimmed,
       durationMinutes: minutes,
-      allocation,
+      allocation: allocationForSession,
       questAction: selectedQuestAction,
     });
   }
@@ -121,7 +171,6 @@ export default function QuestSetupScreen({
   function handleSubmitFromInput() {
     const trimmed = description.trim();
     if (!trimmed) {
-      setError("Please enter what you want to work on.");
       return;
     }
     if (!selectedQuestId && suggestedQuests.length > 0) {
@@ -149,6 +198,19 @@ export default function QuestSetupScreen({
     setSelectedQuestAction(template.action || null);
   }
 
+  function createDraftFromCurrent() {
+    const trimmed = description.trim();
+    if (!trimmed) return null;
+    return {
+      label: trimmed,
+      description: "",
+      defaultDurationMinutes: duration,
+      stats: allocation,
+      action: selectedQuestAction || null,
+      // Lightweight provenance (optional; ignored by older code)
+      source: "picker",
+    };
+  }
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -198,13 +260,15 @@ export default function QuestSetupScreen({
           // so we only need bottom safe-area room for the big Begin CTA.
           paddingTop: 12,
           // Extra breathing room so the pill button never hugs the home indicator.
-          paddingBottom: 28 + (insets?.bottom ?? 0),
+          paddingBottom: 18 + (insets?.bottom ?? 0),
         },
       ]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      // Let the keyboard overlay content on iOS (so the chart isn't pushed away);
+      // the user can dismiss by tapping/dragging the chart.
+      behavior={Platform.OS === "ios" ? undefined : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, position: "relative" }}>
         {/* Search input - always at top for easy access */}
         <View style={styles.block}>
           <View style={styles.inputRow}>
@@ -234,7 +298,11 @@ export default function QuestSetupScreen({
             {!hasDirectNameMatch && description.trim() && (
               <TouchableOpacity
                 style={styles.questGridItem}
-                onPress={() => onCreateQuestDraft?.(description)}
+                onPress={() => {
+                  const draft = createDraftFromCurrent();
+                  if (!draft) return;
+                  onCreateQuestDraft?.(draft);
+                }}
               >
                 <Text style={styles.questGridItemText}>＋ New</Text>
               </TouchableOpacity>
@@ -301,7 +369,11 @@ export default function QuestSetupScreen({
           {hasDirectNameMatch && (
             <TouchableOpacity
               style={styles.questGridItem}
-              onPress={() => onCreateQuestDraft?.(description)}
+              onPress={() => {
+                const draft = createDraftFromCurrent();
+                if (!draft) return;
+                onCreateQuestDraft?.(draft);
+              }}
             >
               <Text style={styles.questGridItemText}>＋ New</Text>
             </TouchableOpacity>
@@ -309,19 +381,28 @@ export default function QuestSetupScreen({
         </View>
         </View>
 
-        {/* Chart - hidden when keyboard is visible on mobile */}
-        {!isKeyboardVisible && (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <QuestStatsPicker
-              allocation={allocation}
-              onAllocationChange={handleAllocationChange}
-              duration={duration}
-              size={chartSize}
-              radarScale={1.21}
-              ringRadiusScaleByValue={{ "1": 1.08, "2": 1.10 }}
-            />
-          </View>
-        )}
+        {/* Chart - absolutely positioned so the suggestion grid height cannot move it.
+            Keyboard may cover it; touching the chart dismisses keyboard. */}
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            // Anchor close to the bottom of the scroll region (above the Begin CTA which is outside this region).
+            bottom: 6,
+          }}
+        >
+          <QuestStatsPicker
+            allocation={allocation}
+            onAllocationChange={handleAllocationChange}
+            onUserInteraction={handleChartUserInteraction}
+            duration={duration}
+            size={chartSize}
+            radarScale={1.21}
+            ringRadiusScaleByValue={{ "1": 1.08, "2": 1.10 }}
+          />
+        </View>
 
         {/* Action buttons row */}
         {(selectedQuestAction ||
@@ -342,25 +423,15 @@ export default function QuestSetupScreen({
                 </Text>
               </TouchableOpacity>
             )}
-            {selectedQuestId && userQuests.some((q) => q.id === selectedQuestId) && (
-              <TouchableOpacity
-                style={styles.editBtn}
-                onPress={() => {
-                  const quest = userQuests.find((q) => q.id === selectedQuestId);
-                  if (quest) onEditQuest?.(quest);
-                }}
-              >
-                <Text style={styles.editBtnText}>✏️ Edit</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
 
       {/* iOS-ish: big centered primary CTA anchored at bottom */}
-      <View style={{ alignItems: "center", marginTop: 10, marginBottom: 14 }}>
+      <View
+        style={{ alignItems: "center", marginTop: 10, marginBottom: 6 }}
+      >
         <Pressable
           onPress={start}
           style={({ pressed }) => [

@@ -150,7 +150,12 @@ export function computeAggregateConsistency(sessions = []) {
 
 /**
  * Miller's Law-based quest suggestions (5–9 quests).
- * Combines budget-gap need + chart selection + text filter.
+ * Combines budget-gap need + chart selection + text scoring.
+ *
+ * Text and stats cooperate:
+ * - Text contributes a bonus score (prefix > word-boundary > substring)
+ * - If there are any text matches, we prefer showing only text matches
+ * - If there are no text matches, we fall back to stat-ranked suggestions
  *
  * @param {object} params
  * @param {Array} params.quests - All quest templates (user + built-in)
@@ -215,36 +220,40 @@ export function suggestQuests({
     statWeight[k] = 0.5 * needWeight[k] + 0.5 * chartWeight[k];
   });
 
-  // Score each quest by dot product with stat weights
-  const scored = quests.map((q) => {
-    const stats = q.stats || {};
-    let score = 0;
+  const qText = (query ?? "").trim();
+  const TEXT_WEIGHT = 0.45;
+
+  // Score each quest by dot product with stat weights + text bonus
+  let anyTextMatch = false;
+  const scoredWithText = quests.map((quest) => {
+    const stats = quest.stats || {};
+    let statScore = 0;
     STAT_KEYS.forEach((k) => {
       const questStatNorm = Math.max(0, Math.min(2, stats[k] ?? 0)) / 2;
-      score += statWeight[k] * questStatNorm;
+      statScore += statWeight[k] * questStatNorm;
     });
-    return { ...q, suggestionScore: score };
+
+    const textScore = computeTextScore(quest, qText);
+    if (textScore > 0) anyTextMatch = true;
+
+    return {
+      ...quest,
+      suggestionScore: statScore + textScore * TEXT_WEIGHT,
+      __textScore: textScore,
+    };
   });
 
   // Sort by score descending
-  scored.sort((a, b) => b.suggestionScore - a.suggestionScore);
+  scoredWithText.sort((a, b) => b.suggestionScore - a.suggestionScore);
 
-  // Apply text filter last
-  const q = (query ?? "").trim().toLowerCase();
-  let filtered = scored;
-  if (q) {
-    filtered = scored.filter((quest) => {
-      const searchable = [
-        quest.label,
-        quest.description,
-        ...(quest.keywords ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(q);
-    });
+  // If the user typed and there are any text matches, prefer showing only those.
+  // Otherwise, fall back to stat-ranked suggestions so chart still works.
+  let filtered = scoredWithText;
+  if (qText && anyTextMatch) {
+    filtered = scoredWithText.filter((t) => (t.__textScore ?? 0) > 0);
   }
 
-  return filtered.slice(0, effectiveLimit);
+  return filtered
+    .slice(0, effectiveLimit)
+    .map(({ __textScore, ...rest }) => rest);
 }

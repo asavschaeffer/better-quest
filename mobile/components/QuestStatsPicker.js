@@ -34,6 +34,7 @@ const REST_PAD_PX_L2 = 8;
 export function QuestStatsPicker({
   allocation = {},
   onAllocationChange,
+  onUserInteraction,
   duration = 25,
   onDurationChange,
   size = 260,
@@ -334,6 +335,9 @@ export function QuestStatsPicker({
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist <= radarMaxRadius * 1.2) {
+        // Let parent know the user is actively using the chart (even if floors don't change)
+        // so it can treat the chart as a "filter selector" and select top-ranked quest.
+        onUserInteraction?.();
         handleStatStart(x, y);
       }
     })
