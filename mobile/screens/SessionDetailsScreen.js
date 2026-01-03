@@ -1,8 +1,52 @@
-import React from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { SessionGainsChart } from "../components/SessionGainsChart";
+
+// Bonus type icons
+function getBonusIcon(key) {
+  switch (key?.toLowerCase()) {
+    case "combo":
+      return "🔥";
+    case "rest":
+    case "well-rested":
+      return "😴";
+    case "streak":
+    case "quest_streak":
+      return "⚡";
+    case "brahma":
+    case "brahma_muhurta":
+      return "🌅";
+    case "mandala":
+    case "mandala_streak":
+      return "🎯";
+    default:
+      return "✨";
+  }
+}
+
+// Bonus type colors
+function getBonusColor(key) {
+  switch (key?.toLowerCase()) {
+    case "combo":
+      return "#f97316"; // orange
+    case "rest":
+    case "well-rested":
+      return "#a78bfa"; // purple
+    case "streak":
+    case "quest_streak":
+      return "#fbbf24"; // yellow
+    case "brahma":
+    case "brahma_muhurta":
+      return "#fb7185"; // pink
+    case "mandala":
+    case "mandala_streak":
+      return "#34d399"; // emerald
+    default:
+      return "#60a5fa"; // blue
+  }
+}
 
 /**
  * Format relative time (e.g., "2h ago", "3d ago")
@@ -50,6 +94,10 @@ export default function SessionDetailsScreen({
   onViewProfile,
 }) {
   const insets = useSafeAreaInsets();
+  
+  // Track which segment is selected/pressed and its position
+  const [selectedSegment, setSelectedSegment] = useState(null);
+  const [segmentPositions, setSegmentPositions] = useState({});
 
   if (!session) {
     return (
@@ -63,6 +111,46 @@ export default function SessionDetailsScreen({
   const breakdown = Array.isArray(session?.bonusBreakdown) ? session.bonusBreakdown : [];
   const hasUser = !isOwnSession && session.userName;
   const timeAgo = formatTimeAgo(session.completedAt);
+  
+  // Calculate base EXP and bonus segments (same logic as CompleteScreen)
+  const { baseExpGain, bonusSegments } = useMemo(() => {
+    const expGained = expResult?.totalExp ?? 0;
+    
+    // Calculate base EXP (before any multipliers)
+    const multiplier = session?.bonusMultiplier ?? 1;
+    const baseExp = multiplier > 1 ? Math.round(expGained / multiplier) : expGained;
+    
+    // Calculate each bonus's individual contribution
+    const segments = [];
+    let runningTotal = baseExp;
+    
+    if (breakdown && breakdown.length > 0) {
+      breakdown.forEach((b) => {
+        const mult = typeof b?.value === "number" && Number.isFinite(b.value) ? b.value : 1;
+        let contribution = 0;
+        
+        if (b?.mode === "mult" && mult > 1) {
+          contribution = Math.round(runningTotal * (mult - 1));
+          runningTotal += contribution;
+        } else if (b?.mode === "stat_mult") {
+          contribution = Math.round(baseExp * (mult - 1) * 0.3);
+          runningTotal += contribution;
+        }
+        
+        if (contribution > 0) {
+          segments.push({
+            key: b.key,
+            label: b.label || b.key,
+            exp: contribution,
+            color: getBonusColor(b.key),
+            icon: getBonusIcon(b.key),
+          });
+        }
+      });
+    }
+    
+    return { baseExpGain: baseExp, bonusSegments: segments };
+  }, [expResult?.totalExp, session?.bonusMultiplier, breakdown]);
 
   return (
     <View style={[localStyles.container, { paddingTop: insets.top }]}>
@@ -104,41 +192,6 @@ export default function SessionDetailsScreen({
           <Ionicons name="time-outline" size={14} color="#6b7280" /> {session.durationMinutes} minutes
         </Text>
 
-        {/* Bonuses */}
-        {(breakdown.length > 0 || session.comboBonus || session.restBonus) && (
-          <View style={localStyles.block}>
-            <Text style={localStyles.label}>Bonuses</Text>
-            {breakdown.length > 0 ? (
-              <Text style={localStyles.muted}>
-                {breakdown
-                  .map((b) => {
-                    const label = b?.label || b?.key || "bonus";
-                    const mode = b?.mode === "mult" ? "×" : b?.mode === "stat_mult" ? "×" : "+";
-                    const value = typeof b?.value === "number" && Number.isFinite(b.value) ? b.value : null;
-                    const stat = typeof b?.stat === "string" ? b.stat : null;
-                    const display = value == null ? "" : mode === "+" ? `+${(value * 100).toFixed(0)}%` : `×${value.toFixed(2)}`;
-                    const scope = stat ? ` ${stat}` : "";
-                    return `${label}${scope}${display ? ` (${display})` : ""}`;
-                  })
-                  .join(" • ")}
-              </Text>
-            ) : (
-              <View style={localStyles.bonusPills}>
-                {session.comboBonus && (
-                  <View style={localStyles.bonusPill}>
-                    <Text style={localStyles.bonusPillText}>🔥 Combo</Text>
-                  </View>
-                )}
-                {session.restBonus && (
-                  <View style={localStyles.bonusPill}>
-                    <Text style={localStyles.bonusPillText}>😴 Well-rested</Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-        )}
-
         {/* Session Gains Chart */}
         <View style={localStyles.chartSection}>
           <SessionGainsChart
@@ -149,10 +202,140 @@ export default function SessionDetailsScreen({
           />
         </View>
 
-        {/* Notes */}
+        {/* EXP Progress Bar with Bonus Segments */}
+        <View style={localStyles.block}>
+          <View style={localStyles.levelHeader}>
+            <Text style={localStyles.label}>EXP Earned</Text>
+            <Text style={localStyles.levelMeta}>
+              +{expResult?.totalExp || 0} EXP
+            </Text>
+          </View>
+          
+          {/* Progress bar with individual bonus segments */}
+          <View style={localStyles.progressBarContainer}>
+            <View style={localStyles.progressBar}>
+              {/* Render base + each bonus segment as pressable */}
+              {(() => {
+                const totalExp = expResult?.totalExp || 0;
+                if (totalExp === 0) return null;
+                
+                let currentPos = 0;
+                const segments = [];
+                
+                // Base segment (blue)
+                const baseRatio = baseExpGain / totalExp;
+                const baseWidth = baseRatio * 100;
+                segments.push(
+                  <Pressable
+                    key="base"
+                    onPress={() => {
+                      setSelectedSegment(selectedSegment === "base" ? null : "base");
+                      setSegmentPositions(prev => ({ ...prev, base: { left: currentPos, width: baseWidth } }));
+                    }}
+                    style={[
+                      localStyles.progressSegment,
+                      {
+                        left: `${currentPos}%`,
+                        width: `${baseWidth}%`,
+                        backgroundColor: "#60a5fa",
+                      },
+                      selectedSegment === "base" && localStyles.progressSegmentSelected,
+                    ]}
+                  />
+                );
+                currentPos += baseWidth;
+                
+                // Each bonus segment with its own color
+                bonusSegments.forEach((seg, i) => {
+                  const segKey = seg.key + i;
+                  const segRatio = seg.exp / totalExp;
+                  const segLeft = currentPos;
+                  const segWidth = segRatio * 100;
+                  segments.push(
+                    <Pressable
+                      key={segKey}
+                      onPress={() => {
+                        setSelectedSegment(selectedSegment === segKey ? null : segKey);
+                        setSegmentPositions(prev => ({ ...prev, [segKey]: { left: segLeft, width: segWidth } }));
+                      }}
+                      style={[
+                        localStyles.progressSegment,
+                        {
+                          left: `${segLeft}%`,
+                          width: `${segWidth}%`,
+                          backgroundColor: seg.color,
+                        },
+                        selectedSegment === segKey && localStyles.progressSegmentSelected,
+                      ]}
+                    />
+                  );
+                  currentPos += segWidth;
+                });
+                
+                return segments;
+              })()}
+            </View>
+            
+            {/* Segment tooltip positioned above the segment */}
+            {selectedSegment && segmentPositions[selectedSegment] && (
+              <View 
+                style={[
+                  localStyles.tooltipWrapper,
+                  {
+                    left: `${segmentPositions[selectedSegment].left}%`,
+                    width: `${segmentPositions[selectedSegment].width}%`,
+                  },
+                ]}
+              >
+                <View style={localStyles.segmentTooltip}>
+                  {selectedSegment === "base" ? (
+                    <>
+                      <View style={[localStyles.tooltipDot, { backgroundColor: "#60a5fa" }]} />
+                      <Text style={localStyles.tooltipText}>+{baseExpGain} base</Text>
+                    </>
+                  ) : (
+                    (() => {
+                      const seg = bonusSegments.find((s, i) => s.key + i === selectedSegment);
+                      if (!seg) return null;
+                      return (
+                        <>
+                          <Text style={localStyles.tooltipIcon}>{seg.icon}</Text>
+                          <Text style={[localStyles.tooltipText, { color: seg.color }]}>
+                            +{seg.exp} {seg.label}
+                          </Text>
+                        </>
+                      );
+                    })()
+                  )}
+                </View>
+                {/* Arrow centered in the segment */}
+                <View style={localStyles.tooltipArrow} />
+              </View>
+            )}
+          </View>
+          
+          {/* EXP breakdown legend */}
+          <View style={localStyles.expBreakdown}>
+            <View style={localStyles.expLegendItem}>
+              <View style={[localStyles.expLegendDot, { backgroundColor: "#60a5fa" }]} />
+              <Text style={localStyles.expLegendText}>+{baseExpGain} base</Text>
+            </View>
+            {bonusSegments.map((seg, i) => (
+              <View key={seg.key + i} style={localStyles.expLegendItem}>
+                <View style={[localStyles.expLegendDot, { backgroundColor: seg.color }]} />
+                <Text style={localStyles.expLegendText}>+{seg.exp} {seg.label}</Text>
+              </View>
+            ))}
+            <Text style={localStyles.expTotal}>
+              = {expResult?.totalExp || 0} EXP
+            </Text>
+          </View>
+        </View>
+
+        {/* Reflection */}
         {session.notes && (
           <View style={localStyles.block}>
-            <Text style={localStyles.label}>Notes</Text>
+            <Text style={localStyles.label}>Reflection</Text>
             <Text style={localStyles.notes}>{session.notes}</Text>
           </View>
         )}
@@ -269,23 +452,106 @@ const localStyles = StyleSheet.create({
     color: "#6b7280",
     fontSize: 14,
   },
-  bonusPills: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  bonusPill: {
-    backgroundColor: "#1e293b",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  bonusPillText: {
-    color: "#d1d5db",
-    fontSize: 14,
-  },
   chartSection: {
     alignItems: "center",
     marginBottom: 24,
+  },
+  levelHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  levelMeta: {
+    color: "#6b7280",
+    fontSize: 13,
+  },
+  progressBarContainer: {
+    position: "relative",
+  },
+  progressBar: {
+    height: 12,
+    backgroundColor: "#1e293b",
+    borderRadius: 6,
+    overflow: "hidden",
+    position: "relative",
+  },
+  progressSegment: {
+    position: "absolute",
+    top: 0,
+    height: "100%",
+  },
+  progressSegmentSelected: {
+    transform: [{ scaleY: 1.3 }],
+    zIndex: 10,
+  },
+  tooltipWrapper: {
+    position: "absolute",
+    bottom: "100%",
+    marginBottom: 2,
+    alignItems: "center",
+    zIndex: 100,
+  },
+  segmentTooltip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#1e293b",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  tooltipArrow: {
+    alignSelf: "center",
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 6,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: "#1e293b",
+  },
+  tooltipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tooltipIcon: {
+    fontSize: 14,
+  },
+  tooltipText: {
+    color: "#f9fafb",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  expBreakdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  expLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  expLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  expLegendText: {
+    color: "#9ca3af",
+    fontSize: 12,
+  },
+  expTotal: {
+    color: "#f9fafb",
+    fontSize: 13,
+    fontWeight: "700",
   },
   notes: {
     color: "#d1d5db",

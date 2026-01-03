@@ -135,55 +135,6 @@ export default function CompleteScreen({
           <Ionicons name="time-outline" size={14} color="#6b7280" /> {session.durationMinutes} minutes
         </Text>
 
-        {/* Bonuses */}
-        <View style={localStyles.bonusSection}>
-          {/* Total multiplier badge - only if > 1 */}
-          {session.bonusMultiplier && session.bonusMultiplier > 1 && (
-            <View style={localStyles.totalMultiplier}>
-              <Ionicons name="sparkles" size={16} color="#fbbf24" />
-              <Text style={localStyles.totalMultiplierText}>
-                ×{session.bonusMultiplier.toFixed(2)} EXP Multiplier
-              </Text>
-            </View>
-          )}
-          
-          {/* Individual bonus cards */}
-          <View style={localStyles.bonusCards}>
-            {breakdown.map((b, i) => {
-              const icon = getBonusIcon(b.key);
-              const color = getBonusColor(b.key);
-              const value = typeof b?.value === "number" && Number.isFinite(b.value) ? b.value : null;
-              const mode = b?.mode === "mult" ? "×" : b?.mode === "stat_mult" ? "×" : "+";
-              const display = value == null ? "" : mode === "+" ? `+${Math.round(value * 100)}%` : `×${value.toFixed(2)}`;
-              const stat = typeof b?.stat === "string" ? ` ${b.stat}` : "";
-              
-              return (
-                <View key={b.key + i} style={[localStyles.bonusCard, { borderLeftColor: color }]}>
-                  <View style={[localStyles.bonusIconWrap, { backgroundColor: color + "20" }]}>
-                    <Text style={localStyles.bonusIcon}>{icon}</Text>
-                  </View>
-                  <View style={localStyles.bonusCardContent}>
-                    <Text style={localStyles.bonusCardLabel}>{b.label || b.key}{stat}</Text>
-                    {display && (
-                      <Text style={[localStyles.bonusCardValue, { color }]}>{display}</Text>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-          
-          {/* No bonuses hint */}
-          {(!breakdown || breakdown.length === 0) && (!session.bonusMultiplier || session.bonusMultiplier <= 1) && (
-            <View style={localStyles.noBonusHint}>
-              <Ionicons name="information-circle-outline" size={16} color="#6b7280" />
-              <Text style={localStyles.noBonusHintText}>
-                Complete back-to-back quests for combo bonus, or rest between sessions for well-rested bonus!
-              </Text>
-            </View>
-          )}
-        </View>
-
         {/* Session Gains Chart */}
         <View style={localStyles.chartSection}>
           <SessionGainsChart
@@ -322,10 +273,6 @@ export default function CompleteScreen({
                 </View>
               )}
               
-              {/* Tap hint when no segment selected */}
-              {!selectedSegment && (expResult?.totalExp || 0) > 0 && (
-                <Text style={localStyles.tapHint}>Tap segments to see breakdown</Text>
-              )}
             </View>
             
             {/* EXP breakdown legend */}
@@ -424,77 +371,6 @@ const localStyles = StyleSheet.create({
     color: "#6b7280",
     fontSize: 14,
   },
-  bonusSection: {
-    marginBottom: 24,
-  },
-  totalMultiplier: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "rgba(251,191,36,0.15)",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    alignSelf: "center",
-  },
-  totalMultiplierText: {
-    color: "#fbbf24",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  bonusCards: {
-    gap: 8,
-  },
-  bonusCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    padding: 12,
-    borderLeftWidth: 3,
-  },
-  bonusIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  bonusIcon: {
-    fontSize: 18,
-  },
-  bonusCardContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  bonusCardLabel: {
-    color: "#e5e7eb",
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  bonusCardValue: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  noBonusHint: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    padding: 12,
-  },
-  noBonusHintText: {
-    flex: 1,
-    color: "#6b7280",
-    fontSize: 13,
-    lineHeight: 18,
-  },
   chartSection: {
     alignItems: "center",
     marginBottom: 24,
@@ -579,12 +455,6 @@ const localStyles = StyleSheet.create({
     color: "#f9fafb",
     fontSize: 13,
     fontWeight: "600",
-  },
-  tapHint: {
-    color: "#4b5563",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 8,
   },
   bonusBadgesRow: {
     flexDirection: "row",
