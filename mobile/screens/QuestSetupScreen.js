@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Pressable,
+  TouchableWithoutFeedback,
   useWindowDimensions,
   Alert,
 } from "react-native";
@@ -268,37 +269,43 @@ export default function QuestSetupScreen({
       behavior={Platform.OS === "ios" ? undefined : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <View style={{ flex: 1, position: "relative" }}>
-        {/* Search input - always at top for easy access */}
-        <View style={styles.block}>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.input, styles.inputGrow]}
-              value={description}
-              onChangeText={handleDescriptionChange}
-              placeholder="Search quests..."
-              autoFocus={Platform.OS === "web"}
-              onSubmitEditing={handleSubmitFromInput}
-              returnKeyType="done"
-              clearButtonMode={Platform.OS === "ios" ? "while-editing" : "never"}
-            />
-            {Platform.OS !== "ios" && !!description && (
-              <TouchableOpacity
-                style={[
-                  styles.iconBtn,
-                  {
-                    borderColor: "transparent",
-                    backgroundColor: "rgba(148,163,184,0.14)",
-                  },
-                ]}
-                onPress={() => handleDescriptionChange("")}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-              >
-                <Ionicons name="close-circle" size={18} color="rgba(229,231,235,0.9)" />
-              </TouchableOpacity>
-            )}
-          </View>
+      <TouchableWithoutFeedback
+        accessible={false}
+        onPress={() => {
+          if (Platform.OS !== "web") Keyboard.dismiss();
+        }}
+      >
+        <View style={{ flex: 1, position: "relative" }}>
+          {/* Search input - always at top for easy access */}
+          <View style={styles.block}>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, styles.inputGrow]}
+                value={description}
+                onChangeText={handleDescriptionChange}
+                placeholder="Search quests..."
+                autoFocus={Platform.OS === "web"}
+                onSubmitEditing={handleSubmitFromInput}
+                returnKeyType="done"
+                clearButtonMode={Platform.OS === "ios" ? "while-editing" : "never"}
+              />
+              {Platform.OS !== "ios" && !!description && (
+                <TouchableOpacity
+                  style={[
+                    styles.iconBtn,
+                    {
+                      borderColor: "transparent",
+                      backgroundColor: "rgba(148,163,184,0.14)",
+                    },
+                  ]}
+                  onPress={() => handleDescriptionChange("")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={18} color="rgba(229,231,235,0.9)" />
+                </TouchableOpacity>
+              )}
+            </View>
 
           {/* Apple-search-style suggestion grid (5–9 buttons) */}
           <View style={styles.questGrid}>
@@ -411,29 +418,29 @@ export default function QuestSetupScreen({
           />
         </View>
 
-        {/* Action buttons row */}
-        {(selectedQuestAction ||
-          (selectedQuestId && userQuests.some((q) => q.id === selectedQuestId))) && (
-          <View style={styles.questActionsRow}>
-            {selectedQuestAction && onOpenQuestAction && (
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => onOpenQuestAction(selectedQuestAction)}
-              >
-                <Text style={styles.actionBtnText}>
-                  {selectedQuestAction.type === "url"
-                    ? "🔗"
-                    : selectedQuestAction.type === "file"
-                    ? "📁"
-                    : "📱"}{" "}
-                  Open
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-      </View>
+          {/* Action buttons row */}
+          {(selectedQuestAction ||
+            (selectedQuestId && userQuests.some((q) => q.id === selectedQuestId))) && (
+            <View style={styles.questActionsRow}>
+              {selectedQuestAction && onOpenQuestAction && (
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => onOpenQuestAction(selectedQuestAction)}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {selectedQuestAction.type === "url"
+                      ? "🔗"
+                      : selectedQuestAction.type === "file"
+                      ? "📁"
+                      : "📱"}{" "}
+                    Open
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+      </TouchableWithoutFeedback>
 
       {/* iOS-ish: big centered primary CTA anchored at bottom */}
       <View
